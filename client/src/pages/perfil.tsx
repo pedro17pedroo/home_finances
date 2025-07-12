@@ -100,12 +100,12 @@ export default function Perfil() {
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted, isEditingProfile:', isEditingProfile);
-    if (!isEditingProfile) {
-      console.log('Preventing submit - not in edit mode');
-      return; // Only submit if editing
-    }
-    console.log('Submitting profile data:', profileData);
+    // Only allow form submission if explicitly triggered by Save button
+    return false;
+  };
+
+  const handleSaveClick = () => {
+    if (!isEditingProfile) return;
     updateProfileMutation.mutate(profileData);
   };
 
@@ -228,10 +228,7 @@ export default function Perfil() {
                 {!isEditingProfile ? (
                   <Button
                     type="button"
-                    onClick={() => {
-                      console.log('Edit button clicked');
-                      setIsEditingProfile(true);
-                    }}
+                    onClick={() => setIsEditingProfile(true)}
                     variant="outline"
                   >
                     Editar Informações
@@ -239,7 +236,8 @@ export default function Perfil() {
                 ) : (
                   <>
                     <Button
-                      type="submit"
+                      type="button"
+                      onClick={handleSaveClick}
                       disabled={updateProfileMutation.isPending}
                       className="flex items-center"
                     >
@@ -250,7 +248,6 @@ export default function Perfil() {
                       type="button"
                       variant="outline"
                       onClick={() => {
-                        console.log('Cancel button clicked');
                         setIsEditingProfile(false);
                         setProfileData(originalProfileData);
                       }}
