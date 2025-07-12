@@ -37,8 +37,12 @@ export default function Contas() {
 
   // Criar conta
   const createMutation = useMutation({
-    mutationFn: (data: InsertAccount) => apiRequest("POST", "/api/accounts", data),
+    mutationFn: (data: InsertAccount) => {
+      console.log("Mutation called with data:", data);
+      return apiRequest("POST", "/api/accounts", data);
+    },
     onSuccess: () => {
+      console.log("Account created successfully");
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
@@ -49,6 +53,7 @@ export default function Contas() {
       });
     },
     onError: (error: any) => {
+      console.error("Error creating account:", error);
       toast({
         title: "Erro",
         description: error.message || "Erro ao criar conta.",
@@ -123,6 +128,8 @@ export default function Contas() {
   });
 
   const onSubmit = (data: InsertAccount) => {
+    console.log("Form submitted with data:", data);
+    console.log("Form errors:", form.formState.errors);
     createMutation.mutate(data);
   };
 
@@ -199,7 +206,10 @@ export default function Contas() {
               </DialogHeader>
 
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={(e) => {
+                  console.log("Form onSubmit event triggered");
+                  form.handleSubmit(onSubmit)(e);
+                }} className="space-y-4">
                   <FormField
                     control={form.control}
                     name="name"
@@ -312,6 +322,7 @@ export default function Contas() {
                     <Button 
                       type="submit" 
                       disabled={createMutation.isPending}
+                      onClick={() => console.log("Submit button clicked")}
                     >
                       {createMutation.isPending ? "Criando..." : "Criar Conta"}
                     </Button>
