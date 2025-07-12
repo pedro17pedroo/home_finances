@@ -106,7 +106,7 @@ export default function Contas() {
   });
 
   const form = useForm<InsertAccount>({
-    resolver: zodResolver(insertAccountSchema),
+    resolver: zodResolver(insertAccountSchema.omit({ userId: true })),
     defaultValues: {
       name: "",
       type: "corrente",
@@ -117,7 +117,7 @@ export default function Contas() {
   });
 
   const editForm = useForm<InsertAccount>({
-    resolver: zodResolver(insertAccountSchema),
+    resolver: zodResolver(insertAccountSchema.omit({ userId: true })),
     defaultValues: {
       name: "",
       type: "corrente",

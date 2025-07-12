@@ -120,7 +120,7 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
   });
 
   const accountForm = useForm<InsertAccount>({
-    resolver: zodResolver(insertAccountSchema),
+    resolver: zodResolver(insertAccountSchema.omit({ userId: true })),
     defaultValues: {
       name: "",
       type: "corrente",
