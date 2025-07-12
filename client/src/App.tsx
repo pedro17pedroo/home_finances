@@ -10,6 +10,7 @@ import Despesas from "@/pages/despesas";
 import Poupanca from "@/pages/poupanca";
 import Emprestimos from "@/pages/emprestimos";
 import Relatorios from "@/pages/relatorios";
+import SubscriptionPage from "@/pages/SubscriptionPage";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
@@ -59,6 +60,12 @@ function Router() {
         <div className="min-h-screen bg-slate-50">
           <Header />
           <Relatorios />
+        </div>
+      </Route>
+      <Route path="/subscription">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <SubscriptionPage />
         </div>
       </Route>
       <Route component={NotFound} />

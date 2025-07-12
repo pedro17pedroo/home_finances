@@ -4,6 +4,9 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import Stripe from "stripe";
 import { storage } from "./storage";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { 
   insertAccountSchema, 
   insertTransactionSchema, 
@@ -114,6 +117,182 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Subscription Management Routes
+  app.get("/api/subscription/status", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      let subscriptionDetails = null;
+      if (user.stripeSubscriptionId) {
+        subscriptionDetails = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+      }
+
+      res.json({
+        subscriptionStatus: user.subscriptionStatus,
+        planType: user.planType,
+        trialEndsAt: user.trialEndsAt,
+        subscriptionDetails
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/subscription/cancel", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.stripeSubscriptionId) {
+        await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+      }
+
+      await storage.cancelUserSubscription(userId);
+      res.json({ message: "Subscription cancelled successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/subscription/change-plan", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const { planType } = req.body;
+      
+      const user = await storage.getUser(userId);
+      const plans = await storage.getPlans();
+      const targetPlan = plans.find(p => p.type === planType);
+      
+      if (!user || !targetPlan) {
+        return res.status(404).json({ message: "User or plan not found" });
+      }
+
+      if (user.stripeSubscriptionId && targetPlan.stripePriceId) {
+        // Update Stripe subscription
+        const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+        await stripe.subscriptions.update(user.stripeSubscriptionId, {
+          items: [{
+            id: subscription.items.data[0].id,
+            price: targetPlan.stripePriceId,
+          }],
+          proration_behavior: 'create_prorations',
+        });
+      }
+
+      await storage.updateUserSubscription(userId, user.subscriptionStatus || 'active', planType);
+      res.json({ message: "Plan changed successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/subscription/billing-portal", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeCustomerId) {
+        return res.status(404).json({ message: "User or customer not found" });
+      }
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${req.protocol}://${req.get('host')}/subscription`,
+      });
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Stripe Webhooks
+  app.post("/api/webhooks/stripe", async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    
+    try {
+      const event = stripe.webhooks.constructEvent(
+        req.body,
+        sig as string,
+        process.env.STRIPE_WEBHOOK_SECRET || ''
+      );
+
+      // Handle the event
+      switch (event.type) {
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+          const subscription = event.data.object;
+          
+          // Find user by Stripe subscription ID
+          const user = await db.select().from(users).where(
+            eq(users.stripeSubscriptionId, subscription.id)
+          );
+          
+          if (user[0]) {
+            await storage.updateUserSubscription(
+              user[0].id,
+              subscription.status,
+              user[0].planType || 'basic'
+            );
+          }
+          break;
+        
+        case 'invoice.payment_succeeded':
+          const invoice = event.data.object;
+          if (invoice.subscription) {
+            // Update subscription status to active
+            const user = await db.select().from(users).where(
+              eq(users.stripeSubscriptionId, invoice.subscription)
+            );
+            
+            if (user[0]) {
+              await storage.updateUserSubscription(
+                user[0].id,
+                'active',
+                user[0].planType || 'basic'
+              );
+            }
+          }
+          break;
+          
+        case 'invoice.payment_failed':
+          const failedInvoice = event.data.object;
+          if (failedInvoice.subscription) {
+            // Update subscription status to past_due
+            const user = await db.select().from(users).where(
+              eq(users.stripeSubscriptionId, failedInvoice.subscription)
+            );
+            
+            if (user[0]) {
+              await storage.updateUserSubscription(
+                user[0].id,
+                'past_due',
+                user[0].planType || 'basic'
+              );
+            }
+          }
+          break;
+
+        default:
+          console.log(`Unhandled event type ${event.type}`);
+      }
+
+      res.json({ received: true });
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message);
+      res.status(400).send(`Webhook Error: ${err.message}`);
     }
   });
 

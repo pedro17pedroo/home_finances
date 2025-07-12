@@ -1,7 +1,10 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Plus, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, User, Crown, AlertTriangle } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import TransactionForm from "@/components/forms/transaction-form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -12,11 +15,44 @@ const navItems = [
   { href: "/poupanca", label: "Poupança" },
   { href: "/emprestimos", label: "Empréstimos" },
   { href: "/relatorios", label: "Relatórios" },
+  { href: "/subscription", label: "Assinatura" },
 ];
 
 export default function Header() {
   const [location] = useLocation();
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  
+  const { data: subscription } = useQuery({
+    queryKey: ["/api/subscription/status"],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const isTrialEnding = subscription?.trialEndsAt && 
+    new Date(subscription.trialEndsAt) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+  const getSubscriptionBadge = () => {
+    if (!subscription) return null;
+    
+    if (subscription.subscriptionStatus === "trialing") {
+      return (
+        <Badge variant={isTrialEnding ? "destructive" : "secondary"} className="ml-2">
+          {isTrialEnding ? <AlertTriangle className="w-3 h-3 mr-1" /> : null}
+          Teste
+        </Badge>
+      );
+    }
+    
+    if (subscription.subscriptionStatus === "active") {
+      return (
+        <Badge variant="default" className="ml-2">
+          <Crown className="w-3 h-3 mr-1" />
+          {subscription.planType}
+        </Badge>
+      );
+    }
+    
+    return null;
+  };
 
   return (
     <>
@@ -26,9 +62,12 @@ export default function Header() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <Link href="/">
-                  <h1 className="text-2xl font-bold text-slate-900 cursor-pointer">
-                    FinanceControl
-                  </h1>
+                  <div className="flex items-center cursor-pointer">
+                    <h1 className="text-2xl font-bold text-slate-900">
+                      FinanceControl
+                    </h1>
+                    {getSubscriptionBadge()}
+                  </div>
                 </Link>
               </div>
               <nav className="hidden md:ml-8 md:flex md:space-x-8">
