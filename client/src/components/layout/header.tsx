@@ -19,11 +19,13 @@ const navItems = [
   { 
     label: "Financeiro", 
     submenu: [
+      { href: "/contas", label: "Contas" },
       { href: "/poupanca", label: "Poupança" },
       { href: "/emprestimos", label: "Empréstimos" }
     ]
   },
   { href: "/relatorios", label: "Relatórios" },
+  { href: "/categorias", label: "Categorias" },
   { href: "/subscription", label: "Assinatura" },
 ];
 

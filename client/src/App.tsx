@@ -18,6 +18,7 @@ import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
 import Perfil from "@/pages/perfil";
 import Categorias from "@/pages/categorias";
+import Contas from "@/pages/contas";
 
 function Router() {
   return (
@@ -75,6 +76,12 @@ function Router() {
         <div className="min-h-screen bg-slate-50">
           <Header />
           <Categorias />
+        </div>
+      </Route>
+      <Route path="/contas">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Contas />
         </div>
       </Route>
       <Route path="/perfil">
