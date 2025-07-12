@@ -484,7 +484,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.session!.userId;
       const validatedData = insertTransactionSchema.parse({
         ...req.body,
-        userId
+        userId,
+        date: new Date(req.body.date), // Converter string para Date
       });
       const transaction = await storage.createTransaction(validatedData);
       res.status(201).json(transaction);

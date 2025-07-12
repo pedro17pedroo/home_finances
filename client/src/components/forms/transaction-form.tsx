@@ -59,9 +59,9 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
       const payload = {
         ...data,
         type: defaultType,
-        amount: parseFloat(data.amount),
+        amount: data.amount, // Manter como string
         accountId: data.accountId ? parseInt(data.accountId) : undefined,
-        date: new Date(data.date),
+        date: data.date, // Manter como string ISO
       };
       return await apiRequest("POST", "/api/transactions", payload);
     },
