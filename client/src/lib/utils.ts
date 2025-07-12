@@ -7,15 +7,15 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatCurrency(value: string | number): string {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  return new Intl.NumberFormat('pt-BR', {
+  return new Intl.NumberFormat('pt-AO', {
     style: 'currency',
-    currency: 'BRL',
+    currency: 'AOA',
   }).format(numValue);
 }
 
 export function formatDate(date: string | Date): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('pt-BR').format(dateObj);
+  return new Intl.DateTimeFormat('pt-AO').format(dateObj);
 }
 
 export function formatDateInput(date: string | Date): string {
@@ -31,7 +31,7 @@ export function calculatePercentage(current: number, target: number): number {
 export function getMonthName(monthString: string): string {
   const [year, month] = monthString.split('-');
   const date = new Date(parseInt(year), parseInt(month) - 1);
-  return date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+  return date.toLocaleDateString('pt-AO', { month: 'short', year: 'numeric' });
 }
 
 export function parseCurrency(currencyString: string): number {

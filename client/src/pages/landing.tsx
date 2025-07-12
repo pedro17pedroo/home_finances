@@ -34,7 +34,7 @@ export default function Landing() {
   const plans = {
     basic: {
       name: 'Básico',
-      price: 'R$ 29',
+      price: '14.500 Kz',
       period: '/mês',
       description: 'Perfeito para uso pessoal',
       features: [
@@ -49,7 +49,7 @@ export default function Landing() {
     },
     premium: {
       name: 'Premium',
-      price: 'R$ 59',
+      price: '29.500 Kz',
       period: '/mês',
       description: 'Ideal para famílias e pequenos negócios',
       features: [
@@ -66,14 +66,14 @@ export default function Landing() {
     },
     enterprise: {
       name: 'Empresarial',
-      price: 'R$ 149',
+      price: '74.500 Kz',
       period: '/mês',
       description: 'Para empresas e contadores',
       features: [
         'Tudo do Premium',
         'Múltiplos usuários',
         'API personalizada',
-        'Integração com bancos',
+        'Integração com bancos angolanos',
         'Relatórios personalizados',
         'Suporte dedicado',
         'Treinamento incluído'
@@ -112,7 +112,7 @@ export default function Landing() {
       <section className="container mx-auto px-4 py-20 text-center">
         <div className="max-w-4xl mx-auto">
           <Badge className="mb-4 bg-blue-100 text-blue-800 hover:bg-blue-100">
-            🚀 Novo: Integração com bancos brasileiros
+            🚀 Novo: Integração com bancos angolanos
           </Badge>
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
             Controle suas <span className="text-blue-600">finanças</span> como nunca antes
@@ -275,19 +275,19 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {[
               {
-                name: "Maria Silva",
+                name: "Maria Cardoso",
                 role: "Empresária",
                 content: "O FinanceControl transformou como gerencio as finanças da minha empresa. Os relatórios são incríveis!",
                 rating: 5
               },
               {
-                name: "João Santos",
+                name: "António Fernandes",
                 role: "Freelancer",
                 content: "Finalmente consegui organizar minha vida financeira. A interface é super intuitiva e os insights são valiosos.",
                 rating: 5
               },
               {
-                name: "Ana Costa",
+                name: "Luisa Manuel",
                 role: "Contadora",
                 content: "Uso para todos meus clientes. A integração bancária economiza horas de trabalho manual.",
                 rating: 5

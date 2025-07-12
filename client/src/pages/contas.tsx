@@ -212,7 +212,7 @@ export default function Contas() {
                       <FormItem>
                         <FormLabel>Nome da Conta</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ex: Banco do Brasil - CC" {...field} />
+                          <Input placeholder="Ex: BAI - CC" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -386,7 +386,7 @@ export default function Contas() {
                   <FormItem>
                     <FormLabel>Nome da Conta</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Banco do Brasil - CC" {...field} />
+                      <Input placeholder="Ex: BAI - CC" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

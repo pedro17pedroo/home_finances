@@ -137,7 +137,7 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
       <div>
         <Label htmlFor="amount">Valor</Label>
         <div className="relative">
-          <span className="absolute left-3 top-2 text-slate-500">R$</span>
+          <span className="absolute left-3 top-2 text-slate-500">Kz</span>
           <Input
             id="amount"
             type="number"
@@ -285,7 +285,7 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
                   <FormItem>
                     <FormLabel>Nome da Conta</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Banco do Brasil - CC" {...field} />
+                      <Input placeholder="Ex: BAI - CC" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
