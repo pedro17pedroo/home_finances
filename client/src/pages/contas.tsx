@@ -37,10 +37,7 @@ export default function Contas() {
 
   // Criar conta
   const createMutation = useMutation({
-    mutationFn: (data: InsertAccount) => apiRequest("/api/accounts", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    mutationFn: (data: InsertAccount) => apiRequest("POST", "/api/accounts", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -63,10 +60,7 @@ export default function Contas() {
   // Atualizar conta
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<InsertAccount> }) => 
-      apiRequest(`/api/accounts/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("PATCH", `/api/accounts/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -87,9 +81,7 @@ export default function Contas() {
 
   // Deletar conta
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/accounts/${id}`, {
-      method: "DELETE",
-    }),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/accounts/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -113,6 +105,7 @@ export default function Contas() {
     defaultValues: {
       name: "",
       type: "corrente",
+      bank: "",
       balance: "0",
       interestRate: "0",
     },
@@ -123,6 +116,7 @@ export default function Contas() {
     defaultValues: {
       name: "",
       type: "corrente",
+      bank: "",
       balance: "0",
       interestRate: "0",
     },
@@ -143,6 +137,7 @@ export default function Contas() {
     editForm.reset({
       name: account.name,
       type: account.type,
+      bank: account.bank,
       balance: account.balance,
       interestRate: account.interestRate || "0",
     });
@@ -214,6 +209,33 @@ export default function Contas() {
                         <FormControl>
                           <Input placeholder="Ex: BAI - CC" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="bank"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Banco</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o banco" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="BAI">Banco Angolano de Investimentos (BAI)</SelectItem>
+                            <SelectItem value="BFA">Banco de Fomento Angola (BFA)</SelectItem>
+                            <SelectItem value="BIC">Banco BIC</SelectItem>
+                            <SelectItem value="Millennium">Millennium Atlântico</SelectItem>
+                            <SelectItem value="Standard Bank">Standard Bank</SelectItem>
+                            <SelectItem value="BPC">Banco de Poupança e Crédito (BPC)</SelectItem>
+                            <SelectItem value="Outros">Outros</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -388,6 +410,33 @@ export default function Contas() {
                     <FormControl>
                       <Input placeholder="Ex: BAI - CC" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="bank"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Banco</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o banco" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="BAI">Banco Angolano de Investimentos (BAI)</SelectItem>
+                        <SelectItem value="BFA">Banco de Fomento Angola (BFA)</SelectItem>
+                        <SelectItem value="BIC">Banco BIC</SelectItem>
+                        <SelectItem value="Millennium">Millennium Atlântico</SelectItem>
+                        <SelectItem value="Standard Bank">Standard Bank</SelectItem>
+                        <SelectItem value="BPC">Banco de Poupança e Crédito (BPC)</SelectItem>
+                        <SelectItem value="Outros">Outros</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

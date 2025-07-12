@@ -26,10 +26,7 @@ export default function AccountManagement() {
 
   // Criar conta
   const createMutation = useMutation({
-    mutationFn: (data: InsertAccount) => apiRequest("/api/accounts", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    mutationFn: (data: InsertAccount) => apiRequest("POST", "/api/accounts", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -55,6 +52,7 @@ export default function AccountManagement() {
     defaultValues: {
       name: "",
       type: "corrente",
+      bank: "",
       balance: "0",
       interestRate: "0",
     },
@@ -168,6 +166,33 @@ export default function AccountManagement() {
                     <FormControl>
                       <Input placeholder="Ex: BAI - CC" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="bank"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Banco</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o banco" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="BAI">Banco Angolano de Investimentos (BAI)</SelectItem>
+                        <SelectItem value="BFA">Banco de Fomento Angola (BFA)</SelectItem>
+                        <SelectItem value="BIC">Banco BIC</SelectItem>
+                        <SelectItem value="Millennium">Millennium Atlântico</SelectItem>
+                        <SelectItem value="Standard Bank">Standard Bank</SelectItem>
+                        <SelectItem value="BPC">Banco de Poupança e Crédito (BPC)</SelectItem>
+                        <SelectItem value="Outros">Outros</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
