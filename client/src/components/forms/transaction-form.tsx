@@ -93,8 +93,12 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
 
   // Criar conta
   const createAccountMutation = useMutation({
-    mutationFn: (data: InsertAccount) => apiRequest("POST", "/api/accounts", data),
+    mutationFn: (data: InsertAccount) => {
+      console.log("Sending account data to API:", data);
+      return apiRequest("POST", "/api/accounts", data);
+    },
     onSuccess: () => {
+      console.log("Account created successfully");
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
@@ -106,6 +110,7 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
       });
     },
     onError: (error: any) => {
+      console.error("Error creating account:", error);
       toast({
         title: "Erro",
         description: error.message || "Erro ao criar conta.",
@@ -126,6 +131,8 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
   });
 
   const onAccountSubmit = (data: InsertAccount) => {
+    console.log("Account form submitted:", data);
+    console.log("Account form errors:", accountForm.formState.errors);
     createAccountMutation.mutate(data);
   };
 
