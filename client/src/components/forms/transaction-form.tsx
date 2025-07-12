@@ -8,13 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateInput } from "@/lib/utils";
 import { CATEGORIES } from "@/lib/types";
 import CategoryForm from "@/components/forms/category-form";
-import type { Account, Category } from "@shared/schema";
+import AccountLimitGuard from "@/components/auth/account-limit-guard";
+import { insertAccountSchema, type Account, type Category, type InsertAccount } from "@shared/schema";
 
 const transactionFormSchema = z.object({
   amount: z.string().min(1, "Valor é obrigatório"),
@@ -35,6 +37,7 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [showAccountForm, setShowAccountForm] = useState(false);
   
   const { data: accounts } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
@@ -87,6 +90,46 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
 
   const availableCategories = categories?.filter(cat => cat.type === defaultType) || [];
   const staticCategories = CATEGORIES[defaultType] || [];
+
+  // Criar conta
+  const createAccountMutation = useMutation({
+    mutationFn: (data: InsertAccount) => apiRequest("/api/accounts", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
+      setShowAccountForm(false);
+      accountForm.reset();
+      toast({
+        title: "Conta criada",
+        description: "A conta foi criada com sucesso.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar conta.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const accountForm = useForm<InsertAccount>({
+    resolver: zodResolver(insertAccountSchema),
+    defaultValues: {
+      name: "",
+      type: "checking",
+      balance: "0",
+      interestRate: "0",
+    },
+  });
+
+  const onAccountSubmit = (data: InsertAccount) => {
+    createAccountMutation.mutate(data);
+  };
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -147,7 +190,20 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
       </div>
 
       <div>
-        <Label htmlFor="accountId">Conta</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="accountId">Conta</Label>
+          <AccountLimitGuard>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAccountForm(true)}
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
+              + Nova conta
+            </Button>
+          </AccountLimitGuard>
+        </div>
         <Select onValueChange={(value) => form.setValue("accountId", value)}>
           <SelectTrigger>
             <SelectValue placeholder="Selecione a conta (opcional)" />
@@ -155,7 +211,7 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
           <SelectContent>
             {accounts?.map((account) => (
               <SelectItem key={account.id} value={account.id.toString()}>
-                {account.bank} - {account.name}
+                {account.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -208,6 +264,112 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
             onSuccess={() => setShowCategoryForm(false)}
             onCancel={() => setShowCategoryForm(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAccountForm} onOpenChange={setShowAccountForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Nova Conta</DialogTitle>
+            <DialogDescription>
+              Adicione uma nova conta bancária ao seu controle financeiro.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...accountForm}>
+            <form onSubmit={accountForm.handleSubmit(onAccountSubmit)} className="space-y-4">
+              <FormField
+                control={accountForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome da Conta</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Banco do Brasil - CC" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={accountForm.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Conta</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="checking">Conta Corrente</SelectItem>
+                        <SelectItem value="savings">Poupança</SelectItem>
+                        <SelectItem value="investment">Investimento</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={accountForm.control}
+                name="balance"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Saldo Inicial</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={accountForm.control}
+                name="interestRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Taxa de Juros (%)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAccountForm(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createAccountMutation.isPending}
+                >
+                  {createAccountMutation.isPending ? "Criando..." : "Criar Conta"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </form>

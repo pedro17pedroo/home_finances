@@ -26,6 +26,7 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Replit Migration**: Successfully migrated from Replit Agent to standard Replit environment with proper security
 - ✅ **Account Management Page**: Dedicated page for managing bank accounts with create/edit/delete functionality
 - ✅ **Dashboard Integration**: "Adicionar Conta" button now opens a modal with account creation form directly in the dashboard
+- ✅ **Transaction Forms Enhancement**: Added "Nova Conta" button in transaction forms (receitas/despesas) for quick account creation
 
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.
