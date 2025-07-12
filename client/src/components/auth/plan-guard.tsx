@@ -57,6 +57,8 @@ const PLAN_FEATURES = {
 export default function PlanGuard({ requiredPlan, fallback, children }: PlanGuardProps) {
   const { data: user } = useQuery<User>({
     queryKey: ['/api/auth/me'],
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always refetch to ensure latest plan data
   });
 
   if (!user) {

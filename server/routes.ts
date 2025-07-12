@@ -64,14 +64,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/me", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;
-      // Get fresh user data from database
+      // Always get fresh user data from database to ensure latest plan
       const user = await storage.getUser(userId);
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Update session with current user data
+      // Always update session with current database data
       req.session.user = {
         id: user.id,
         email: user.email,
@@ -268,7 +268,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.updateUserSubscription(userId, user.subscriptionStatus || 'active', planType);
-      res.json({ message: "Plan changed successfully" });
+      
+      // Update session with new plan
+      if (req.session.user) {
+        req.session.user.planType = planType;
+        await req.session.save();
+      }
+      
+      res.json({ 
+        message: "Plan changed successfully",
+        user: req.session.user 
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

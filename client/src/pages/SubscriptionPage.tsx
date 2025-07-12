@@ -65,7 +65,16 @@ export default function SubscriptionPage() {
         title: "Plano alterado",
         description: "Seu plano foi alterado com sucesso.",
       });
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ["/api/subscription/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/debts"] });
+      
+      // Force a page reload to refresh all components with new plan data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     },
     onError: (error: any) => {
       toast({
