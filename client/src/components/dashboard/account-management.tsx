@@ -3,13 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, Edit } from "lucide-react";
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Link } from "wouter";
 import AccountLimitGuard from "@/components/auth/account-limit-guard";
 import type { Account } from "@shared/schema";
 
 export default function AccountManagement() {
-  const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
 
   const { data: accounts, isLoading } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
@@ -37,8 +35,7 @@ export default function AccountManagement() {
   }
 
   return (
-    <>
-      <Card className="border border-slate-200">
+    <Card className="border border-slate-200">
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-slate-900">
             Contas e Investimentos
@@ -70,9 +67,11 @@ export default function AccountManagement() {
                   <span className="text-green-600">
                     {account.type === 'poupanca' ? 'Rendimento mensal' : 'Disponível'}
                   </span>
-                  <Button variant="ghost" size="sm" className="text-primary hover:text-blue-700">
-                    <Edit className="w-4 h-4 mr-1" />
-                    Atualizar
+                  <Button variant="ghost" size="sm" asChild className="text-primary hover:text-blue-700">
+                    <Link href="/contas">
+                      <Edit className="w-4 h-4 mr-1" />
+                      Atualizar
+                    </Link>
                   </Button>
                 </div>
               </div>
@@ -83,29 +82,19 @@ export default function AccountManagement() {
                 <AccountLimitGuard>
                   <Button 
                     variant="ghost" 
-                    onClick={() => setIsAddAccountModalOpen(true)}
+                    asChild
                     className="flex flex-col items-center text-slate-500 hover:text-slate-700"
                   >
-                    <Plus className="w-8 h-8 mb-2" />
-                    <span className="text-sm font-medium">Adicionar Conta</span>
+                    <Link href="/contas">
+                      <Plus className="w-8 h-8 mb-2" />
+                      <span className="text-sm font-medium">Adicionar Conta</span>
+                    </Link>
                   </Button>
                 </AccountLimitGuard>
               </div>
             </div>
           </div>
         </CardContent>
-      </Card>
-
-      <Dialog open={isAddAccountModalOpen} onOpenChange={setIsAddAccountModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Adicionar Nova Conta</DialogTitle>
-          </DialogHeader>
-          <div className="text-center py-8 text-slate-500">
-            Formulário de conta será implementado aqui
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    </Card>
   );
 }
