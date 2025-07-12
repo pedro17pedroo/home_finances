@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LoanForm from "@/components/forms/loan-form";
 import DebtForm from "@/components/forms/debt-form";
+import PlanGuard from "@/components/auth/plan-guard";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Loan, Debt } from "@shared/schema";
 
@@ -68,7 +69,7 @@ export default function Emprestimos() {
   };
 
   return (
-    <>
+    <PlanGuard requiredPlan="premium">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -79,78 +80,84 @@ export default function Emprestimos() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center">
-                <HandCoins className="w-5 h-5 mr-2 text-amber-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
                 Empréstimos Dados
               </CardTitle>
+              <HandCoins className="h-4 w-4 text-amber-600" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-slate-900">
+              <div className="text-2xl font-bold text-amber-600">
                 {formatCurrency(totalLoansGiven)}
-              </p>
-              <p className="text-sm text-slate-500 mt-1">
+              </div>
+              <p className="text-xs text-slate-500">
                 {loans?.length || 0} empréstimos
               </p>
             </CardContent>
           </Card>
-
+          
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center">
-                <Clock className="w-5 h-5 mr-2 text-amber-600" />
-                Pendentes (Dados)
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Pendentes (Empréstimos)
               </CardTitle>
+              <Clock className="h-4 w-4 text-amber-600" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-amber-600">
+              <div className="text-2xl font-bold">
                 {pendingLoans.length}
-              </p>
-              <p className="text-sm text-slate-500 mt-1">
-                {formatCurrency(pendingLoans.reduce((sum, l) => sum + parseFloat(l.amount), 0))}
+              </div>
+              <p className="text-xs text-slate-500">
+                A receber
               </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center">
-                <CreditCard className="w-5 h-5 mr-2 text-red-600" />
-                Dívidas Totais
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total em Dívidas
               </CardTitle>
+              <CreditCard className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-slate-900">
+              <div className="text-2xl font-bold text-red-600">
                 {formatCurrency(totalDebts)}
-              </p>
-              <p className="text-sm text-slate-500 mt-1">
+              </div>
+              <p className="text-xs text-slate-500">
                 {debts?.length || 0} dívidas
               </p>
             </CardContent>
           </Card>
-
+          
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center">
-                <XCircle className="w-5 h-5 mr-2 text-red-600" />
-                Dívidas Pendentes
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Pendentes (Dívidas)
               </CardTitle>
+              <Clock className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-red-600">
+              <div className="text-2xl font-bold">
                 {pendingDebts.length}
-              </p>
-              <p className="text-sm text-slate-500 mt-1">
-                {formatCurrency(pendingDebts.reduce((sum, d) => sum + parseFloat(d.amount), 0))}
+              </div>
+              <p className="text-xs text-slate-500">
+                A pagar
               </p>
             </CardContent>
           </Card>
         </div>
 
-        <Tabs defaultValue="loans" className="w-full">
+        <Tabs defaultValue="loans" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="loans">Empréstimos Dados</TabsTrigger>
-            <TabsTrigger value="debts">Dívidas</TabsTrigger>
+            <TabsTrigger value="loans" className="flex items-center space-x-2">
+              <HandCoins className="h-4 w-4" />
+              <span>Empréstimos Dados</span>
+            </TabsTrigger>
+            <TabsTrigger value="debts" className="flex items-center space-x-2">
+              <CreditCard className="h-4 w-4" />
+              <span>Dívidas</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="loans" className="space-y-6">
@@ -180,17 +187,28 @@ export default function Emprestimos() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="h-4 bg-slate-200 rounded w-24"></div>
-                          <div className="h-3 bg-slate-200 rounded w-20 mt-1"></div>
+                          <div className="h-4 bg-slate-200 rounded w-20"></div>
+                          <div className="h-3 bg-slate-200 rounded w-16 mt-1"></div>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : loans?.length === 0 ? (
-                  <div className="text-center py-12">
-                    <HandCoins className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500 text-lg">Nenhum empréstimo registrado</p>
-                    <p className="text-slate-400 mt-2">Clique em "Novo Empréstimo" para começar</p>
+                ) : !loans || loans.length === 0 ? (
+                  <div className="text-center py-8">
+                    <HandCoins className="mx-auto h-12 w-12 text-slate-400" />
+                    <h3 className="mt-2 text-sm font-medium text-slate-900">Nenhum empréstimo</h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Comece registrando um empréstimo dado.
+                    </p>
+                    <div className="mt-6">
+                      <Button
+                        onClick={() => setIsLoanModalOpen(true)}
+                        className="bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Novo Empréstimo
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -262,17 +280,28 @@ export default function Emprestimos() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="h-4 bg-slate-200 rounded w-24"></div>
-                          <div className="h-3 bg-slate-200 rounded w-20 mt-1"></div>
+                          <div className="h-4 bg-slate-200 rounded w-20"></div>
+                          <div className="h-3 bg-slate-200 rounded w-16 mt-1"></div>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : debts?.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CreditCard className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500 text-lg">Nenhuma dívida registrada</p>
-                    <p className="text-slate-400 mt-2">Clique em "Nova Dívida" para começar</p>
+                ) : !debts || debts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CreditCard className="mx-auto h-12 w-12 text-slate-400" />
+                    <h3 className="mt-2 text-sm font-medium text-slate-900">Nenhuma dívida</h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Comece registrando uma dívida.
+                    </p>
+                    <div className="mt-6">
+                      <Button
+                        onClick={() => setIsDebtModalOpen(true)}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nova Dívida
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -317,25 +346,25 @@ export default function Emprestimos() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={isLoanModalOpen} onOpenChange={setIsLoanModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo Empréstimo</DialogTitle>
+            </DialogHeader>
+            <LoanForm onSuccess={() => setIsLoanModalOpen(false)} />
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isDebtModalOpen} onOpenChange={setIsDebtModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nova Dívida</DialogTitle>
+            </DialogHeader>
+            <DebtForm onSuccess={() => setIsDebtModalOpen(false)} />
+          </DialogContent>
+        </Dialog>
       </main>
-
-      <Dialog open={isLoanModalOpen} onOpenChange={setIsLoanModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Novo Empréstimo</DialogTitle>
-          </DialogHeader>
-          <LoanForm onSuccess={() => setIsLoanModalOpen(false)} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isDebtModalOpen} onOpenChange={setIsDebtModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova Dívida</DialogTitle>
-          </DialogHeader>
-          <DebtForm onSuccess={() => setIsDebtModalOpen(false)} />
-        </DialogContent>
-      </Dialog>
-    </>
+    </PlanGuard>
   );
 }

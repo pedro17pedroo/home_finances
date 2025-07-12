@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DatePickerWithRange } from "@/components/ui/date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
+import PlanGuard from "@/components/auth/plan-guard";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -151,6 +152,12 @@ export default function Relatorios() {
       }
     }
   };
+
+  const AdvancedReports = ({ children }: { children: React.ReactNode }) => (
+    <PlanGuard requiredPlan="premium">
+      {children}
+    </PlanGuard>
+  );
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

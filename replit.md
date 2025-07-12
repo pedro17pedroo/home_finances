@@ -16,6 +16,8 @@ Preferred communication style: Simple, everyday language.
 - ✅ **All Core Features**: Dashboard, transactions, savings goals, loans/debts, reports all fully functional
 - ✅ **Stripe Integration**: Payment processing and subscription management
 - ✅ **Complete Documentation**: Comprehensive PRD-based documentation with implementation roadmap
+- ✅ **Plan-Based Access Control**: Implemented comprehensive subscription restrictions and upgrade flows
+- ✅ **Two-Step Registration**: Plan selection first, then account creation with immediate redirect to dashboard
 
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.

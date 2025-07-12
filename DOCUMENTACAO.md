@@ -86,6 +86,14 @@ O FinanceControl é uma plataforma SaaS completa para controle financeiro pessoa
 - [x] Modo escuro/claro
 - [x] Acessibilidade (Radix UI)
 
+### 3.11 Sistema de Restrições por Planos ✓
+- [x] Controle de acesso baseado em assinatura
+- [x] Limite de 1.000 transações/mês para plano básico
+- [x] Empréstimos e dívidas apenas para premium+
+- [x] Relatórios avançados para premium+
+- [x] Interface de upgrade automática
+- [x] Avisos de limite próximo ao esgotamento
+
 ## 4. Arquitetura Técnica
 
 ### 4.1 Frontend
@@ -141,15 +149,22 @@ O FinanceControl é uma plataforma SaaS completa para controle financeiro pessoa
 - [x] Onboarding com seleção de planos
 - [x] Gestão de assinaturas
 
-### Fase 5: Otimizações e Melhorias ⚠️ (EM ANDAMENTO)
-- [x] Performance da aplicação
-- [x] SEO e meta tags
-- [x] Testes automatizados
+### Fase 5: Controle de Acesso e Restrições ✓ (CONCLUÍDA)
+- [x] Sistema de restrições por planos
+- [x] Limite de transações para plano básico (1.000/mês)
+- [x] Bloqueio de empréstimos/dívidas para plano básico
+- [x] Relatórios avançados apenas para premium+
+- [x] Componentes de guarda de acesso (PlanGuard)
+- [x] Interface de upgrade de planos
+
+### Fase 6: Otimizações e Melhorias 📋 (PLANEJADA)
+- [ ] Performance da aplicação avançada
 - [ ] Cache inteligente
 - [ ] PWA (Progressive Web App)
 - [ ] Notificações push
+- [ ] Testes automatizados E2E
 
-### Fase 6: Integrações e API 📋 (PLANEJADA)
+### Fase 7: Integrações e API 📋 (PLANEJADA)
 - [ ] API REST documentada
 - [ ] Webhooks para integrações
 - [ ] Importação de extratos bancários
@@ -157,7 +172,7 @@ O FinanceControl é uma plataforma SaaS completa para controle financeiro pessoa
 - [ ] Integrações com bancos brasileiros
 - [ ] SDK para desenvolvedores
 
-### Fase 7: Analytics e BI 📋 (PLANEJADA)
+### Fase 8: Analytics e BI 📋 (PLANEJADA)
 - [ ] Analytics avançados
 - [ ] Machine Learning para insights
 - [ ] Previsões financeiras
@@ -165,7 +180,7 @@ O FinanceControl é uma plataforma SaaS completa para controle financeiro pessoa
 - [ ] Recomendações personalizadas
 - [ ] Benchmarks setoriais
 
-### Fase 8: Expansão 📋 (PLANEJADA)
+### Fase 9: Expansão 📋 (PLANEJADA)
 - [ ] App mobile nativo
 - [ ] Versão para contadores
 - [ ] Multi-tenancy empresarial
@@ -188,11 +203,14 @@ O FinanceControl é uma plataforma SaaS completa para controle financeiro pessoa
 10. **Sistema de planos** e preços
 11. **Integração Stripe** para pagamentos
 12. **Interface responsiva** e acessível
+13. **Restrições de acesso por plano**
+14. **Fluxo de registro em etapas**
+15. **Sistema de limites e upgrades**
 
 ### ⚠️ Em Desenvolvimento
-1. **Testes automatizados** (unitários e integração)
-2. **Cache e performance** optimization
-3. **PWA** capabilities
+1. **Monitoramento de performance**
+2. **Otimizações de cache**
+3. **Testes E2E automatizados**
 
 ### 📋 Próximas Implementações
 1. **API REST** documentada

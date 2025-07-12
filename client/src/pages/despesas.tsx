@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Minus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import TransactionForm from "@/components/forms/transaction-form";
+import TransactionLimitGuard from "@/components/auth/transaction-limit-guard";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { CATEGORY_LABELS } from "@/lib/types";
 import type { Transaction } from "@shared/schema";
@@ -24,7 +25,7 @@ export default function Despesas() {
   const totalDespesas = transactions?.reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
 
   return (
-    <>
+    <TransactionLimitGuard>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -145,6 +146,6 @@ export default function Despesas() {
           />
         </DialogContent>
       </Dialog>
-    </>
+    </TransactionLimitGuard>
   );
 }
