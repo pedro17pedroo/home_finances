@@ -13,6 +13,14 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Loan, Debt } from "@shared/schema";
 
 export default function Emprestimos() {
+  return (
+    <PlanGuard requiredPlan="premium">
+      <EmprestimosContent />
+    </PlanGuard>
+  );
+}
+
+function EmprestimosContent() {
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
 
@@ -69,7 +77,7 @@ export default function Emprestimos() {
   };
 
   return (
-    <PlanGuard requiredPlan="premium">
+    <div>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -365,6 +373,6 @@ export default function Emprestimos() {
           </DialogContent>
         </Dialog>
       </main>
-    </PlanGuard>
+    </div>
   );
 }

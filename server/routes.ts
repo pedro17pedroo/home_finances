@@ -18,6 +18,7 @@ import {
 import { 
   isAuthenticated, 
   requireActiveSubscription, 
+  requirePlan,
   loginUser, 
   registerUser, 
   logoutUser, 
@@ -60,7 +61,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", registerUser);
   app.post("/api/auth/logout", logoutUser);
   app.get("/api/auth/user", getCurrentUser);
-  app.get("/api/auth/me", isAuthenticated, getCurrentUser);
+  app.get("/api/auth/me", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      // Get fresh user data from database
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Update session with current user data
+      req.session.user = {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        subscriptionStatus: user.subscriptionStatus || 'trialing',
+        planType: user.planType || 'basic'
+      };
+
+      await req.session.save();
+      
+      res.json(req.session.user);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
   
   // Profile management routes
   app.put("/api/auth/profile", isAuthenticated, async (req, res) => {
@@ -512,8 +540,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Loans
-  app.get("/api/loans", isAuthenticated, async (req, res) => {
+  // Loans - Premium feature
+  app.get("/api/loans", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const userId = req.session!.userId;
       const loans = await storage.getLoans(userId);
@@ -524,7 +552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/loans", isAuthenticated, async (req, res) => {
+  app.post("/api/loans", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const userId = req.session!.userId;
       const validatedData = insertLoanSchema.parse({
@@ -539,7 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/loans/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/loans/:id", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userId = req.session!.userId;
@@ -552,7 +580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/loans/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/loans/:id", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userId = req.session!.userId;
@@ -564,8 +592,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Debts
-  app.get("/api/debts", isAuthenticated, async (req, res) => {
+  // Debts - Premium feature
+  app.get("/api/debts", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const userId = req.session!.userId;
       const debts = await storage.getDebts(userId);
@@ -576,7 +604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/debts", isAuthenticated, async (req, res) => {
+  app.post("/api/debts", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const userId = req.session!.userId;
       const validatedData = insertDebtSchema.parse({
@@ -591,7 +619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/debts/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/debts/:id", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userId = req.session!.userId;
@@ -604,7 +632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/debts/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/debts/:id", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userId = req.session!.userId;

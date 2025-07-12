@@ -48,6 +48,30 @@ export const requireActiveSubscription = (req: Request, res: Response, next: Nex
   return res.status(403).json({ message: 'Subscription required' });
 };
 
+export const requirePlan = (requiredPlan: 'basic' | 'premium' | 'enterprise') => {
+  const planHierarchy = { basic: 1, premium: 2, enterprise: 3 };
+  
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
+    const user = req.session.user;
+    const userPlanLevel = planHierarchy[user.planType as keyof typeof planHierarchy] || 0;
+    const requiredPlanLevel = planHierarchy[requiredPlan];
+    
+    if (userPlanLevel >= requiredPlanLevel) {
+      return next();
+    }
+    
+    return res.status(403).json({ 
+      message: 'Upgrade required',
+      requiredPlan,
+      currentPlan: user.planType
+    });
+  };
+};
+
 export const loginUser = async (req: Request, res: Response) => {
   try {
     const { emailOrPhone, password } = loginSchema.parse(req.body);
