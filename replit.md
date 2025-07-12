@@ -8,6 +8,18 @@ This is a comprehensive domestic financial control system built with React, Expr
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (December 2025)
+
+- ✅ **Complete SaaS Platform Migration**: Successfully transformed from basic financial control to complete SaaS platform
+- ✅ **Landing Page & Pricing**: Professional landing page with 3-tier pricing (Basic R$29, Premium R$59, Enterprise R$149)
+- ✅ **Enhanced Registration**: Plan selection during signup with 14-day free trial
+- ✅ **All Core Features**: Dashboard, transactions, savings goals, loans/debts, reports all fully functional
+- ✅ **Stripe Integration**: Payment processing and subscription management
+- ✅ **Complete Documentation**: Comprehensive PRD-based documentation with implementation roadmap
+
+## Current Status
+The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.
+
 ## System Architecture
 
 ### Frontend Architecture
