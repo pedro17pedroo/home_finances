@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TeamManagement from "@/components/team/team-management";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatCurrency } from "@/lib/utils";
 
 interface SubscriptionData {
   subscriptionStatus: string;
@@ -239,7 +240,7 @@ export default function SubscriptionPage() {
                 <h4 className="font-medium mb-2">Detalhes da Cobrança</h4>
                 <div className="text-sm text-gray-600">
                   <p>Próxima cobrança: {format(new Date(subscription.subscriptionDetails.current_period_end * 1000), "dd/MM/yyyy", { locale: ptBR })}</p>
-                  <p>Valor: R$ {(subscription.subscriptionDetails.items.data[0].price.unit_amount / 100).toFixed(2)}</p>
+                  <p>Valor: {formatCurrency(subscription.subscriptionDetails.items.data[0].price.unit_amount / 100)}</p>
                 </div>
               </div>
             )}
@@ -306,7 +307,7 @@ export default function SubscriptionPage() {
                         )}
                       </div>
                       <CardDescription className="text-2xl font-bold">
-                        R$ {plan.price}
+                        {formatCurrency(plan.price)}
                         <span className="text-sm font-normal text-gray-500">/mês</span>
                       </CardDescription>
                     </CardHeader>

@@ -84,7 +84,7 @@ export default function SavingsGoalForm({ onSuccess }: SavingsGoalFormProps) {
       <div>
         <Label htmlFor="targetAmount">Valor Meta</Label>
         <div className="relative">
-          <span className="absolute left-3 top-2 text-slate-500">R$</span>
+          <span className="absolute left-3 top-2 text-slate-500">Kz</span>
           <Input
             id="targetAmount"
             type="number"
@@ -102,7 +102,7 @@ export default function SavingsGoalForm({ onSuccess }: SavingsGoalFormProps) {
       <div>
         <Label htmlFor="currentAmount">Valor Atual</Label>
         <div className="relative">
-          <span className="absolute left-3 top-2 text-slate-500">R$</span>
+          <span className="absolute left-3 top-2 text-slate-500">Kz</span>
           <Input
             id="currentAmount"
             type="number"

@@ -87,7 +87,7 @@ export default function LoanForm({ onSuccess }: LoanFormProps) {
       <div>
         <Label htmlFor="amount">Valor</Label>
         <div className="relative">
-          <span className="absolute left-3 top-2 text-slate-500">R$</span>
+          <span className="absolute left-3 top-2 text-slate-500">Kz</span>
           <Input
             id="amount"
             type="number"

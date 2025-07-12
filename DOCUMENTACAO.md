@@ -13,9 +13,9 @@ O FinanceControl é uma plataforma SaaS completa para controle financeiro pessoa
 
 ### 2.2 Modelo de Negócio
 - **SaaS por assinatura** com três planos:
-  - Básico (R$ 29/mês): Uso pessoal
-  - Premium (R$ 59/mês): Famílias e pequenos negócios
-  - Empresarial (R$ 149/mês): Empresas e contadores
+  - Básico (14.500 Kz/mês): Uso pessoal
+  - Premium (29.500 Kz/mês): Famílias e pequenos negócios
+  - Empresarial (74.500 Kz/mês): Empresas e contadores
 - **Freemium**: 14 dias de teste grátis
 - **Integração Stripe** para processamento de pagamentos
 

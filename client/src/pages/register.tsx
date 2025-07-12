@@ -19,7 +19,7 @@ const plans = [
   {
     id: 'basic',
     name: 'Básico',
-    price: 'R$ 29',
+    price: '14.500 Kz',
     period: '/mês',
     description: 'Perfeito para uso pessoal',
     features: [
@@ -34,7 +34,7 @@ const plans = [
   {
     id: 'premium',
     name: 'Premium',
-    price: 'R$ 59',
+    price: '29.500 Kz',
     period: '/mês',
     description: 'Ideal para famílias e pequenos negócios',
     features: [
@@ -50,14 +50,14 @@ const plans = [
   {
     id: 'enterprise',
     name: 'Empresarial',
-    price: 'R$ 149',
+    price: '74.500 Kz',
     period: '/mês',
     description: 'Para empresas e contadores',
     features: [
       'Tudo do Premium',
       'Múltiplos usuários',
       'API personalizada',
-      'Integração com bancos',
+      'Integração com bancos angolanos',
       'Suporte dedicado'
     ],
     highlight: false

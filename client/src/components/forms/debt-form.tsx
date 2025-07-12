@@ -76,7 +76,7 @@ export default function DebtForm({ onSuccess }: DebtFormProps) {
         <Label htmlFor="creditor">Nome do Credor</Label>
         <Input
           id="creditor"
-          placeholder="Ex: Banco do Brasil"
+          placeholder="Ex: BAI"
           {...form.register("creditor")}
         />
         {form.formState.errors.creditor && (
@@ -87,7 +87,7 @@ export default function DebtForm({ onSuccess }: DebtFormProps) {
       <div>
         <Label htmlFor="amount">Valor</Label>
         <div className="relative">
-          <span className="absolute left-3 top-2 text-slate-500">R$</span>
+          <span className="absolute left-3 top-2 text-slate-500">Kz</span>
           <Input
             id="amount"
             type="number"

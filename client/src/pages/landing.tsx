@@ -141,7 +141,7 @@ export default function Landing() {
               <div className="text-gray-600">Usuários ativos</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">R$ 2B+</div>
+              <div className="text-3xl font-bold text-blue-600">500B+ Kz</div>
               <div className="text-gray-600">Gerenciados</div>
             </div>
             <div className="text-center">

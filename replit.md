@@ -11,7 +11,7 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes (January 2025)
 
 - ✅ **Complete SaaS Platform Migration**: Successfully transformed from basic financial control to complete SaaS platform
-- ✅ **Landing Page & Pricing**: Professional landing page with 3-tier pricing (Basic R$29, Premium R$59, Enterprise R$149)
+- ✅ **Landing Page & Pricing**: Professional landing page with 3-tier pricing (Basic 14.500 Kz, Premium 29.500 Kz, Enterprise 74.500 Kz)
 - ✅ **Enhanced Registration**: Plan selection during signup with 14-day free trial
 - ✅ **All Core Features**: Dashboard, transactions, savings goals, loans/debts, reports all fully functional
 - ✅ **Stripe Integration**: Payment processing and subscription management
@@ -28,6 +28,7 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Dashboard Integration**: "Adicionar Conta" button now opens a modal with account creation form directly in the dashboard
 - ✅ **Transaction Forms Enhancement**: Added "Nova Conta" button in transaction forms (receitas/despesas) for quick account creation
 - ✅ **Angola Localization**: Complete adaptation for Angola market with AOA currency, Angolan bank references, and localized pricing
+- ✅ **Currency Conversion**: All remaining R$ references converted to Kz (Angolan Kwanza) across all forms, pages, and documentation
 
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.
