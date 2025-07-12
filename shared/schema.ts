@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, pgEnum, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -11,10 +11,55 @@ export const categoryEnum = pgEnum('category', [
   'alimentacao', 'moradia', 'transporte', 'lazer', 'saude', 'educacao', 
   'salario', 'freelance', 'investimentos', 'outros'
 ]);
+export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'canceled', 'past_due', 'trialing']);
+export const planTypeEnum = pgEnum('plan_type', ['basic', 'premium', 'enterprise']);
+
+// Session storage table for authentication
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// Users table
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).unique(),
+  phone: varchar("phone", { length: 20 }).unique(),
+  password: varchar("password", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  subscriptionStatus: subscriptionStatusEnum("subscription_status").default('trialing'),
+  planType: planTypeEnum("plan_type").default('basic'),
+  trialEndsAt: timestamp("trial_ends_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Plans table
+export const plans = pgTable("plans", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  type: planTypeEnum("type").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  stripePriceId: varchar("stripe_price_id", { length: 255 }),
+  features: jsonb("features").notNull(),
+  maxAccounts: integer("max_accounts").default(5),
+  maxTransactions: integer("max_transactions").default(1000),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 // Contas bancárias
 export const accounts = pgTable("accounts", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   type: accountTypeEnum("type").notNull(),
   bank: varchar("bank", { length: 255 }).notNull(),
@@ -37,6 +82,7 @@ export const categories = pgTable("categories", {
 // Transações (receitas e despesas)
 export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description"),
   category: categoryEnum("category").notNull(),
@@ -52,6 +98,7 @@ export const transactions = pgTable("transactions", {
 // Metas de poupança
 export const savingsGoals = pgTable("savings_goals", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   targetAmount: decimal("target_amount", { precision: 10, scale: 2 }).notNull(),
   currentAmount: decimal("current_amount", { precision: 10, scale: 2 }).notNull().default('0'),
@@ -65,6 +112,7 @@ export const savingsGoals = pgTable("savings_goals", {
 // Empréstimos dados
 export const loans = pgTable("loans", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   borrower: varchar("borrower", { length: 255 }).notNull(),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
@@ -78,6 +126,7 @@ export const loans = pgTable("loans", {
 // Dívidas
 export const debts = pgTable("debts", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   creditor: varchar("creditor", { length: 255 }).notNull(),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
@@ -89,14 +138,51 @@ export const debts = pgTable("debts", {
 });
 
 // Relations
-export const accountsRelations = relations(accounts, ({ many }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
+  accounts: many(accounts),
   transactions: many(transactions),
+  savingsGoals: many(savingsGoals),
+  loans: many(loans),
+  debts: many(debts),
+}));
+
+export const accountsRelations = relations(accounts, ({ many, one }) => ({
+  transactions: many(transactions),
+  user: one(users, {
+    fields: [accounts.userId],
+    references: [users.id],
+  }),
 }));
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   account: one(accounts, {
     fields: [transactions.accountId],
     references: [accounts.id],
+  }),
+  user: one(users, {
+    fields: [transactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const savingsGoalsRelations = relations(savingsGoals, ({ one }) => ({
+  user: one(users, {
+    fields: [savingsGoals.userId],
+    references: [users.id],
+  }),
+}));
+
+export const loansRelations = relations(loans, ({ one }) => ({
+  user: one(users, {
+    fields: [loans.userId],
+    references: [users.id],
+  }),
+}));
+
+export const debtsRelations = relations(debts, ({ one }) => ({
+  user: one(users, {
+    fields: [debts.userId],
+    references: [users.id],
   }),
 }));
 
@@ -136,7 +222,41 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
   createdAt: true
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertPlanSchema = createInsertSchema(plans).omit({
+  id: true,
+  createdAt: true
+});
+
+// Authentication schemas
+export const loginSchema = z.object({
+  emailOrPhone: z.string().min(1, "Email ou telefone é obrigatório"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres")
+});
+
+export const registerSchema = z.object({
+  email: z.string().email("Email inválido").optional(),
+  phone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos").optional(),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  firstName: z.string().min(1, "Nome é obrigatório"),
+  lastName: z.string().min(1, "Sobrenome é obrigatório")
+}).refine(data => data.email || data.phone, {
+  message: "Email ou telefone é obrigatório",
+  path: ["emailOrPhone"]
+});
+
 // Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Plan = typeof plans.$inferSelect;
+export type InsertPlan = z.infer<typeof insertPlanSchema>;
+
 export type Account = typeof accounts.$inferSelect;
 export type InsertAccount = z.infer<typeof insertAccountSchema>;
 

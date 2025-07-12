@@ -25,7 +25,7 @@ import {
   type InsertPlan
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lte, sql, sum, count } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -179,77 +179,76 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Transactions
-  async getTransactions(userId: number, limit = 50): Promise<Transaction[]> {
+  async getTransactions(limit = 50): Promise<Transaction[]> {
     return await db
       .select()
       .from(transactions)
-      .where(eq(transactions.userId, userId))
       .orderBy(desc(transactions.date))
       .limit(limit);
   }
 
-  async getTransaction(id: number, userId: number): Promise<Transaction | undefined> {
-    const [transaction] = await db.select().from(transactions).where(
-      and(eq(transactions.id, id), eq(transactions.userId, userId))
-    );
-    return transaction;
+  async getTransaction(id: number): Promise<Transaction | undefined> {
+    const [transaction] = await db.select().from(transactions).where(eq(transactions.id, id));
+    return transaction || undefined;
   }
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
     const [transaction] = await db.insert(transactions).values(insertTransaction).returning();
+    
+    // Update account balance if accountId is provided
+    if (insertTransaction.accountId) {
+      const amount = parseFloat(insertTransaction.amount);
+      const adjustment = insertTransaction.type === 'receita' ? amount : -amount;
+      
+      await db
+        .update(accounts)
+        .set({
+          balance: sql`balance + ${adjustment}`,
+          updatedAt: new Date()
+        })
+        .where(eq(accounts.id, insertTransaction.accountId));
+    }
+    
     return transaction;
   }
 
-  async updateTransaction(id: number, insertTransaction: Partial<InsertTransaction>, userId: number): Promise<Transaction> {
+  async updateTransaction(id: number, insertTransaction: Partial<InsertTransaction>): Promise<Transaction> {
     const [transaction] = await db
       .update(transactions)
       .set({ ...insertTransaction, updatedAt: new Date() })
-      .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
+      .where(eq(transactions.id, id))
       .returning();
     return transaction;
   }
 
-  async deleteTransaction(id: number, userId: number): Promise<void> {
-    await db.delete(transactions).where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+  async deleteTransaction(id: number): Promise<void> {
+    await db.delete(transactions).where(eq(transactions.id, id));
   }
 
-  async getTransactionsByDateRange(userId: number, startDate: Date, endDate: Date): Promise<Transaction[]> {
+  async getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<Transaction[]> {
     return await db
       .select()
       .from(transactions)
-      .where(and(
-        eq(transactions.userId, userId),
-        gte(transactions.date, startDate), 
-        lte(transactions.date, endDate)
-      ))
+      .where(and(gte(transactions.date, startDate), lte(transactions.date, endDate)))
       .orderBy(desc(transactions.date));
   }
 
-  async getTransactionsByCategory(userId: number, category: string): Promise<Transaction[]> {
+  async getTransactionsByCategory(category: string): Promise<Transaction[]> {
     return await db
       .select()
       .from(transactions)
-      .where(and(
-        eq(transactions.userId, userId),
-        sql`${transactions.category} = ${category}`
-      ))
+      .where(sql`${transactions.category} = ${category}`)
       .orderBy(desc(transactions.date));
   }
 
   // Savings Goals
-  async getSavingsGoals(userId: number): Promise<SavingsGoal[]> {
-    return await db
-      .select()
-      .from(savingsGoals)
-      .where(eq(savingsGoals.userId, userId))
-      .orderBy(desc(savingsGoals.createdAt));
+  async getSavingsGoals(): Promise<SavingsGoal[]> {
+    return await db.select().from(savingsGoals).where(eq(savingsGoals.isActive, true));
   }
 
-  async getSavingsGoal(id: number, userId: number): Promise<SavingsGoal | undefined> {
-    const [goal] = await db.select().from(savingsGoals).where(
-      and(eq(savingsGoals.id, id), eq(savingsGoals.userId, userId))
-    );
-    return goal;
+  async getSavingsGoal(id: number): Promise<SavingsGoal | undefined> {
+    const [goal] = await db.select().from(savingsGoals).where(eq(savingsGoals.id, id));
+    return goal || undefined;
   }
 
   async createSavingsGoal(insertGoal: InsertSavingsGoal): Promise<SavingsGoal> {
@@ -257,33 +256,27 @@ export class DatabaseStorage implements IStorage {
     return goal;
   }
 
-  async updateSavingsGoal(id: number, insertGoal: Partial<InsertSavingsGoal>, userId: number): Promise<SavingsGoal> {
+  async updateSavingsGoal(id: number, insertGoal: Partial<InsertSavingsGoal>): Promise<SavingsGoal> {
     const [goal] = await db
       .update(savingsGoals)
       .set({ ...insertGoal, updatedAt: new Date() })
-      .where(and(eq(savingsGoals.id, id), eq(savingsGoals.userId, userId)))
+      .where(eq(savingsGoals.id, id))
       .returning();
     return goal;
   }
 
-  async deleteSavingsGoal(id: number, userId: number): Promise<void> {
-    await db.delete(savingsGoals).where(and(eq(savingsGoals.id, id), eq(savingsGoals.userId, userId)));
+  async deleteSavingsGoal(id: number): Promise<void> {
+    await db.delete(savingsGoals).where(eq(savingsGoals.id, id));
   }
 
   // Loans
-  async getLoans(userId: number): Promise<Loan[]> {
-    return await db
-      .select()
-      .from(loans)
-      .where(eq(loans.userId, userId))
-      .orderBy(desc(loans.createdAt));
+  async getLoans(): Promise<Loan[]> {
+    return await db.select().from(loans);
   }
 
-  async getLoan(id: number, userId: number): Promise<Loan | undefined> {
-    const [loan] = await db.select().from(loans).where(
-      and(eq(loans.id, id), eq(loans.userId, userId))
-    );
-    return loan;
+  async getLoan(id: number): Promise<Loan | undefined> {
+    const [loan] = await db.select().from(loans).where(eq(loans.id, id));
+    return loan || undefined;
   }
 
   async createLoan(insertLoan: InsertLoan): Promise<Loan> {
@@ -291,33 +284,27 @@ export class DatabaseStorage implements IStorage {
     return loan;
   }
 
-  async updateLoan(id: number, insertLoan: Partial<InsertLoan>, userId: number): Promise<Loan> {
+  async updateLoan(id: number, insertLoan: Partial<InsertLoan>): Promise<Loan> {
     const [loan] = await db
       .update(loans)
       .set({ ...insertLoan, updatedAt: new Date() })
-      .where(and(eq(loans.id, id), eq(loans.userId, userId)))
+      .where(eq(loans.id, id))
       .returning();
     return loan;
   }
 
-  async deleteLoan(id: number, userId: number): Promise<void> {
-    await db.delete(loans).where(and(eq(loans.id, id), eq(loans.userId, userId)));
+  async deleteLoan(id: number): Promise<void> {
+    await db.delete(loans).where(eq(loans.id, id));
   }
 
   // Debts
-  async getDebts(userId: number): Promise<Debt[]> {
-    return await db
-      .select()
-      .from(debts)
-      .where(eq(debts.userId, userId))
-      .orderBy(desc(debts.createdAt));
+  async getDebts(): Promise<Debt[]> {
+    return await db.select().from(debts);
   }
 
-  async getDebt(id: number, userId: number): Promise<Debt | undefined> {
-    const [debt] = await db.select().from(debts).where(
-      and(eq(debts.id, id), eq(debts.userId, userId))
-    );
-    return debt;
+  async getDebt(id: number): Promise<Debt | undefined> {
+    const [debt] = await db.select().from(debts).where(eq(debts.id, id));
+    return debt || undefined;
   }
 
   async createDebt(insertDebt: InsertDebt): Promise<Debt> {
@@ -325,17 +312,17 @@ export class DatabaseStorage implements IStorage {
     return debt;
   }
 
-  async updateDebt(id: number, insertDebt: Partial<InsertDebt>, userId: number): Promise<Debt> {
+  async updateDebt(id: number, insertDebt: Partial<InsertDebt>): Promise<Debt> {
     const [debt] = await db
       .update(debts)
       .set({ ...insertDebt, updatedAt: new Date() })
-      .where(and(eq(debts.id, id), eq(debts.userId, userId)))
+      .where(eq(debts.id, id))
       .returning();
     return debt;
   }
 
-  async deleteDebt(id: number, userId: number): Promise<void> {
-    await db.delete(debts).where(and(eq(debts.id, id), eq(debts.userId, userId)));
+  async deleteDebt(id: number): Promise<void> {
+    await db.delete(debts).where(eq(debts.id, id));
   }
 
   // Categories
@@ -349,41 +336,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Dashboard data
-  async getFinancialSummary(userId: number): Promise<{
+  async getFinancialSummary(): Promise<{
     currentAccountBalance: string;
     totalSavings: string;
     totalDebts: string;
     totalLoans: string;
   }> {
-    const accountBalance = await db
-      .select({ total: sum(accounts.balance) })
+    const [currentAccounts] = await db
+      .select({ total: sql<string>`COALESCE(SUM(balance), 0)` })
       .from(accounts)
-      .where(eq(accounts.userId, userId));
+      .where(eq(accounts.type, 'corrente'));
 
-    const savingsTotal = await db
-      .select({ total: sum(savingsGoals.currentAmount) })
-      .from(savingsGoals)
-      .where(eq(savingsGoals.userId, userId));
+    const [savingsAccounts] = await db
+      .select({ total: sql<string>`COALESCE(SUM(balance), 0)` })
+      .from(accounts)
+      .where(eq(accounts.type, 'poupanca'));
 
-    const debtsTotal = await db
-      .select({ total: sum(debts.amount) })
+    const [totalDebts] = await db
+      .select({ total: sql<string>`COALESCE(SUM(amount), 0)` })
       .from(debts)
-      .where(and(eq(debts.userId, userId), eq(debts.status, 'pendente')));
+      .where(eq(debts.status, 'pendente'));
 
-    const loansTotal = await db
-      .select({ total: sum(loans.amount) })
+    const [totalLoans] = await db
+      .select({ total: sql<string>`COALESCE(SUM(amount), 0)` })
       .from(loans)
-      .where(and(eq(loans.userId, userId), eq(loans.status, 'pendente')));
+      .where(eq(loans.status, 'pendente'));
 
     return {
-      currentAccountBalance: accountBalance[0]?.total || "0.00",
-      totalSavings: savingsTotal[0]?.total || "0.00",
-      totalDebts: debtsTotal[0]?.total || "0.00",
-      totalLoans: loansTotal[0]?.total || "0.00",
+      currentAccountBalance: currentAccounts?.total || '0',
+      totalSavings: savingsAccounts?.total || '0',
+      totalDebts: totalDebts?.total || '0',
+      totalLoans: totalLoans?.total || '0',
     };
   }
 
-  async getMonthlyTransactionsSummary(userId: number): Promise<{
+  async getMonthlyTransactionsSummary(): Promise<{
     income: string;
     expenses: string;
     month: string;
@@ -391,54 +378,49 @@ export class DatabaseStorage implements IStorage {
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    const monthlyData = await db
+    const results = await db
       .select({
-        month: sql`DATE_TRUNC('month', ${transactions.date})`,
-        income: sql`SUM(CASE WHEN ${transactions.type} = 'receita' THEN ${transactions.amount} ELSE 0 END)`,
-        expenses: sql`SUM(CASE WHEN ${transactions.type} = 'despesa' THEN ${transactions.amount} ELSE 0 END)`,
+        month: sql<string>`TO_CHAR(date, 'YYYY-MM')`,
+        income: sql<string>`COALESCE(SUM(CASE WHEN type = 'receita' THEN amount ELSE 0 END), 0)`,
+        expenses: sql<string>`COALESCE(SUM(CASE WHEN type = 'despesa' THEN amount ELSE 0 END), 0)`,
       })
       .from(transactions)
-      .where(and(
-        eq(transactions.userId, userId),
-        gte(transactions.date, sixMonthsAgo)
-      ))
-      .groupBy(sql`DATE_TRUNC('month', ${transactions.date})`)
-      .orderBy(sql`DATE_TRUNC('month', ${transactions.date})`);
+      .where(gte(transactions.date, sixMonthsAgo))
+      .groupBy(sql`TO_CHAR(date, 'YYYY-MM')`)
+      .orderBy(sql`TO_CHAR(date, 'YYYY-MM')`);
 
-    return monthlyData.map(row => ({
-      month: row.month as string,
-      income: row.income as string || "0.00",
-      expenses: row.expenses as string || "0.00",
-    }));
+    return results;
   }
 
-  async getExpensesByCategory(userId: number): Promise<{
+  async getExpensesByCategory(): Promise<{
     category: string;
     amount: string;
     percentage: number;
   }[]> {
-    const totalExpenses = await db
-      .select({ total: sum(transactions.amount) })
-      .from(transactions)
-      .where(and(eq(transactions.userId, userId), eq(transactions.type, 'despesa')));
+    const currentMonth = new Date();
+    currentMonth.setDate(1);
+    currentMonth.setHours(0, 0, 0, 0);
 
-    const total = parseFloat(totalExpenses[0]?.total || "0");
-
-    if (total === 0) return [];
-
-    const categoryTotals = await db
+    const results = await db
       .select({
         category: transactions.category,
-        amount: sum(transactions.amount),
+        amount: sql<string>`SUM(amount)`,
       })
       .from(transactions)
-      .where(and(eq(transactions.userId, userId), eq(transactions.type, 'despesa')))
+      .where(
+        and(
+          eq(transactions.type, 'despesa'),
+          gte(transactions.date, currentMonth)
+        )
+      )
       .groupBy(transactions.category);
 
-    return categoryTotals.map(row => ({
-      category: row.category,
-      amount: row.amount as string,
-      percentage: Math.round((parseFloat(row.amount as string) / total) * 100),
+    const totalExpenses = results.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+
+    return results.map(item => ({
+      category: item.category,
+      amount: item.amount,
+      percentage: totalExpenses > 0 ? (parseFloat(item.amount) / totalExpenses) * 100 : 0
     }));
   }
 }
