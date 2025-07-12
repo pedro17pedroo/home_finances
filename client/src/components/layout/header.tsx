@@ -1,27 +1,34 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, User, Crown, AlertTriangle, Menu, X } from "lucide-react";
+import { User, Crown, AlertTriangle, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import TransactionForm from "@/components/forms/transaction-form";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/receitas", label: "Receitas" },
-  { href: "/despesas", label: "Despesas" },
-  { href: "/poupanca", label: "Poupança" },
-  { href: "/emprestimos", label: "Empréstimos" },
+  { 
+    label: "Transações", 
+    submenu: [
+      { href: "/receitas", label: "Receitas" },
+      { href: "/despesas", label: "Despesas" }
+    ]
+  },
+  { 
+    label: "Financeiro", 
+    submenu: [
+      { href: "/poupanca", label: "Poupança" },
+      { href: "/emprestimos", label: "Empréstimos" }
+    ]
+  },
   { href: "/relatorios", label: "Relatórios" },
   { href: "/subscription", label: "Assinatura" },
 ];
 
 export default function Header() {
   const [location] = useLocation();
-  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   
   const { data: subscription } = useQuery({
     queryKey: ["/api/subscription/status"],
@@ -78,31 +85,61 @@ export default function Header() {
 
             {/* Desktop Navigation - Hidden on mobile and tablet */}
             <nav className="hidden lg:flex lg:space-x-4 xl:space-x-6">
-              {navItems.map((item) => (
-                <Link key={item.href} href={item.href}>
-                  <span
-                    className={`px-2 py-1 text-sm font-medium cursor-pointer transition-colors hover:text-primary ${
-                      location === item.href
-                        ? "text-primary border-b-2 border-primary"
-                        : "text-slate-600 hover:text-slate-800"
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
+              {navItems.map((item, index) => (
+                <div key={item.href || `${item.label}-${index}`} className="relative">
+                  {item.href ? (
+                    <Link href={item.href}>
+                      <span
+                        className={`px-2 py-1 text-sm font-medium cursor-pointer transition-colors hover:text-primary ${
+                          location === item.href
+                            ? "text-primary border-b-2 border-primary"
+                            : "text-slate-600 hover:text-slate-800"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </Link>
+                  ) : (
+                    <div className="relative">
+                      <button
+                        className={`px-2 py-1 text-sm font-medium cursor-pointer transition-colors hover:text-primary flex items-center ${
+                          item.submenu?.some(sub => location === sub.href)
+                            ? "text-primary border-b-2 border-primary"
+                            : "text-slate-600 hover:text-slate-800"
+                        }`}
+                        onClick={() => setOpenDropdown(openDropdown === item.label ? null : item.label)}
+                      >
+                        {item.label}
+                        <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {openDropdown === item.label && item.submenu && (
+                        <div className="absolute top-full left-0 mt-1 bg-white shadow-lg border border-slate-200 rounded-md py-1 min-w-[140px] z-50">
+                          {item.submenu.map((subItem, subIndex) => (
+                            <Link key={`${subItem.href}-${subIndex}`} href={subItem.href}>
+                              <span
+                                className={`block px-3 py-2 text-sm cursor-pointer transition-colors ${
+                                  location === subItem.href
+                                    ? "text-primary bg-primary/10"
+                                    : "text-slate-700 hover:text-slate-900 hover:bg-slate-50"
+                                }`}
+                                onClick={() => setOpenDropdown(null)}
+                              >
+                                {subItem.label}
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               ))}
             </nav>
 
             {/* Desktop Actions - Only on larger screens */}
             <div className="hidden lg:flex items-center space-x-3">
-              <Button
-                onClick={() => setIsTransactionModalOpen(true)}
-                className="bg-primary hover:bg-blue-700 text-white"
-                size="sm"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Transação
-              </Button>
               <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center cursor-pointer hover:bg-slate-400 transition-colors">
                 <User className="h-4 w-4 text-slate-600" />
               </div>
@@ -110,14 +147,6 @@ export default function Header() {
 
             {/* Mobile/Tablet Menu Button - Shows on screens smaller than lg */}
             <div className="lg:hidden flex items-center space-x-2 relative">
-              <Button
-                onClick={() => setIsTransactionModalOpen(true)}
-                size="sm"
-                variant="outline"
-                className="px-2"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
               <div className="relative">
                 <Button 
                   variant="ghost" 
@@ -139,19 +168,43 @@ export default function Header() {
                         </div>
                       </div>
                       <nav className="py-2">
-                        {navItems.map((item) => (
-                          <Link key={item.href} href={item.href}>
-                            <span
-                              className={`block px-4 py-2 text-sm font-medium cursor-pointer transition-colors ${
-                                location === item.href
-                                  ? "text-primary bg-primary/10 border-r-4 border-primary"
-                                  : "text-slate-700 hover:text-slate-900 hover:bg-slate-50"
-                              }`}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                              {item.label}
-                            </span>
-                          </Link>
+                        {navItems.map((item, index) => (
+                          <div key={item.href || `${item.label}-${index}`}>
+                            {item.href ? (
+                              <Link href={item.href}>
+                                <span
+                                  className={`block px-4 py-2 text-sm font-medium cursor-pointer transition-colors ${
+                                    location === item.href
+                                      ? "text-primary bg-primary/10 border-r-4 border-primary"
+                                      : "text-slate-700 hover:text-slate-900 hover:bg-slate-50"
+                                  }`}
+                                  onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                  {item.label}
+                                </span>
+                              </Link>
+                            ) : (
+                              <div>
+                                <div className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                                  {item.label}
+                                </div>
+                                {item.submenu?.map((subItem, subIndex) => (
+                                  <Link key={`${subItem.href}-${subIndex}`} href={subItem.href}>
+                                    <span
+                                      className={`block px-6 py-2 text-sm cursor-pointer transition-colors ${
+                                        location === subItem.href
+                                          ? "text-primary bg-primary/10 border-r-4 border-primary"
+                                          : "text-slate-700 hover:text-slate-900 hover:bg-slate-50"
+                                      }`}
+                                      onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                      {subItem.label}
+                                    </span>
+                                  </Link>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </nav>
                       <div className="px-4 py-2 border-t border-slate-100">
@@ -177,16 +230,17 @@ export default function Header() {
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
+        
+        {/* Desktop Dropdown Overlay */}
+        {openDropdown && (
+          <div 
+            className="fixed inset-0 z-30 hidden lg:block"
+            onClick={() => setOpenDropdown(null)}
+          />
+        )}
       </header>
 
-      <Dialog open={isTransactionModalOpen} onOpenChange={setIsTransactionModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova Transação</DialogTitle>
-          </DialogHeader>
-          <TransactionForm onSuccess={() => setIsTransactionModalOpen(false)} />
-        </DialogContent>
-      </Dialog>
+
     </>
   );
 }
