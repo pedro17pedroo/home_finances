@@ -87,7 +87,10 @@ export interface IStorage {
 
   // Categories
   getCategories(): Promise<Category[]>;
+  getCategory(id: number): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
+  updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category>;
+  deleteCategory(id: number): Promise<void>;
 
   // Organizations (Multi-user support)
   getOrganization(id: number): Promise<Organization | undefined>;
@@ -379,12 +382,30 @@ export class DatabaseStorage implements IStorage {
 
   // Categories
   async getCategories(): Promise<Category[]> {
-    return await db.select().from(categories);
+    return await db.select().from(categories).orderBy(desc(categories.createdAt));
+  }
+
+  async getCategory(id: number): Promise<Category | undefined> {
+    const [category] = await db.select().from(categories).where(eq(categories.id, id));
+    return category;
   }
 
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
     const [category] = await db.insert(categories).values(insertCategory).returning();
     return category;
+  }
+
+  async updateCategory(id: number, insertCategory: Partial<InsertCategory>): Promise<Category> {
+    const [category] = await db
+      .update(categories)
+      .set(insertCategory)
+      .where(eq(categories.id, id))
+      .returning();
+    return category;
+  }
+
+  async deleteCategory(id: number): Promise<void> {
+    await db.delete(categories).where(eq(categories.id, id));
   }
 
   // Organizations (Multi-user support)

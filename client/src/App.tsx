@@ -17,6 +17,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
 import Perfil from "@/pages/perfil";
+import Categorias from "@/pages/categorias";
 
 function Router() {
   return (
@@ -68,6 +69,12 @@ function Router() {
         <div className="min-h-screen bg-slate-50">
           <Header />
           <SubscriptionPage />
+        </div>
+      </Route>
+      <Route path="/categorias">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Categorias />
         </div>
       </Route>
       <Route path="/perfil">

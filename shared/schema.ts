@@ -277,15 +277,15 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
   createdAt: true
 });
 
+export const insertPlanSchema = createInsertSchema(plans).omit({
+  id: true,
+  createdAt: true
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true
-});
-
-export const insertPlanSchema = createInsertSchema(plans).omit({
-  id: true,
-  createdAt: true
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
@@ -337,6 +337,15 @@ export type InsertLoan = z.infer<typeof insertLoanSchema>;
 
 export type Debt = typeof debts.$inferSelect;
 export type InsertDebt = z.infer<typeof insertDebtSchema>;
+
+export type Category = typeof categories.$inferSelect;
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+
+export type TeamInvitation = typeof teamInvitations.$inferSelect;
+export type InsertTeamInvitation = z.infer<typeof insertTeamInvitationSchema>;
 
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;

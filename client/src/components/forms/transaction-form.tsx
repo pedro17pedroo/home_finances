@@ -8,17 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateInput } from "@/lib/utils";
 import { CATEGORIES } from "@/lib/types";
-import type { Account } from "@shared/schema";
+import CategoryForm from "@/components/forms/category-form";
+import type { Account, Category } from "@shared/schema";
 
 const transactionFormSchema = z.object({
   amount: z.string().min(1, "Valor é obrigatório"),
   description: z.string().optional(),
   category: z.string().min(1, "Categoria é obrigatória"),
-  type: z.enum(["receita", "despesa"]),
   accountId: z.string().optional(),
   date: z.string().min(1, "Data é obrigatória"),
 });
@@ -33,15 +34,19 @@ interface TransactionFormProps {
 export default function TransactionForm({ defaultType = "receita", onSuccess }: TransactionFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
   
   const { data: accounts } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
   });
 
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
   const form = useForm<TransactionFormData>({
     resolver: zodResolver(transactionFormSchema),
     defaultValues: {
-      type: defaultType,
       date: formatDateInput(new Date()),
     },
   });
@@ -50,6 +55,7 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
     mutationFn: async (data: TransactionFormData) => {
       const payload = {
         ...data,
+        type: defaultType,
         amount: parseFloat(data.amount),
         accountId: data.accountId ? parseInt(data.accountId) : undefined,
         date: new Date(data.date),
@@ -79,26 +85,11 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
     createTransactionMutation.mutate(data);
   };
 
-  const watchedType = form.watch("type");
-  const availableCategories = CATEGORIES[watchedType] || [];
+  const availableCategories = categories?.filter(cat => cat.type === defaultType) || [];
+  const staticCategories = CATEGORIES[defaultType] || [];
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <Label htmlFor="type">Tipo</Label>
-        <Select onValueChange={(value) => form.setValue("type", value as "receita" | "despesa")}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="receita">Receita</SelectItem>
-            <SelectItem value="despesa">Despesa</SelectItem>
-          </SelectContent>
-        </Select>
-        {form.formState.errors.type && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.type.message}</p>
-        )}
-      </div>
 
       <div>
         <Label htmlFor="amount">Valor</Label>
@@ -119,13 +110,31 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
       </div>
 
       <div>
-        <Label htmlFor="category">Categoria</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="category">Categoria</Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowCategoryForm(true)}
+            className="text-xs text-blue-600 hover:text-blue-800"
+          >
+            + Nova categoria
+          </Button>
+        </div>
         <Select onValueChange={(value) => form.setValue("category", value)}>
           <SelectTrigger>
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
           <SelectContent>
+            {/* Categorias personalizadas */}
             {availableCategories.map((category) => (
+              <SelectItem key={category.id} value={category.name}>
+                {category.name}
+              </SelectItem>
+            ))}
+            {/* Categorias padrão */}
+            {staticCategories.map((category) => (
               <SelectItem key={category.value} value={category.value}>
                 {category.label}
               </SelectItem>
@@ -186,6 +195,21 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
           {createTransactionMutation.isPending ? "Salvando..." : "Salvar"}
         </Button>
       </div>
+
+      <Dialog open={showCategoryForm} onOpenChange={setShowCategoryForm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Nova Categoria de {defaultType === "receita" ? "Receita" : "Despesa"}
+            </DialogTitle>
+          </DialogHeader>
+          <CategoryForm 
+            defaultType={defaultType}
+            onSuccess={() => setShowCategoryForm(false)}
+            onCancel={() => setShowCategoryForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }
