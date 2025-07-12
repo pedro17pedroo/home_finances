@@ -14,6 +14,7 @@ export default function Perfil() {
   const queryClient = useQueryClient();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const { data: user, isLoading } = useQuery({
     queryKey: ["/api/auth/me"],
@@ -26,23 +27,33 @@ export default function Perfil() {
     phone: "",
   });
 
+  const [originalProfileData, setOriginalProfileData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+  });
+
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
 
-  // Set initial data when user loads - only if not editing
+  // Set initial data when user loads - only once
   useEffect(() => {
-    if (user && !isEditingProfile) {
-      setProfileData({
+    if (user && !hasInitialized) {
+      const userData = {
         firstName: user.firstName || "",
         lastName: user.lastName || "",
         email: user.email || "",
         phone: user.phone || "",
-      });
+      };
+      setProfileData(userData);
+      setOriginalProfileData(userData);
+      setHasInitialized(true);
     }
-  }, [user, isEditingProfile]);
+  }, [user, hasInitialized]);
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PUT", "/api/auth/profile", data),
@@ -52,6 +63,7 @@ export default function Perfil() {
         description: "Suas informações foram atualizadas com sucesso.",
       });
       setIsEditingProfile(false);
+      setOriginalProfileData(profileData);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: (error: any) => {
@@ -88,6 +100,12 @@ export default function Perfil() {
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted, isEditingProfile:', isEditingProfile);
+    if (!isEditingProfile) {
+      console.log('Preventing submit - not in edit mode');
+      return; // Only submit if editing
+    }
+    console.log('Submitting profile data:', profileData);
     updateProfileMutation.mutate(profileData);
   };
 
@@ -210,7 +228,10 @@ export default function Perfil() {
                 {!isEditingProfile ? (
                   <Button
                     type="button"
-                    onClick={() => setIsEditingProfile(true)}
+                    onClick={() => {
+                      console.log('Edit button clicked');
+                      setIsEditingProfile(true);
+                    }}
                     variant="outline"
                   >
                     Editar Informações
@@ -229,13 +250,9 @@ export default function Perfil() {
                       type="button"
                       variant="outline"
                       onClick={() => {
+                        console.log('Cancel button clicked');
                         setIsEditingProfile(false);
-                        setProfileData({
-                          firstName: user?.firstName || "",
-                          lastName: user?.lastName || "",
-                          email: user?.email || "",
-                          phone: user?.phone || "",
-                        });
+                        setProfileData(originalProfileData);
                       }}
                     >
                       Cancelar
