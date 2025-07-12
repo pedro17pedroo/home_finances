@@ -5,6 +5,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Plus, Edit } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import AccountLimitGuard from "@/components/auth/account-limit-guard";
 import type { Account } from "@shared/schema";
 
 export default function AccountManagement() {
@@ -79,14 +80,16 @@ export default function AccountManagement() {
             
             <div className="p-4 bg-slate-50 rounded-lg border-2 border-dashed border-slate-300">
               <div className="flex items-center justify-center h-24">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setIsAddAccountModalOpen(true)}
-                  className="flex flex-col items-center text-slate-500 hover:text-slate-700"
-                >
-                  <Plus className="w-8 h-8 mb-2" />
-                  <span className="text-sm font-medium">Adicionar Conta</span>
-                </Button>
+                <AccountLimitGuard>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => setIsAddAccountModalOpen(true)}
+                    className="flex flex-col items-center text-slate-500 hover:text-slate-700"
+                  >
+                    <Plus className="w-8 h-8 mb-2" />
+                    <span className="text-sm font-medium">Adicionar Conta</span>
+                  </Button>
+                </AccountLimitGuard>
               </div>
             </div>
           </div>

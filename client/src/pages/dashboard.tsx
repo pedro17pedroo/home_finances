@@ -6,6 +6,7 @@ import SavingsGoals from "@/components/dashboard/savings-goals";
 import Alerts from "@/components/dashboard/alerts";
 import AccountManagement from "@/components/dashboard/account-management";
 import SubscriptionNotifications from "@/components/subscription/SubscriptionNotifications";
+import UsageLimits from "@/components/auth/usage-limits";
 
 export default function Dashboard() {
   return (
@@ -17,9 +18,10 @@ export default function Dashboard() {
         <QuickActions />
         <RecentTransactions />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         <SavingsGoals />
         <Alerts />
+        <UsageLimits />
       </div>
       <AccountManagement />
     </main>

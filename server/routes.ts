@@ -24,6 +24,7 @@ import {
   logoutUser, 
   getCurrentUser 
 } from "./auth";
+import { validateAccountLimit, validateTransactionLimit, getUserLimitsStatus } from "./plan-limits";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -395,6 +396,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user limits status
+  app.get("/api/user/limits", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const user = req.session!.user;
+      
+      if (!user || !user.planType) {
+        return res.status(400).json({ message: 'Plano do usuário não encontrado' });
+      }
+
+      const limitsStatus = await getUserLimitsStatus(userId, user.planType);
+      res.json(limitsStatus);
+    } catch (error) {
+      console.error("Error fetching user limits:", error);
+      res.status(500).json({ message: "Erro ao buscar limites do usuário" });
+    }
+  });
+
   // Accounts
   app.get("/api/accounts", isAuthenticated, async (req, res) => {
     try {
@@ -407,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/accounts", isAuthenticated, async (req, res) => {
+  app.post("/api/accounts", isAuthenticated, validateAccountLimit, async (req, res) => {
     try {
       const userId = req.session!.userId;
       const validatedData = insertAccountSchema.parse({
@@ -460,7 +479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/transactions", isAuthenticated, async (req, res) => {
+  app.post("/api/transactions", isAuthenticated, validateTransactionLimit, async (req, res) => {
     try {
       const userId = req.session!.userId;
       const validatedData = insertTransactionSchema.parse({

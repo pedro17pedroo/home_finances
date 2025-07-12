@@ -5,6 +5,7 @@ import { Plus, Minus, Target } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import TransactionForm from "@/components/forms/transaction-form";
 import SavingsGoalForm from "@/components/forms/savings-goal-form";
+import TransactionLimitGuard from "@/components/auth/transaction-limit-guard";
 
 export default function QuickActions() {
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
@@ -21,20 +22,24 @@ export default function QuickActions() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <Button
-              onClick={() => setIsIncomeModalOpen(true)}
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Adicionar Receita
-            </Button>
-            <Button
-              onClick={() => setIsExpenseModalOpen(true)}
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
-            >
-              <Minus className="w-5 h-5 mr-2" />
-              Registrar Despesa
-            </Button>
+            <TransactionLimitGuard>
+              <Button
+                onClick={() => setIsIncomeModalOpen(true)}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Adicionar Receita
+              </Button>
+            </TransactionLimitGuard>
+            <TransactionLimitGuard>
+              <Button
+                onClick={() => setIsExpenseModalOpen(true)}
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+              >
+                <Minus className="w-5 h-5 mr-2" />
+                Registrar Despesa
+              </Button>
+            </TransactionLimitGuard>
             <Button
               onClick={() => setIsGoalModalOpen(true)}
               className="w-full bg-primary hover:bg-blue-700 text-white"

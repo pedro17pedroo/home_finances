@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, Crown, TrendingUp } from 'lucide-react';
+import { CreditCard, Lock, Crown } from 'lucide-react';
 import { Link } from 'wouter';
 
-interface TransactionLimitGuardProps {
+interface AccountLimitGuardProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
@@ -37,7 +37,7 @@ interface UsageLimitsResponse {
   isUnlimited: boolean;
 }
 
-export default function TransactionLimitGuard({ children, fallback }: TransactionLimitGuardProps) {
+export default function AccountLimitGuard({ children, fallback }: AccountLimitGuardProps) {
   const { data: user } = useQuery<User>({
     queryKey: ['/api/auth/me'],
   });
@@ -50,8 +50,8 @@ export default function TransactionLimitGuard({ children, fallback }: Transactio
     return <>{children}</>;
   }
 
-  // Se o usuário pode criar transações, mostrar o children
-  if (limits.transactions.canCreate) {
+  // Se o usuário pode criar contas, mostrar o children
+  if (limits.accounts.canCreate) {
     return <>{children}</>;
   }
 
@@ -65,30 +65,30 @@ export default function TransactionLimitGuard({ children, fallback }: Transactio
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5" />
-          Limite de Transações Atingido
+          <Lock className="h-5 w-5" />
+          Limite de Contas Atingido
         </CardTitle>
         <CardDescription>
-          Você atingiu o limite de {limits.transactions.limit} transações mensais do plano {limits.planType === 'basic' ? 'Básico' : limits.planType}
+          Você atingiu o limite de {limits.accounts.limit} contas bancárias do plano {limits.planType === 'basic' ? 'Básico' : limits.planType}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert>
-          <TrendingUp className="h-4 w-4" />
+          <CreditCard className="h-4 w-4" />
           <AlertDescription>
-            Você está usando {limits.transactions.current} de {limits.transactions.limit} transações disponíveis este mês.
+            Você está usando {limits.accounts.current} de {limits.accounts.limit} contas bancárias disponíveis.
           </AlertDescription>
         </Alert>
 
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Para continuar criando transações e ter acesso a recursos avançados, 
+            Para criar mais contas bancárias e ter acesso a recursos avançados, 
             faça upgrade para o plano Premium:
           </p>
           
           <ul className="text-sm space-y-1 ml-4">
-            <li>• Transações ilimitadas</li>
             <li>• Contas bancárias ilimitadas</li>
+            <li>• Transações ilimitadas</li>
             <li>• Relatórios avançados</li>
             <li>• Controle de empréstimos e dívidas</li>
           </ul>
@@ -103,8 +103,8 @@ export default function TransactionLimitGuard({ children, fallback }: Transactio
           </Button>
           
           <Button variant="outline" asChild>
-            <Link href="/receitas">
-              Ver Transações
+            <Link href="/poupanca">
+              Gerenciar Contas
             </Link>
           </Button>
         </div>
