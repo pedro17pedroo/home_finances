@@ -112,7 +112,7 @@ export const transactions = pgTable("transactions", {
   userId: integer("user_id").references(() => users.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description"),
-  category: categoryEnum("category").notNull(),
+  category: varchar("category", { length: 255 }).notNull(),
   type: transactionTypeEnum("type").notNull(),
   accountId: integer("account_id").references(() => accounts.id),
   date: timestamp("date").notNull(),
