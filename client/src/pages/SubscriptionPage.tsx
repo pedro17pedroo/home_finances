@@ -15,8 +15,11 @@ import {
   ExternalLink,
   Zap,
   Shield,
-  Star
+  Star,
+  Users
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TeamManagement from "@/components/team/team-management";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -37,6 +40,10 @@ export default function SubscriptionPage() {
 
   const { data: plans } = useQuery({
     queryKey: ["/api/plans"],
+  });
+
+  const { data: user } = useQuery({
+    queryKey: ["/api/auth/me"],
   });
 
   const cancelMutation = useMutation({
@@ -129,6 +136,8 @@ export default function SubscriptionPage() {
 
   const isTrialEnding = subscription?.trialEndsAt && 
     new Date(subscription.trialEndsAt) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  
+  const isEnterprisePlan = user?.planType === 'enterprise';
 
   if (isLoading) {
     return (
@@ -165,9 +174,29 @@ export default function SubscriptionPage() {
         </Alert>
       )}
 
-      <div className="grid gap-6">
-        {/* Status da Assinatura */}
-        <Card>
+      {/* Tabs para diferentes seções */}
+      <Tabs defaultValue="subscription" className="w-full">
+        <TabsList className={`grid w-full ${isEnterprisePlan ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <TabsTrigger value="subscription" className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4" />
+            Assinatura
+          </TabsTrigger>
+          <TabsTrigger value="plans" className="flex items-center gap-2">
+            <Star className="w-4 h-4" />
+            Planos
+          </TabsTrigger>
+          {isEnterprisePlan && (
+            <TabsTrigger value="team" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Equipe
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        {/* Aba de Assinatura */}
+        <TabsContent value="subscription" className="space-y-6">
+          {/* Status da Assinatura */}
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5" />
@@ -251,58 +280,69 @@ export default function SubscriptionPage() {
           </CardContent>
         </Card>
 
-        {/* Planos Disponíveis */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Alterar Plano</CardTitle>
-            <CardDescription>
-              Escolha o plano que melhor se adapta às suas necessidades
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {plans?.map((plan: any) => (
-                <Card key={plan.id} className={`relative ${subscription?.planType === plan.type ? 'ring-2 ring-blue-500' : ''}`}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        {getPlanIcon(plan.type)}
-                        {plan.name}
-                      </CardTitle>
-                      {subscription?.planType === plan.type && (
-                        <Badge variant="default">Atual</Badge>
+        </TabsContent>
+
+        {/* Aba de Planos */}
+        <TabsContent value="plans" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Alterar Plano</CardTitle>
+              <CardDescription>
+                Escolha o plano que melhor se adapta às suas necessidades
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {plans?.map((plan: any) => (
+                  <Card key={plan.id} className={`relative ${subscription?.planType === plan.type ? 'ring-2 ring-blue-500' : ''}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          {getPlanIcon(plan.type)}
+                          {plan.name}
+                        </CardTitle>
+                        {subscription?.planType === plan.type && (
+                          <Badge variant="default">Atual</Badge>
+                        )}
+                      </div>
+                      <CardDescription className="text-2xl font-bold">
+                        R$ {plan.price}
+                        <span className="text-sm font-normal text-gray-500">/mês</span>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-1 text-sm">
+                        {plan.features.map((feature: string, index: number) => (
+                          <li key={index} className="flex items-center gap-2">
+                            <CheckCircle className="w-3 h-3 text-green-500" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                      {subscription?.planType !== plan.type && (
+                        <Button
+                          className="w-full mt-4"
+                          onClick={() => changePlanMutation.mutate(plan.type)}
+                          disabled={changePlanMutation.isPending}
+                        >
+                          {changePlanMutation.isPending ? "Alterando..." : "Alterar para este plano"}
+                        </Button>
                       )}
-                    </div>
-                    <CardDescription className="text-2xl font-bold">
-                      R$ {plan.price}
-                      <span className="text-sm font-normal text-gray-500">/mês</span>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-1 text-sm">
-                      {plan.features.map((feature: string, index: number) => (
-                        <li key={index} className="flex items-center gap-2">
-                          <CheckCircle className="w-3 h-3 text-green-500" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                    {subscription?.planType !== plan.type && (
-                      <Button
-                        className="w-full mt-4"
-                        onClick={() => changePlanMutation.mutate(plan.type)}
-                        disabled={changePlanMutation.isPending}
-                      >
-                        {changePlanMutation.isPending ? "Alterando..." : "Alterar para este plano"}
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Aba de Equipe - apenas para plano empresarial */}
+        {isEnterprisePlan && (
+          <TabsContent value="team" className="space-y-6">
+            <TeamManagement />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

@@ -38,8 +38,35 @@ export const users = pgTable("users", {
   subscriptionStatus: subscriptionStatusEnum("subscription_status").default('trialing'),
   planType: planTypeEnum("plan_type").default('basic'),
   trialEndsAt: timestamp("trial_ends_at"),
+  organizationId: integer("organization_id").references(() => organizations.id),
+  role: varchar("role", { length: 50 }).default('member'), // 'owner', 'admin', 'member'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Organizations table for multi-user support
+export const organizations = pgTable("organizations", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  ownerId: integer("owner_id").references(() => users.id).notNull(),
+  planType: planTypeEnum("plan_type").default('basic'),
+  subscriptionStatus: subscriptionStatusEnum("subscription_status").default('trialing'),
+  maxUsers: integer("max_users").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Team invitations table
+export const teamInvitations = pgTable("team_invitations", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).default('member'),
+  invitedBy: integer("invited_by").references(() => users.id).notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Plans table
@@ -138,7 +165,13 @@ export const debts = pgTable("debts", {
 });
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [users.organizationId],
+    references: [organizations.id],
+  }),
+  ownedOrganizations: many(organizations),
+  sentInvitations: many(teamInvitations),
   accounts: many(accounts),
   transactions: many(transactions),
   savingsGoals: many(savingsGoals),
@@ -182,6 +215,28 @@ export const loansRelations = relations(loans, ({ one }) => ({
 export const debtsRelations = relations(debts, ({ one }) => ({
   user: one(users, {
     fields: [debts.userId],
+    references: [users.id],
+  }),
+}));
+
+export const organizationsRelations = relations(organizations, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [organizations.ownerId],
+    references: [users.id],
+  }),
+  members: many(users),
+  invitations: many(teamInvitations),
+}));
+
+
+
+export const teamInvitationsRelations = relations(teamInvitations, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [teamInvitations.organizationId],
+    references: [organizations.id],
+  }),
+  invitedBy: one(users, {
+    fields: [teamInvitations.invitedBy],
     references: [users.id],
   }),
 }));
@@ -233,6 +288,17 @@ export const insertPlanSchema = createInsertSchema(plans).omit({
   createdAt: true
 });
 
+export const insertOrganizationSchema = createInsertSchema(organizations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertTeamInvitationSchema = createInsertSchema(teamInvitations).omit({
+  id: true,
+  createdAt: true
+});
+
 // Authentication schemas
 export const loginSchema = z.object({
   emailOrPhone: z.string().min(1, "Email ou telefone é obrigatório"),
@@ -274,3 +340,9 @@ export type InsertDebt = z.infer<typeof insertDebtSchema>;
 
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
+
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+
+export type TeamInvitation = typeof teamInvitations.$inferSelect;
+export type InsertTeamInvitation = z.infer<typeof insertTeamInvitationSchema>;

@@ -9,6 +9,8 @@ interface User {
   lastName: string | null;
   subscriptionStatus: string;
   planType: string;
+  organizationId: number | null;
+  role: string;
 }
 
 interface AuthContextType {

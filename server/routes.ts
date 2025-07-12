@@ -79,7 +79,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: user.firstName,
         lastName: user.lastName,
         subscriptionStatus: user.subscriptionStatus || 'trialing',
-        planType: user.planType || 'basic'
+        planType: user.planType || 'basic',
+        organizationId: user.organizationId,
+        role: user.role || 'member'
       };
 
       await req.session.save();
@@ -651,6 +653,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting debt:", error);
       res.status(500).json({ message: "Erro ao deletar dívida" });
+    }
+  });
+
+  // Team management routes (Enterprise only)
+  app.get("/api/team/members", isAuthenticated, requirePlan("enterprise"), async (req, res) => {
+    try {
+      const user = req.session!.user;
+      if (!user.organizationId) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      const members = await storage.getOrganizationMembers(user.organizationId);
+      res.json(members);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/team/invitations", isAuthenticated, requirePlan("enterprise"), async (req, res) => {
+    try {
+      const user = req.session!.user;
+      if (!user.organizationId) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      const invitations = await storage.getTeamInvitations(user.organizationId);
+      res.json(invitations);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/team/invite", isAuthenticated, requirePlan("enterprise"), async (req, res) => {
+    try {
+      const { email, role } = req.body;
+      const user = req.session!.user;
+      
+      if (!user.organizationId) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Check if user is already a member
+      const existingUser = await storage.getUserByEmailOrPhone(email);
+      if (existingUser && existingUser.organizationId === user.organizationId) {
+        return res.status(400).json({ message: "User is already a member of this organization" });
+      }
+
+      // Generate invitation token
+      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+
+      const invitation = await storage.createTeamInvitation({
+        organizationId: user.organizationId,
+        email,
+        role: role || 'member',
+        invitedBy: user.id,
+        token,
+        expiresAt
+      });
+
+      // TODO: Send email invitation (for now just return the token)
+      res.json({ 
+        ...invitation,
+        inviteLink: `${req.protocol}://${req.get('host')}/invite/${token}`
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/team/members/:userId", isAuthenticated, requirePlan("enterprise"), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const user = req.session!.user;
+      
+      if (!user.organizationId) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Can't remove yourself or the owner
+      if (userId === user.id) {
+        return res.status(400).json({ message: "Cannot remove yourself" });
+      }
+
+      await storage.removeUserFromOrganization(userId, user.organizationId);
+      res.json({ message: "User removed successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/team/invitations/:invitationId", isAuthenticated, requirePlan("enterprise"), async (req, res) => {
+    try {
+      const invitationId = parseInt(req.params.invitationId);
+      await storage.deleteTeamInvitation(invitationId);
+      res.json({ message: "Invitation cancelled successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/team/accept-invitation/:token", isAuthenticated, async (req, res) => {
+    try {
+      const { token } = req.params;
+      const userId = req.session!.userId;
+      
+      await storage.acceptTeamInvitation(token, userId);
+      res.json({ message: "Invitation accepted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

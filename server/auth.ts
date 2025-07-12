@@ -15,6 +15,8 @@ declare module 'express-session' {
       lastName: string | null;
       subscriptionStatus: string;
       planType: string;
+      organizationId: number | null;
+      role: string;
     };
   }
 }
@@ -94,7 +96,9 @@ export const loginUser = async (req: Request, res: Response) => {
       firstName: user.firstName,
       lastName: user.lastName,
       subscriptionStatus: user.subscriptionStatus || 'trialing',
-      planType: user.planType || 'basic'
+      planType: user.planType || 'basic',
+      organizationId: user.organizationId,
+      role: user.role || 'member'
     };
     
     res.json({ 
@@ -134,6 +138,23 @@ export const registerUser = async (req: Request, res: Response) => {
       planType: 'basic',
       trialEndsAt
     });
+
+    // If user signs up for enterprise plan, create an organization
+    if (userData.planType === 'enterprise') {
+      const organization = await storage.createOrganization({
+        name: `${userData.firstName} ${userData.lastName}'s Organization`,
+        ownerId: user.id,
+        planType: 'enterprise',
+        subscriptionStatus: 'trialing',
+        maxUsers: 10 // Enterprise plan allows 10 users
+      });
+
+      // Update user to be part of the organization and set as owner
+      await storage.updateUser(user.id, {
+        organizationId: organization.id,
+        role: 'owner'
+      });
+    }
     
     req.session.userId = user.id;
     req.session.user = {
@@ -143,7 +164,9 @@ export const registerUser = async (req: Request, res: Response) => {
       firstName: user.firstName,
       lastName: user.lastName,
       subscriptionStatus: user.subscriptionStatus || 'trialing',
-      planType: user.planType || 'basic'
+      planType: user.planType || 'basic',
+      organizationId: user.organizationId,
+      role: user.role || 'member'
     };
     
     res.status(201).json({

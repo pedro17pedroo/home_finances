@@ -7,6 +7,8 @@ import {
   categories,
   users,
   plans,
+  organizations,
+  teamInvitations,
   type Account, 
   type InsertAccount,
   type Transaction, 
@@ -22,7 +24,11 @@ import {
   type User,
   type InsertUser,
   type Plan,
-  type InsertPlan
+  type InsertPlan,
+  type Organization,
+  type InsertOrganization,
+  type TeamInvitation,
+  type InsertTeamInvitation
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql, sum, count } from "drizzle-orm";
@@ -82,6 +88,20 @@ export interface IStorage {
   // Categories
   getCategories(): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
+
+  // Organizations (Multi-user support)
+  getOrganization(id: number): Promise<Organization | undefined>;
+  createOrganization(organization: InsertOrganization): Promise<Organization>;
+  updateOrganization(id: number, organization: Partial<InsertOrganization>): Promise<Organization>;
+  getOrganizationMembers(organizationId: number): Promise<User[]>;
+  removeUserFromOrganization(userId: number, organizationId: number): Promise<void>;
+  
+  // Team Invitations
+  getTeamInvitations(organizationId: number): Promise<TeamInvitation[]>;
+  createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation>;
+  getTeamInvitationByToken(token: string): Promise<TeamInvitation | undefined>;
+  acceptTeamInvitation(token: string, userId: number): Promise<void>;
+  deleteTeamInvitation(id: number): Promise<void>;
 
   // Dashboard data
   getFinancialSummary(userId: number): Promise<{
@@ -365,6 +385,89 @@ export class DatabaseStorage implements IStorage {
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
     const [category] = await db.insert(categories).values(insertCategory).returning();
     return category;
+  }
+
+  // Organizations (Multi-user support)
+  async getOrganization(id: number): Promise<Organization | undefined> {
+    const [organization] = await db.select().from(organizations).where(eq(organizations.id, id));
+    return organization;
+  }
+
+  async createOrganization(insertOrganization: InsertOrganization): Promise<Organization> {
+    const [organization] = await db.insert(organizations).values(insertOrganization).returning();
+    return organization;
+  }
+
+  async updateOrganization(id: number, insertOrganization: Partial<InsertOrganization>): Promise<Organization> {
+    const [organization] = await db
+      .update(organizations)
+      .set({ ...insertOrganization, updatedAt: new Date() })
+      .where(eq(organizations.id, id))
+      .returning();
+    return organization;
+  }
+
+  async getOrganizationMembers(organizationId: number): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(eq(users.organizationId, organizationId))
+      .orderBy(desc(users.createdAt));
+  }
+
+  async removeUserFromOrganization(userId: number, organizationId: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ organizationId: null, role: 'member' })
+      .where(and(eq(users.id, userId), eq(users.organizationId, organizationId)));
+  }
+
+  // Team Invitations
+  async getTeamInvitations(organizationId: number): Promise<TeamInvitation[]> {
+    return await db
+      .select()
+      .from(teamInvitations)
+      .where(eq(teamInvitations.organizationId, organizationId))
+      .orderBy(desc(teamInvitations.createdAt));
+  }
+
+  async createTeamInvitation(insertInvitation: InsertTeamInvitation): Promise<TeamInvitation> {
+    const [invitation] = await db.insert(teamInvitations).values(insertInvitation).returning();
+    return invitation;
+  }
+
+  async getTeamInvitationByToken(token: string): Promise<TeamInvitation | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(teamInvitations)
+      .where(and(eq(teamInvitations.token, token), sql`${teamInvitations.expiresAt} > NOW()`));
+    return invitation;
+  }
+
+  async acceptTeamInvitation(token: string, userId: number): Promise<void> {
+    const invitation = await this.getTeamInvitationByToken(token);
+    if (!invitation) {
+      throw new Error('Invalid or expired invitation');
+    }
+
+    // Update user to join organization
+    await db
+      .update(users)
+      .set({ 
+        organizationId: invitation.organizationId,
+        role: invitation.role 
+      })
+      .where(eq(users.id, userId));
+
+    // Mark invitation as accepted
+    await db
+      .update(teamInvitations)
+      .set({ acceptedAt: new Date() })
+      .where(eq(teamInvitations.token, token));
+  }
+
+  async deleteTeamInvitation(id: number): Promise<void> {
+    await db.delete(teamInvitations).where(eq(teamInvitations.id, id));
   }
 
   // Dashboard data
