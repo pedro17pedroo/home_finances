@@ -32,9 +32,9 @@ export default function Perfil() {
     confirmPassword: "",
   });
 
-  // Set initial data when user loads
+  // Set initial data when user loads - only if not editing
   useEffect(() => {
-    if (user) {
+    if (user && !isEditingProfile) {
       setProfileData({
         firstName: user.firstName || "",
         lastName: user.lastName || "",
@@ -42,7 +42,7 @@ export default function Perfil() {
         phone: user.phone || "",
       });
     }
-  }, [user]);
+  }, [user, isEditingProfile]);
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PUT", "/api/auth/profile", data),
