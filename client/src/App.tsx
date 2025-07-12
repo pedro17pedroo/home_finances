@@ -19,17 +19,12 @@ function Router() {
   return (
     <Switch>
       {/* Public routes */}
+      <Route path="/" component={Landing} />
       <Route path="/landing" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       
       {/* Protected routes with header */}
-      <Route path="/">
-        <div className="min-h-screen bg-slate-50">
-          <Header />
-          <Dashboard />
-        </div>
-      </Route>
       <Route path="/dashboard">
         <div className="min-h-screen bg-slate-50">
           <Header />
