@@ -121,7 +121,7 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
     resolver: zodResolver(insertAccountSchema),
     defaultValues: {
       name: "",
-      type: "checking",
+      type: "corrente",
       balance: "0",
       interestRate: "0",
     },
@@ -305,9 +305,8 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="checking">Conta Corrente</SelectItem>
-                        <SelectItem value="savings">Poupança</SelectItem>
-                        <SelectItem value="investment">Investimento</SelectItem>
+                        <SelectItem value="corrente">Conta Corrente</SelectItem>
+                        <SelectItem value="poupanca">Poupança</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

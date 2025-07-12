@@ -16,15 +16,13 @@ import { formatCurrency } from "@/lib/utils";
 import AccountLimitGuard from "@/components/auth/account-limit-guard";
 
 const accountTypeIcons = {
-  checking: CreditCard,
-  savings: PiggyBank,
-  investment: Wallet,
+  corrente: CreditCard,
+  poupanca: PiggyBank,
 };
 
 const accountTypeLabels = {
-  checking: "Conta Corrente",
-  savings: "Poupança",
-  investment: "Investimento",
+  corrente: "Conta Corrente",
+  poupanca: "Poupança",
 };
 
 export default function Contas() {
@@ -114,7 +112,7 @@ export default function Contas() {
     resolver: zodResolver(insertAccountSchema),
     defaultValues: {
       name: "",
-      type: "checking",
+      type: "corrente",
       balance: "0",
       interestRate: "0",
     },
@@ -124,7 +122,7 @@ export default function Contas() {
     resolver: zodResolver(insertAccountSchema),
     defaultValues: {
       name: "",
-      type: "checking",
+      type: "corrente",
       balance: "0",
       interestRate: "0",
     },
@@ -234,9 +232,8 @@ export default function Contas() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="checking">Conta Corrente</SelectItem>
-                            <SelectItem value="savings">Poupança</SelectItem>
-                            <SelectItem value="investment">Investimento</SelectItem>
+                            <SelectItem value="corrente">Conta Corrente</SelectItem>
+                            <SelectItem value="poupanca">Poupança</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -409,9 +406,8 @@ export default function Contas() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="checking">Conta Corrente</SelectItem>
-                        <SelectItem value="savings">Poupança</SelectItem>
-                        <SelectItem value="investment">Investimento</SelectItem>
+                        <SelectItem value="corrente">Conta Corrente</SelectItem>
+                        <SelectItem value="poupanca">Poupança</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
