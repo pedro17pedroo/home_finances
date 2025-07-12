@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { User, Crown, AlertTriangle, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
@@ -60,6 +62,25 @@ export default function Header() {
     }
     
     return null;
+  };
+
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/auth/logout");
+      toast({
+        title: "Logout realizado com sucesso",
+        description: "Você foi desconectado da sua conta.",
+      });
+      window.location.href = "/";
+    } catch (error) {
+      toast({
+        title: "Erro ao fazer logout",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -140,8 +161,34 @@ export default function Header() {
 
             {/* Desktop Actions - Only on larger screens */}
             <div className="hidden lg:flex items-center space-x-3">
-              <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center cursor-pointer hover:bg-slate-400 transition-colors">
-                <User className="h-4 w-4 text-slate-600" />
+              <div className="relative">
+                <button
+                  className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center cursor-pointer hover:bg-slate-400 transition-colors"
+                  onClick={() => setOpenDropdown(openDropdown === 'user' ? null : 'user')}
+                >
+                  <User className="h-4 w-4 text-slate-600" />
+                </button>
+                {openDropdown === 'user' && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white shadow-lg border border-slate-200 rounded-md py-1 z-50">
+                    <Link href="/perfil">
+                      <span
+                        className="block px-3 py-2 text-sm cursor-pointer transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-50"
+                        onClick={() => setOpenDropdown(null)}
+                      >
+                        Perfil
+                      </span>
+                    </Link>
+                    <button
+                      className="block w-full text-left px-3 py-2 text-sm cursor-pointer transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-50"
+                      onClick={() => {
+                        setOpenDropdown(null);
+                        handleLogout();
+                      }}
+                    >
+                      Sair
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -208,12 +255,26 @@ export default function Header() {
                         ))}
                       </nav>
                       <div className="px-4 py-2 border-t border-slate-100">
-                        <div className="flex items-center space-x-3 py-2 rounded-md hover:bg-slate-50 cursor-pointer">
-                          <div className="w-6 h-6 bg-slate-300 rounded-full flex items-center justify-center">
-                            <User className="h-3 w-3 text-slate-600" />
-                          </div>
-                          <span className="text-sm text-slate-600">Minha Conta</span>
+                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                          Minha Conta
                         </div>
+                        <Link href="/perfil">
+                          <span
+                            className="block px-2 py-2 text-sm cursor-pointer transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                          >
+                            Perfil
+                          </span>
+                        </Link>
+                        <button
+                          className="block w-full text-left px-2 py-2 text-sm cursor-pointer transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md"
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            handleLogout();
+                          }}
+                        >
+                          Sair
+                        </button>
                       </div>
                     </div>
                   </div>

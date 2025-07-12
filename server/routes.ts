@@ -60,6 +60,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", registerUser);
   app.post("/api/auth/logout", logoutUser);
   app.get("/api/auth/user", getCurrentUser);
+  app.get("/api/auth/me", isAuthenticated, getCurrentUser);
+  
+  // Profile management routes
+  app.put("/api/auth/profile", isAuthenticated, async (req, res) => {
+    try {
+      const { firstName, lastName, email, phone } = req.body;
+      const userId = req.session.userId;
+      
+      const updatedUser = await storage.updateUser(userId, {
+        firstName,
+        lastName,
+        email,
+        phone
+      });
+      
+      res.json({ 
+        message: "Perfil atualizado com sucesso",
+        user: updatedUser 
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Erro ao atualizar perfil: " + error.message });
+    }
+  });
+  
+  app.put("/api/auth/change-password", isAuthenticated, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.session.userId;
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      const { verifyPassword, hashPassword } = await import("./auth");
+      const isValidPassword = await verifyPassword(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({ message: "Senha atual incorreta" });
+      }
+      
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(userId, { password: hashedPassword });
+      
+      res.json({ message: "Senha alterada com sucesso" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Erro ao alterar senha: " + error.message });
+    }
+  });
 
   // Stripe routes
   app.post("/api/create-payment-intent", isAuthenticated, async (req, res) => {

@@ -15,6 +15,7 @@ import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
+import Perfil from "@/pages/perfil";
 
 function Router() {
   return (
@@ -66,6 +67,12 @@ function Router() {
         <div className="min-h-screen bg-slate-50">
           <Header />
           <SubscriptionPage />
+        </div>
+      </Route>
+      <Route path="/perfil">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Perfil />
         </div>
       </Route>
       <Route component={NotFound} />
