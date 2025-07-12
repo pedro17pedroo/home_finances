@@ -25,7 +25,7 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Plan Limit Implementation**: Comprehensive plan limits for Basic tier with 5 accounts max and 1000 transactions/month
 - ✅ **Replit Migration**: Successfully migrated from Replit Agent to standard Replit environment with proper security
 - ✅ **Account Management Page**: Dedicated page for managing bank accounts with create/edit/delete functionality
-- ✅ **Dashboard Integration**: "Adicionar Conta" button now redirects to the dedicated accounts management page
+- ✅ **Dashboard Integration**: "Adicionar Conta" button now opens a modal with account creation form directly in the dashboard
 
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.

@@ -1,17 +1,68 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, Edit } from "lucide-react";
 import { Link } from "wouter";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertAccountSchema, type Account, type InsertAccount } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import AccountLimitGuard from "@/components/auth/account-limit-guard";
-import type { Account } from "@shared/schema";
 
 export default function AccountManagement() {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const { data: accounts, isLoading } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
   });
+
+  // Criar conta
+  const createMutation = useMutation({
+    mutationFn: (data: InsertAccount) => apiRequest("/api/accounts", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
+      setIsCreateDialogOpen(false);
+      form.reset();
+      toast({
+        title: "Conta criada",
+        description: "A conta foi criada com sucesso.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar conta.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const form = useForm<InsertAccount>({
+    resolver: zodResolver(insertAccountSchema),
+    defaultValues: {
+      name: "",
+      type: "checking",
+      balance: "0",
+      interestRate: "0",
+    },
+  });
+
+  const onSubmit = (data: InsertAccount) => {
+    createMutation.mutate(data);
+  };
 
   if (isLoading) {
     return (
@@ -35,7 +86,8 @@ export default function AccountManagement() {
   }
 
   return (
-    <Card className="border border-slate-200">
+    <>
+      <Card className="border border-slate-200">
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-slate-900">
             Contas e Investimentos
@@ -82,19 +134,125 @@ export default function AccountManagement() {
                 <AccountLimitGuard>
                   <Button 
                     variant="ghost" 
-                    asChild
+                    onClick={() => setIsCreateDialogOpen(true)}
                     className="flex flex-col items-center text-slate-500 hover:text-slate-700"
                   >
-                    <Link href="/contas">
-                      <Plus className="w-8 h-8 mb-2" />
-                      <span className="text-sm font-medium">Adicionar Conta</span>
-                    </Link>
+                    <Plus className="w-8 h-8 mb-2" />
+                    <span className="text-sm font-medium">Adicionar Conta</span>
                   </Button>
                 </AccountLimitGuard>
               </div>
             </div>
           </div>
         </CardContent>
-    </Card>
+      </Card>
+
+      {/* Dialog de Criação de Conta */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Nova Conta</DialogTitle>
+            <DialogDescription>
+              Adicione uma nova conta bancária ao seu controle financeiro.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome da Conta</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Banco do Brasil - CC" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Conta</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="checking">Conta Corrente</SelectItem>
+                        <SelectItem value="savings">Poupança</SelectItem>
+                        <SelectItem value="investment">Investimento</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="balance"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Saldo Inicial</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="interestRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Taxa de Juros (%)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createMutation.isPending}
+                >
+                  {createMutation.isPending ? "Criando..." : "Criar Conta"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
