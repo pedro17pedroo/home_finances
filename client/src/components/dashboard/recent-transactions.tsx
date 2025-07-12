@@ -6,10 +6,13 @@ import { Plus, Minus } from "lucide-react";
 import type { Transaction } from "@shared/schema";
 
 export default function RecentTransactions() {
-  const { data: transactions, isLoading } = useQuery<Transaction[]>({
+  const { data: transactions, isLoading, error } = useQuery<Transaction[]>({
     queryKey: ["/api/transactions"],
     queryFn: async () => {
       const response = await fetch("/api/transactions?limit=5");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       return response.json();
     },
   });
@@ -59,12 +62,16 @@ export default function RecentTransactions() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {transactions?.length === 0 ? (
+          {error ? (
+            <div className="text-center py-8 text-slate-500">
+              Faça login para ver suas transações
+            </div>
+          ) : !transactions || transactions.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
               Nenhuma transação encontrada
             </div>
           ) : (
-            transactions?.map((transaction) => (
+            Array.isArray(transactions) && transactions.map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                 <div className="flex items-center">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${

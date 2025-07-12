@@ -10,23 +10,64 @@ import Despesas from "@/pages/despesas";
 import Poupanca from "@/pages/poupanca";
 import Emprestimos from "@/pages/emprestimos";
 import Relatorios from "@/pages/relatorios";
+import Landing from "@/pages/landing";
+import Login from "@/pages/login";
+import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header />
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/receitas" component={Receitas} />
-        <Route path="/despesas" component={Despesas} />
-        <Route path="/poupanca" component={Poupanca} />
-        <Route path="/emprestimos" component={Emprestimos} />
-        <Route path="/relatorios" component={Relatorios} />
-        <Route component={NotFound} />
-      </Switch>
-    </div>
+    <Switch>
+      {/* Public routes */}
+      <Route path="/landing" component={Landing} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
+      
+      {/* Protected routes with header */}
+      <Route path="/">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Dashboard />
+        </div>
+      </Route>
+      <Route path="/dashboard">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Dashboard />
+        </div>
+      </Route>
+      <Route path="/receitas">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Receitas />
+        </div>
+      </Route>
+      <Route path="/despesas">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Despesas />
+        </div>
+      </Route>
+      <Route path="/poupanca">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Poupanca />
+        </div>
+      </Route>
+      <Route path="/emprestimos">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Emprestimos />
+        </div>
+      </Route>
+      <Route path="/relatorios">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Relatorios />
+        </div>
+      </Route>
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
