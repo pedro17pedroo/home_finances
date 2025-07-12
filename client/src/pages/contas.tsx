@@ -208,6 +208,9 @@ export default function Contas() {
               <Form {...form}>
                 <form onSubmit={(e) => {
                   console.log("Form onSubmit event triggered");
+                  console.log("Form is valid:", form.formState.isValid);
+                  console.log("Form errors:", form.formState.errors);
+                  console.log("Form values:", form.getValues());
                   form.handleSubmit(onSubmit)(e);
                 }} className="space-y-4">
                   <FormField
