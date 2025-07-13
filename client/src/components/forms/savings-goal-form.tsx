@@ -39,8 +39,8 @@ export default function SavingsGoalForm({ onSuccess }: SavingsGoalFormProps) {
     mutationFn: async (data: SavingsGoalFormData) => {
       const payload = {
         ...data,
-        targetAmount: parseFloat(data.targetAmount),
-        currentAmount: data.currentAmount ? parseFloat(data.currentAmount) : 0,
+        targetAmount: data.targetAmount,
+        currentAmount: data.currentAmount || "0",
         targetDate: data.targetDate ? new Date(data.targetDate) : undefined,
       };
       return await apiRequest("POST", "/api/savings-goals", payload);

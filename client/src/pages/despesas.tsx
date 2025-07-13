@@ -21,10 +21,7 @@ export default function Despesas() {
         throw new Error('Failed to fetch transactions');
       }
       const data = await response.json();
-      console.log('Despesas - Dados recebidos:', data);
-      const filtered = data.filter((t: Transaction) => t.type === 'despesa');
-      console.log('Despesas - Dados filtrados:', filtered);
-      return filtered;
+      return data.filter((t: Transaction) => t.type === 'despesa');
     },
   });
 

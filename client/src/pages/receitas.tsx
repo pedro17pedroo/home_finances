@@ -21,10 +21,7 @@ export default function Receitas() {
         throw new Error('Failed to fetch transactions');
       }
       const data = await response.json();
-      console.log('Receitas - Dados recebidos:', data);
-      const filtered = data.filter((t: Transaction) => t.type === 'receita');
-      console.log('Receitas - Dados filtrados:', filtered);
-      return filtered;
+      return data.filter((t: Transaction) => t.type === 'receita');
     },
   });
 
