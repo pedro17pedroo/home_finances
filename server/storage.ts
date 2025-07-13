@@ -216,6 +216,40 @@ export class DatabaseStorage implements IStorage {
     return account;
   }
 
+  // Helper method to update account balance based on transactions
+  async updateAccountBalance(accountId: number, userId: number): Promise<void> {
+    // Calculate total balance from transactions
+    const accountTransactions = await db
+      .select()
+      .from(transactions)
+      .where(and(
+        eq(transactions.accountId, accountId),
+        eq(transactions.userId, userId)
+      ));
+
+    let balance = 0;
+    for (const transaction of accountTransactions) {
+      const amount = parseFloat(transaction.amount);
+      if (transaction.type === 'receita') {
+        balance += amount;
+      } else if (transaction.type === 'despesa') {
+        balance -= amount;
+      }
+    }
+
+    // Update the account with the calculated balance
+    await db
+      .update(accounts)
+      .set({ 
+        balance: balance.toFixed(2), 
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(accounts.id, accountId),
+        eq(accounts.userId, userId)
+      ));
+  }
+
   async deleteAccount(id: number, userId: number): Promise<void> {
     await db.delete(accounts).where(and(eq(accounts.id, id), eq(accounts.userId, userId)));
   }
@@ -239,20 +273,46 @@ export class DatabaseStorage implements IStorage {
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
     const [transaction] = await db.insert(transactions).values(insertTransaction).returning();
+    
+    // Update account balance if accountId is provided
+    if (transaction.accountId) {
+      await this.updateAccountBalance(transaction.accountId, transaction.userId);
+    }
+    
     return transaction;
   }
 
   async updateTransaction(id: number, insertTransaction: Partial<InsertTransaction>, userId: number): Promise<Transaction> {
+    // Get the old transaction to check if account changed
+    const oldTransaction = await this.getTransaction(id, userId);
+    
     const [transaction] = await db
       .update(transactions)
       .set({ ...insertTransaction, updatedAt: new Date() })
       .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
       .returning();
+    
+    // Update account balances
+    if (oldTransaction?.accountId) {
+      await this.updateAccountBalance(oldTransaction.accountId, userId);
+    }
+    if (transaction.accountId && transaction.accountId !== oldTransaction?.accountId) {
+      await this.updateAccountBalance(transaction.accountId, userId);
+    }
+    
     return transaction;
   }
 
   async deleteTransaction(id: number, userId: number): Promise<void> {
+    // Get the transaction before deleting to update account balance
+    const transaction = await this.getTransaction(id, userId);
+    
     await db.delete(transactions).where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+    
+    // Update account balance if accountId was set
+    if (transaction?.accountId) {
+      await this.updateAccountBalance(transaction.accountId, userId);
+    }
   }
 
   async getTransactionsByDateRange(userId: number, startDate: Date, endDate: Date): Promise<Transaction[]> {

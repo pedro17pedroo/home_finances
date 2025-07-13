@@ -31,6 +31,8 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Angola Localization**: Complete adaptation for Angola market with AOA currency, Angolan bank references, and localized pricing
 - ✅ **Currency Conversion**: All remaining R$ references converted to Kz (Angolan Kwanza) across all forms, pages, and documentation
 - ✅ **Plan Selection Fix**: Fixed registration flow to properly respect selected plan type during account creation
+- ✅ **Replit Migration Completed**: Successfully migrated from Replit Agent to standard Replit environment with PostgreSQL database
+- ✅ **Account Balance Synchronization**: Fixed critical issue where account balances weren't updating with transactions - implemented automatic balance calculation
 
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.
