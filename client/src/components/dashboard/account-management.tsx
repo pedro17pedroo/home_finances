@@ -22,7 +22,13 @@ export default function AccountManagement() {
 
   const { data: accounts, isLoading } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
+    staleTime: 0, // Always refetch
+    gcTime: 0, // Don't cache
   });
+
+  // Debug logging
+  console.log("Dashboard account-management - accounts data:", accounts);
+  console.log("Dashboard account-management - isLoading:", isLoading);
 
   // Criar conta
   const createMutation = useMutation({

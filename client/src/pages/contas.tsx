@@ -31,9 +31,15 @@ export default function Contas() {
   const { toast } = useToast();
 
   // Buscar contas
-  const { data: accounts = [], isLoading } = useQuery<Account[]>({
+  const { data: accounts = [], isLoading, refetch } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
+    staleTime: 0, // Always refetch
+    gcTime: 0, // Don't cache
   });
+
+  // Debug logging
+  console.log("Contas page - accounts data:", accounts);
+  console.log("Contas page - isLoading:", isLoading);
 
   // Criar conta
   const createMutation = useMutation({
@@ -41,11 +47,12 @@ export default function Contas() {
       console.log("Mutation called with data:", data);
       return apiRequest("POST", "/api/accounts", data);
     },
-    onSuccess: () => {
-      console.log("Account created successfully");
-      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
+    onSuccess: async (result) => {
+      console.log("Account created successfully", result);
+      await queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
+      await refetch(); // Force a manual refetch
       setIsCreateDialogOpen(false);
       toast({
         title: "Conta criada",
