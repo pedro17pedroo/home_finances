@@ -22,6 +22,8 @@ export default function AccountManagement() {
 
   const { data: accounts, isLoading } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
     staleTime: 0, // Always refetch
     gcTime: 0, // Don't cache
   });

@@ -65,13 +65,16 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
       };
       return await apiRequest("POST", "/api/transactions", payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Transação criada",
         description: "A transação foi registrada com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      // Invalidate all related queries to ensure UI consistency
+      await queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/accounts"] });
       form.reset();
       onSuccess?.();
     },

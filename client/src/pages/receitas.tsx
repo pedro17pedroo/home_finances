@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -146,7 +147,11 @@ export default function Receitas() {
           </DialogHeader>
           <TransactionForm 
             defaultType="receita"
-            onSuccess={() => setIsModalOpen(false)} 
+            onSuccess={() => {
+              setIsModalOpen(false);
+              // Force refresh of receitas query
+              queryClient.invalidateQueries({ queryKey: ["/api/transactions", "receitas"] });
+            }} 
           />
         </DialogContent>
       </Dialog>
