@@ -27,47 +27,48 @@ export default function Despesas() {
   return (
     <TransactionLimitGuard>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Despesas</h1>
-            <p className="text-slate-600">Controle seus gastos</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Despesas</h1>
+            <p className="text-sm sm:text-base text-slate-600">Controle seus gastos</p>
           </div>
           <Button
             onClick={() => setIsModalOpen(true)}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0 w-full sm:w-auto"
           >
             <Minus className="h-4 w-4 mr-2" />
-            Nova Despesa
+            <span className="hidden sm:inline">Nova Despesa</span>
+            <span className="sm:hidden">Nova</span>
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Total de Despesas</CardTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+          <Card className="p-4 sm:p-6">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm sm:text-base lg:text-lg font-semibold">Total de Despesas</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-red-600">
+            <CardContent className="pt-2">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600 break-words">
                 {formatCurrency(totalDespesas)}
               </p>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Este Mês</CardTitle>
+          <Card className="p-4 sm:p-6">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm sm:text-base lg:text-lg font-semibold">Este Mês</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-slate-900">
+            <CardContent className="pt-2">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 break-words">
                 {formatCurrency(0)}
               </p>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Média Mensal</CardTitle>
+          <Card className="p-4 sm:p-6 sm:col-span-2 lg:col-span-1">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm sm:text-base lg:text-lg font-semibold">Média Mensal</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-slate-900">
+            <CardContent className="pt-2">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 break-words">
                 {formatCurrency(0)}
               </p>
             </CardContent>
@@ -103,27 +104,27 @@ export default function Despesas() {
                 <p className="text-slate-400 mt-2">Clique em "Nova Despesa" para começar</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {transactions?.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                        <Minus className="w-5 h-5 text-red-600" />
+                  <div key={transaction.id} className="flex items-center justify-between p-3 sm:p-4 bg-slate-50 rounded-lg">
+                    <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Minus className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
                       </div>
-                      <div>
-                        <p className="font-medium text-slate-900">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-slate-900 text-sm sm:text-base truncate">
                           {transaction.description || transaction.category}
                         </p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-xs sm:text-sm text-slate-500 truncate">
                           {transaction.category}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-red-600">
+                    <div className="text-right flex-shrink-0 ml-2">
+                      <p className="font-semibold text-red-600 text-sm sm:text-base">
                         -{formatCurrency(transaction.amount)}
                       </p>
-                      <p className="text-sm text-slate-500">
+                      <p className="text-xs sm:text-sm text-slate-500">
                         {formatDate(transaction.date)}
                       </p>
                     </div>
