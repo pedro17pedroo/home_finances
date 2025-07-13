@@ -310,7 +310,8 @@ export const registerSchema = z.object({
   phone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos").optional(),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   firstName: z.string().min(1, "Nome é obrigatório"),
-  lastName: z.string().min(1, "Sobrenome é obrigatório")
+  lastName: z.string().min(1, "Sobrenome é obrigatório"),
+  planType: z.enum(['basic', 'premium', 'enterprise']).optional()
 }).refine(data => data.email || data.phone, {
   message: "Email ou telefone é obrigatório",
   path: ["emailOrPhone"]

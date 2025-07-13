@@ -135,7 +135,7 @@ export const registerUser = async (req: Request, res: Response) => {
       ...userData,
       password: hashedPassword,
       subscriptionStatus: 'trialing',
-      planType: 'basic',
+      planType: userData.planType || 'basic',
       trialEndsAt
     });
 
@@ -152,7 +152,8 @@ export const registerUser = async (req: Request, res: Response) => {
       // Update user to be part of the organization and set as owner
       await storage.updateUser(user.id, {
         organizationId: organization.id,
-        role: 'owner'
+        role: 'owner',
+        planType: 'enterprise'
       });
     }
     

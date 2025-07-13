@@ -30,6 +30,7 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Transaction Forms Enhancement**: Added "Nova Conta" button in transaction forms (receitas/despesas) for quick account creation
 - ✅ **Angola Localization**: Complete adaptation for Angola market with AOA currency, Angolan bank references, and localized pricing
 - ✅ **Currency Conversion**: All remaining R$ references converted to Kz (Angolan Kwanza) across all forms, pages, and documentation
+- ✅ **Plan Selection Fix**: Fixed registration flow to properly respect selected plan type during account creation
 
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.
