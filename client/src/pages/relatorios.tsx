@@ -20,7 +20,7 @@ import {
   LineElement,
 } from "chart.js";
 import { formatCurrency, getMonthName } from "@/lib/utils";
-import { CATEGORY_COLORS, CATEGORY_LABELS } from "@/lib/types";
+import { CATEGORY_COLORS } from "@/lib/types";
 import { FileText, TrendingUp, TrendingDown, DollarSign, Calendar } from "lucide-react";
 import type { 
   Transaction, 
@@ -88,7 +88,7 @@ export default function Relatorios() {
   };
 
   const expenseDistributionData = {
-    labels: expenseData?.map(item => CATEGORY_LABELS[item.category as keyof typeof CATEGORY_LABELS]) || [],
+    labels: expenseData?.map(item => item.category) || [],
     datasets: [{
       data: expenseData?.map(item => parseFloat(item.amount)) || [],
       backgroundColor: expenseData?.map(item => CATEGORY_COLORS[item.category as keyof typeof CATEGORY_COLORS]) || [],

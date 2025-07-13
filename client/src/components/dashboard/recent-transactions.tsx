@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { CATEGORY_LABELS } from "@/lib/types";
+
 import { Plus, Minus } from "lucide-react";
 import type { Transaction } from "@shared/schema";
 
@@ -85,10 +85,10 @@ export default function RecentTransactions() {
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-slate-900">
-                      {transaction.description || CATEGORY_LABELS[transaction.category as keyof typeof CATEGORY_LABELS]}
+                      {transaction.description || transaction.category}
                     </p>
                     <p className="text-sm text-slate-500">
-                      {CATEGORY_LABELS[transaction.category as keyof typeof CATEGORY_LABELS]}
+                      {transaction.category}
                     </p>
                   </div>
                 </div>

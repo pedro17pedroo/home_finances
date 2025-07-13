@@ -36,23 +36,7 @@ export interface SavingsGoalFormData {
   description?: string;
 }
 
-export const CATEGORIES = {
-  receita: [
-    { value: 'salario', label: 'Salário' },
-    { value: 'freelance', label: 'Freelance' },
-    { value: 'investimentos', label: 'Investimentos' },
-    { value: 'outros', label: 'Outros' },
-  ],
-  despesa: [
-    { value: 'alimentacao', label: 'Alimentação' },
-    { value: 'moradia', label: 'Moradia' },
-    { value: 'transporte', label: 'Transporte' },
-    { value: 'lazer', label: 'Lazer' },
-    { value: 'saude', label: 'Saúde' },
-    { value: 'educacao', label: 'Educação' },
-    { value: 'outros', label: 'Outros' },
-  ],
-} as const;
+
 
 export const CATEGORY_COLORS = {
   alimentacao: '#3B82F6',
@@ -67,15 +51,4 @@ export const CATEGORY_COLORS = {
   outros: '#64748B',
 } as const;
 
-export const CATEGORY_LABELS = {
-  alimentacao: 'Alimentação',
-  moradia: 'Moradia',
-  transporte: 'Transporte',
-  lazer: 'Lazer',
-  saude: 'Saúde',
-  educacao: 'Educação',
-  salario: 'Salário',
-  freelance: 'Freelance',
-  investimentos: 'Investimentos',
-  outros: 'Outros',
-} as const;
+

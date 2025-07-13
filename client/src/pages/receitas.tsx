@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import TransactionForm from "@/components/forms/transaction-form";
 import TransactionLimitGuard from "@/components/auth/transaction-limit-guard";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { CATEGORY_LABELS } from "@/lib/types";
+
 import type { Transaction } from "@shared/schema";
 
 export default function Receitas() {
@@ -112,10 +112,10 @@ export default function Receitas() {
                       </div>
                       <div>
                         <p className="font-medium text-slate-900">
-                          {transaction.description || CATEGORY_LABELS[transaction.category as keyof typeof CATEGORY_LABELS]}
+                          {transaction.description || transaction.category}
                         </p>
                         <p className="text-sm text-slate-500">
-                          {CATEGORY_LABELS[transaction.category as keyof typeof CATEGORY_LABELS]}
+                          {transaction.category}
                         </p>
                       </div>
                     </div>

@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateInput } from "@/lib/utils";
-import { CATEGORIES } from "@/lib/types";
+
 import CategoryForm from "@/components/forms/category-form";
 import AccountLimitGuard from "@/components/auth/account-limit-guard";
 import { insertAccountSchema, type Account, type Category, type InsertAccount } from "@shared/schema";
@@ -89,7 +89,6 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
   };
 
   const availableCategories = categories?.filter(cat => cat.type === defaultType) || [];
-  const staticCategories = CATEGORIES[defaultType] || [];
 
   // Criar conta
   const createAccountMutation = useMutation({
@@ -175,16 +174,9 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
           <SelectContent>
-            {/* Categorias personalizadas */}
             {availableCategories.map((category) => (
               <SelectItem key={category.id} value={category.name}>
                 {category.name}
-              </SelectItem>
-            ))}
-            {/* Categorias padrão */}
-            {staticCategories.map((category) => (
-              <SelectItem key={category.value} value={category.value}>
-                {category.label}
               </SelectItem>
             ))}
           </SelectContent>

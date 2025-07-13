@@ -48,7 +48,8 @@ export default function UsageLimits({ showTitle = true, compact = false }: Usage
     return null;
   }
 
-  const formatLimit = (limit: number) => {
+  const formatLimit = (limit: number | null) => {
+    if (limit === null || limit === undefined) return 'Ilimitado';
     return limit === Infinity ? 'Ilimitado' : limit.toLocaleString();
   };
 
