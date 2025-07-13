@@ -14,11 +14,17 @@ export default function Despesas() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
-    queryKey: ["/api/transactions"],
+    queryKey: ["/api/transactions", "despesas"],
     queryFn: async () => {
       const response = await fetch("/api/transactions");
+      if (!response.ok) {
+        throw new Error('Failed to fetch transactions');
+      }
       const data = await response.json();
-      return data.filter((t: Transaction) => t.type === 'despesa');
+      console.log('Despesas - Dados recebidos:', data);
+      const filtered = data.filter((t: Transaction) => t.type === 'despesa');
+      console.log('Despesas - Dados filtrados:', filtered);
+      return filtered;
     },
   });
 
