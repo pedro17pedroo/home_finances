@@ -361,13 +361,6 @@ export default function Contas() {
         </div>
       </div>
 
-      {/* Histórico de Transferências */}
-      {showTransferHistory && (
-        <div className="mb-8">
-          <TransferHistory />
-        </div>
-      )}
-
       {/* Lista de Contas */}
       {accounts.length === 0 ? (
         <Card>
@@ -433,6 +426,13 @@ export default function Contas() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Histórico de Transferências */}
+      {showTransferHistory && (
+        <div className="mt-8">
+          <TransferHistory />
         </div>
       )}
 
