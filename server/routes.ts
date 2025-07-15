@@ -553,7 +553,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (data.targetDate && typeof data.targetDate === 'string') {
         data.targetDate = new Date(data.targetDate);
       }
-      
       const validatedData = insertSavingsGoalSchema.parse(data);
       const goal = await storage.createSavingsGoal(validatedData);
       res.status(201).json(goal);
