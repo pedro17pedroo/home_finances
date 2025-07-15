@@ -22,6 +22,7 @@ export default function AdminLogin() {
   const { isAuthenticated, login, isLoggingIn } = useAdminAuth();
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [, setLocation] = useLocation();
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -31,8 +32,6 @@ export default function AdminLogin() {
     },
   });
 
-  const [, setLocation] = useLocation();
-  
   if (isAuthenticated) {
     setLocation('/admin/dashboard');
     return null;

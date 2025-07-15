@@ -10,6 +10,7 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const { isAuthenticated, isLoading } = useAdminAuth();
+  const [, setLocation] = useLocation();
 
   if (isLoading) {
     return (
@@ -19,8 +20,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  const [, setLocation] = useLocation();
-  
   if (!isAuthenticated) {
     setLocation('/admin/login');
     return null;
