@@ -140,6 +140,7 @@ export const savingsGoals = pgTable("savings_goals", {
 export const loans = pgTable("loans", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  accountId: integer("account_id").references(() => accounts.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   borrower: varchar("borrower", { length: 255 }).notNull(),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
@@ -154,6 +155,7 @@ export const loans = pgTable("loans", {
 export const debts = pgTable("debts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  accountId: integer("account_id").references(() => accounts.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   creditor: varchar("creditor", { length: 255 }).notNull(),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
@@ -181,6 +183,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 
 export const accountsRelations = relations(accounts, ({ many, one }) => ({
   transactions: many(transactions),
+  loans: many(loans),
+  debts: many(debts),
   user: one(users, {
     fields: [accounts.userId],
     references: [users.id],
@@ -210,12 +214,20 @@ export const loansRelations = relations(loans, ({ one }) => ({
     fields: [loans.userId],
     references: [users.id],
   }),
+  account: one(accounts, {
+    fields: [loans.accountId],
+    references: [accounts.id],
+  }),
 }));
 
 export const debtsRelations = relations(debts, ({ one }) => ({
   user: one(users, {
     fields: [debts.userId],
     references: [users.id],
+  }),
+  account: one(accounts, {
+    fields: [debts.accountId],
+    references: [accounts.id],
   }),
 }));
 

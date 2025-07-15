@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,13 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateInput } from "@/lib/utils";
+import type { Account } from "@shared/schema";
 
 const debtFormSchema = z.object({
   amount: z.string().min(1, "Valor é obrigatório"),
   creditor: z.string().min(1, "Nome do credor é obrigatório"),
+  accountId: z.string().min(1, "Conta é obrigatória"),
   interestRate: z.string().optional(),
   dueDate: z.string().optional(),
-  status: z.enum(["pendente", "pago", "cancelado"]).default("pendente"),
   description: z.string().optional(),
 });
 
@@ -30,20 +31,24 @@ export default function DebtForm({ onSuccess }: DebtFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const { data: accounts } = useQuery<Account[]>({
+    queryKey: ["/api/accounts"],
+  });
+
   const form = useForm<DebtFormData>({
     resolver: zodResolver(debtFormSchema),
-    defaultValues: {
-      status: "pendente",
-    },
+    defaultValues: {},
   });
 
   const createDebtMutation = useMutation({
     mutationFn: async (data: DebtFormData) => {
       const payload = {
         ...data,
+        accountId: parseInt(data.accountId),
         amount: data.amount, // Keep as string for Drizzle decimal type
         interestRate: data.interestRate || undefined,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        status: "pendente", // Always create as pending
       };
       return await apiRequest("POST", "/api/debts", payload);
     },
@@ -123,17 +128,22 @@ export default function DebtForm({ onSuccess }: DebtFormProps) {
       </div>
 
       <div>
-        <Label htmlFor="status">Status</Label>
-        <Select onValueChange={(value) => form.setValue("status", value as "pendente" | "pago" | "cancelado")}>
+        <Label htmlFor="accountId">Conta que será movimentada</Label>
+        <Select onValueChange={(value) => form.setValue("accountId", value)}>
           <SelectTrigger>
-            <SelectValue placeholder="Selecione o status" />
+            <SelectValue placeholder="Selecione uma conta" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="pendente">Pendente</SelectItem>
-            <SelectItem value="pago">Pago</SelectItem>
-            <SelectItem value="cancelado">Cancelado</SelectItem>
+            {accounts?.map((account) => (
+              <SelectItem key={account.id} value={account.id.toString()}>
+                {account.name} ({account.bank})
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
+        {form.formState.errors.accountId && (
+          <p className="text-sm text-red-600 mt-1">{form.formState.errors.accountId.message}</p>
+        )}
       </div>
 
       <div>

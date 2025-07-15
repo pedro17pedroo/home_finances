@@ -15,7 +15,7 @@ import PlanGuard from "@/components/auth/plan-guard";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Loan, Debt } from "@shared/schema";
+import type { Loan, Debt, Account } from "@shared/schema";
 
 export default function Emprestimos() {
   return (
@@ -28,6 +28,12 @@ export default function Emprestimos() {
 function EmprestimosContent() {
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState<{
+    type: 'loan' | 'debt';
+    id: number;
+    status: string;
+  } | null>(null);
   
   // Filter states
   const [loanSearch, setLoanSearch] = useState("");
@@ -44,6 +50,10 @@ function EmprestimosContent() {
 
   const { data: debts, isLoading: debtsLoading } = useQuery<Debt[]>({
     queryKey: ["/api/debts"],
+  });
+
+  const { data: accounts } = useQuery<Account[]>({
+    queryKey: ["/api/accounts"],
   });
 
   const totalLoansGiven = loans?.reduce((sum, l) => sum + parseFloat(l.amount), 0) || 0;
@@ -68,8 +78,10 @@ function EmprestimosContent() {
 
   // Update status mutations
   const updateLoanStatusMutation = useMutation({
-    mutationFn: async ({ loanId, status }: { loanId: number; status: string }) => {
-      return await apiRequest("PUT", `/api/loans/${loanId}`, { status });
+    mutationFn: async ({ loanId, status, accountId }: { loanId: number; status: string; accountId?: number }) => {
+      const payload: any = { status };
+      if (accountId) payload.accountId = accountId;
+      return await apiRequest("PUT", `/api/loans/${loanId}`, payload);
     },
     onSuccess: () => {
       toast({
@@ -78,6 +90,8 @@ function EmprestimosContent() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
     },
     onError: (error) => {
       toast({
@@ -89,8 +103,10 @@ function EmprestimosContent() {
   });
 
   const updateDebtStatusMutation = useMutation({
-    mutationFn: async ({ debtId, status }: { debtId: number; status: string }) => {
-      return await apiRequest("PUT", `/api/debts/${debtId}`, { status });
+    mutationFn: async ({ debtId, status, accountId }: { debtId: number; status: string; accountId?: number }) => {
+      const payload: any = { status };
+      if (accountId) payload.accountId = accountId;
+      return await apiRequest("PUT", `/api/debts/${debtId}`, payload);
     },
     onSuccess: () => {
       toast({
@@ -99,6 +115,8 @@ function EmprestimosContent() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/debts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
     },
     onError: (error) => {
       toast({
@@ -108,6 +126,36 @@ function EmprestimosContent() {
       });
     },
   });
+
+  const handleStatusUpdate = (type: 'loan' | 'debt', id: number, status: string) => {
+    if (status === 'pago') {
+      // Open account selection modal for payment
+      setPendingStatusUpdate({ type, id, status });
+      setIsAccountModalOpen(true);
+    } else {
+      // Direct status update for cancellation
+      if (type === 'loan') {
+        updateLoanStatusMutation.mutate({ loanId: id, status });
+      } else {
+        updateDebtStatusMutation.mutate({ debtId: id, status });
+      }
+    }
+  };
+
+  const handleAccountSelection = (accountId: number) => {
+    if (!pendingStatusUpdate) return;
+    
+    const { type, id, status } = pendingStatusUpdate;
+    
+    if (type === 'loan') {
+      updateLoanStatusMutation.mutate({ loanId: id, status, accountId });
+    } else {
+      updateDebtStatusMutation.mutate({ debtId: id, status, accountId });
+    }
+    
+    setIsAccountModalOpen(false);
+    setPendingStatusUpdate(null);
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -364,14 +412,14 @@ function EmprestimosContent() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                  onClick={() => updateLoanStatusMutation.mutate({ loanId: loan.id, status: 'pago' })}
+                                  onClick={() => handleStatusUpdate('loan', loan.id, 'pago')}
                                   className="text-green-600"
                                 >
                                   <CheckCircle className="h-4 w-4 mr-2" />
                                   Marcar como Pago
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={() => updateLoanStatusMutation.mutate({ loanId: loan.id, status: 'cancelado' })}
+                                  onClick={() => handleStatusUpdate('loan', loan.id, 'cancelado')}
                                   className="text-red-600"
                                 >
                                   <XCircle className="h-4 w-4 mr-2" />
@@ -513,14 +561,14 @@ function EmprestimosContent() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                  onClick={() => updateDebtStatusMutation.mutate({ debtId: debt.id, status: 'pago' })}
+                                  onClick={() => handleStatusUpdate('debt', debt.id, 'pago')}
                                   className="text-green-600"
                                 >
                                   <CheckCircle className="h-4 w-4 mr-2" />
                                   Marcar como Pago
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={() => updateDebtStatusMutation.mutate({ debtId: debt.id, status: 'cancelado' })}
+                                  onClick={() => handleStatusUpdate('debt', debt.id, 'cancelado')}
                                   className="text-red-600"
                                 >
                                   <XCircle className="h-4 w-4 mr-2" />
@@ -554,6 +602,39 @@ function EmprestimosContent() {
               <DialogTitle>Nova Dívida</DialogTitle>
             </DialogHeader>
             <DebtForm onSuccess={() => setIsDebtModalOpen(false)} />
+          </DialogContent>
+        </Dialog>
+
+        {/* Account Selection Modal for Payment */}
+        <Dialog open={isAccountModalOpen} onOpenChange={(open) => {
+          setIsAccountModalOpen(open);
+          if (!open) setPendingStatusUpdate(null);
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Selecionar Conta para Movimentação</DialogTitle>
+              <p className="text-sm text-slate-600">
+                Escolha a conta que receberá ou pagará o valor {pendingStatusUpdate?.type === 'loan' ? 'do empréstimo' : 'da dívida'}.
+              </p>
+            </DialogHeader>
+            <div className="space-y-3">
+              {accounts?.map((account) => (
+                <Button
+                  key={account.id}
+                  variant="outline"
+                  className="w-full justify-start h-auto p-4"
+                  onClick={() => handleAccountSelection(account.id)}
+                >
+                  <div className="text-left">
+                    <p className="font-medium">{account.name}</p>
+                    <p className="text-sm text-slate-500">{account.bank} • {account.type}</p>
+                    <p className="text-sm font-medium text-green-600">
+                      Saldo: {formatCurrency(account.balance)}
+                    </p>
+                  </div>
+                </Button>
+              ))}
+            </div>
           </DialogContent>
         </Dialog>
       </main>

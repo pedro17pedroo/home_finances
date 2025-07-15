@@ -618,6 +618,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertLoanSchema.parse(data);
       const loan = await storage.createLoan(validatedData);
+      
+      // Create corresponding expense transaction for the loan amount
+      const transactionData = {
+        userId,
+        accountId: validatedData.accountId,
+        amount: validatedData.amount,
+        description: `Empréstimo dado a ${validatedData.borrower}`,
+        category: 'Empréstimos',
+        type: 'despesa' as const,
+        date: new Date(),
+      };
+      await storage.createTransaction(transactionData);
+      
       res.status(201).json(loan);
     } catch (error) {
       console.error("Error creating loan:", error);
@@ -636,8 +649,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.dueDate = new Date(data.dueDate);
       }
       
+      // Get the original loan to check status change
+      const originalLoan = await storage.getLoan(id, userId);
+      if (!originalLoan) {
+        return res.status(404).json({ message: "Empréstimo não encontrado" });
+      }
+      
       const validatedData = insertLoanSchema.partial().parse(data);
       const loan = await storage.updateLoan(id, validatedData, userId);
+      
+      // If status changed from pendente to pago, create income transaction
+      if (originalLoan.status === 'pendente' && validatedData.status === 'pago') {
+        const amount = originalLoan.amount;
+        const interestRate = originalLoan.interestRate ? parseFloat(originalLoan.interestRate) : 0;
+        const totalAmount = parseFloat(amount) * (1 + interestRate / 100);
+        
+        // Use provided accountId from request or default to original account
+        const accountId = req.body.accountId || originalLoan.accountId;
+        
+        const transactionData = {
+          userId,
+          accountId: parseInt(accountId),
+          amount: totalAmount.toFixed(2),
+          description: `Recebimento de empréstimo de ${originalLoan.borrower}${interestRate > 0 ? ` (com ${interestRate}% juros)` : ''}`,
+          category: 'Empréstimos',
+          type: 'receita' as const,
+          date: new Date(),
+        };
+        await storage.createTransaction(transactionData);
+      }
+      
       res.json(loan);
     } catch (error) {
       console.error("Error updating loan:", error);
@@ -681,6 +722,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertDebtSchema.parse(data);
       const debt = await storage.createDebt(validatedData);
+      
+      // Create corresponding income transaction for the debt amount
+      const transactionData = {
+        userId,
+        accountId: validatedData.accountId,
+        amount: validatedData.amount,
+        description: `Dívida recebida de ${validatedData.creditor}`,
+        category: 'Dívidas',
+        type: 'receita' as const,
+        date: new Date(),
+      };
+      await storage.createTransaction(transactionData);
+      
       res.status(201).json(debt);
     } catch (error) {
       console.error("Error creating debt:", error);
@@ -699,8 +753,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.dueDate = new Date(data.dueDate);
       }
       
+      // Get the original debt to check status change
+      const originalDebt = await storage.getDebt(id, userId);
+      if (!originalDebt) {
+        return res.status(404).json({ message: "Dívida não encontrada" });
+      }
+      
       const validatedData = insertDebtSchema.partial().parse(data);
       const debt = await storage.updateDebt(id, validatedData, userId);
+      
+      // If status changed from pendente to pago, create expense transaction
+      if (originalDebt.status === 'pendente' && validatedData.status === 'pago') {
+        const amount = originalDebt.amount;
+        const interestRate = originalDebt.interestRate ? parseFloat(originalDebt.interestRate) : 0;
+        const totalAmount = parseFloat(amount) * (1 + interestRate / 100);
+        
+        // Use provided accountId from request or default to original account
+        const accountId = req.body.accountId || originalDebt.accountId;
+        
+        const transactionData = {
+          userId,
+          accountId: parseInt(accountId),
+          amount: totalAmount.toFixed(2),
+          description: `Pagamento de dívida para ${originalDebt.creditor}${interestRate > 0 ? ` (com ${interestRate}% juros)` : ''}`,
+          category: 'Dívidas',
+          type: 'despesa' as const,
+          date: new Date(),
+        };
+        await storage.createTransaction(transactionData);
+      }
+      
       res.json(debt);
     } catch (error) {
       console.error("Error updating debt:", error);
