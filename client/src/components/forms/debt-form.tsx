@@ -41,8 +41,8 @@ export default function DebtForm({ onSuccess }: DebtFormProps) {
     mutationFn: async (data: DebtFormData) => {
       const payload = {
         ...data,
-        amount: parseFloat(data.amount),
-        interestRate: data.interestRate ? parseFloat(data.interestRate) : undefined,
+        amount: data.amount, // Keep as string for Drizzle decimal type
+        interestRate: data.interestRate || undefined,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       };
       return await apiRequest("POST", "/api/debts", payload);

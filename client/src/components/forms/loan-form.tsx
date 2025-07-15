@@ -41,8 +41,8 @@ export default function LoanForm({ onSuccess }: LoanFormProps) {
     mutationFn: async (data: LoanFormData) => {
       const payload = {
         ...data,
-        amount: parseFloat(data.amount),
-        interestRate: data.interestRate ? parseFloat(data.interestRate) : undefined,
+        amount: data.amount, // Keep as string for Drizzle decimal type
+        interestRate: data.interestRate || undefined,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       };
       return await apiRequest("POST", "/api/loans", payload);
