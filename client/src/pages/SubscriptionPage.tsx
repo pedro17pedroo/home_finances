@@ -23,6 +23,7 @@ import TeamManagement from "@/components/team/team-management";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
+import { useCacheSync } from "@/hooks/use-cache-sync";
 
 interface SubscriptionData {
   subscriptionStatus: string;
@@ -34,6 +35,7 @@ interface SubscriptionData {
 export default function SubscriptionPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { syncSubscription } = useCacheSync();
 
   const { data: subscription, isLoading } = useQuery<SubscriptionData>({
     queryKey: ["/api/subscription/status"],
@@ -49,12 +51,12 @@ export default function SubscriptionPage() {
 
   const cancelMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/subscription/cancel"),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Assinatura cancelada",
         description: "Sua assinatura foi cancelada com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/subscription/status"] });
+      await syncSubscription();
     },
     onError: (error: any) => {
       toast({
@@ -68,16 +70,12 @@ export default function SubscriptionPage() {
   const changePlanMutation = useMutation({
     mutationFn: (planType: string) => 
       apiRequest("POST", "/api/subscription/change-plan", { planType }),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Plano alterado",
         description: "Seu plano foi alterado com sucesso.",
       });
-      // Invalidate all relevant queries
-      queryClient.invalidateQueries({ queryKey: ["/api/subscription/status"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/debts"] });
+      await syncSubscription();
       
       // Force a page reload to refresh all components with new plan data
       setTimeout(() => {

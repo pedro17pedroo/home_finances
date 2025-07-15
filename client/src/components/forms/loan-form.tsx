@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateInput } from "@/lib/utils";
+import { useCacheSync } from "@/hooks/use-cache-sync";
 import type { Account } from "@shared/schema";
 
 const loanFormSchema = z.object({
@@ -30,6 +31,7 @@ interface LoanFormProps {
 export default function LoanForm({ onSuccess }: LoanFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { syncLoans } = useCacheSync();
 
   const { data: accounts } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
@@ -52,13 +54,12 @@ export default function LoanForm({ onSuccess }: LoanFormProps) {
       };
       return await apiRequest("POST", "/api/loans", payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Empréstimo criado",
         description: "O empréstimo foi registrado com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      await syncLoans();
       form.reset();
       onSuccess?.();
     },

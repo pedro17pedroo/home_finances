@@ -15,6 +15,7 @@ import PlanGuard from "@/components/auth/plan-guard";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCacheSync } from "@/hooks/use-cache-sync";
 import type { Loan, Debt, Account } from "@shared/schema";
 
 export default function Emprestimos() {
@@ -43,6 +44,7 @@ function EmprestimosContent() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { syncLoans, syncDebts } = useCacheSync();
 
   const { data: loans, isLoading: loansLoading } = useQuery<Loan[]>({
     queryKey: ["/api/loans"],
@@ -83,15 +85,12 @@ function EmprestimosContent() {
       if (accountId) payload.accountId = accountId;
       return await apiRequest("PUT", `/api/loans/${loanId}`, payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Status atualizado",
         description: "O status do empréstimo foi atualizado com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      await syncLoans();
     },
     onError: (error) => {
       toast({
@@ -108,15 +107,12 @@ function EmprestimosContent() {
       if (accountId) payload.accountId = accountId;
       return await apiRequest("PUT", `/api/debts/${debtId}`, payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Status atualizado",
         description: "O status da dívida foi atualizado com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/debts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      await syncDebts();
     },
     onError: (error) => {
       toast({

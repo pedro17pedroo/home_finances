@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useCacheSync } from "@/hooks/use-cache-sync";
 
 const categoryFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(50, "Nome deve ter no máximo 50 caracteres"),
@@ -27,6 +28,7 @@ interface CategoryFormProps {
 export default function CategoryForm({ defaultType = "receita", onSuccess, onCancel }: CategoryFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { syncCategories } = useCacheSync();
   
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema),
@@ -39,12 +41,12 @@ export default function CategoryForm({ defaultType = "receita", onSuccess, onCan
     mutationFn: async (data: CategoryFormData) => {
       return await apiRequest("POST", "/api/categories", data);
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       toast({
         title: "Categoria criada",
         description: "A categoria foi criada com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      await syncCategories();
       form.reset();
       onSuccess?.(data);
     },

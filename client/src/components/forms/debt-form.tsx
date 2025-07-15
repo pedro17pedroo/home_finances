@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateInput } from "@/lib/utils";
+import { useCacheSync } from "@/hooks/use-cache-sync";
 import type { Account } from "@shared/schema";
 
 const debtFormSchema = z.object({
@@ -30,6 +31,7 @@ interface DebtFormProps {
 export default function DebtForm({ onSuccess }: DebtFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { syncDebts } = useCacheSync();
 
   const { data: accounts } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
@@ -52,13 +54,12 @@ export default function DebtForm({ onSuccess }: DebtFormProps) {
       };
       return await apiRequest("POST", "/api/debts", payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Dívida criada",
         description: "A dívida foi registrada com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/debts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      await syncDebts();
       form.reset();
       onSuccess?.();
     },

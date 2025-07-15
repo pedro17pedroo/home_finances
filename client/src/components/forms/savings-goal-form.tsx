@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateInput } from "@/lib/utils";
+import { useCacheSync } from "@/hooks/use-cache-sync";
 
 const savingsGoalFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -27,6 +28,7 @@ interface SavingsGoalFormProps {
 export default function SavingsGoalForm({ onSuccess }: SavingsGoalFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { syncSavingsGoals } = useCacheSync();
 
   const form = useForm<SavingsGoalFormData>({
     resolver: zodResolver(savingsGoalFormSchema),
@@ -45,12 +47,12 @@ export default function SavingsGoalForm({ onSuccess }: SavingsGoalFormProps) {
       };
       return await apiRequest("POST", "/api/savings-goals", payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Meta criada",
         description: "A meta de poupança foi criada com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/savings-goals"] });
+      await syncSavingsGoals();
       form.reset();
       onSuccess?.();
     },

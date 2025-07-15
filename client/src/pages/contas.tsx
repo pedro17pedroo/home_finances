@@ -14,6 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import AccountLimitGuard from "@/components/auth/account-limit-guard";
+import { useCacheSync } from "@/hooks/use-cache-sync";
 
 const accountTypeIcons = {
   corrente: CreditCard,
@@ -29,6 +30,7 @@ export default function Contas() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const { toast } = useToast();
+  const { syncAccounts } = useCacheSync();
 
   // Buscar contas
   const { data: accounts = [], isLoading, refetch } = useQuery<Account[]>({
@@ -51,10 +53,7 @@ export default function Contas() {
     },
     onSuccess: async (result) => {
       console.log("Account created successfully", result);
-      await queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
-      await refetch(); // Force a manual refetch
+      await syncAccounts();
       setIsCreateDialogOpen(false);
       toast({
         title: "Conta criada",
@@ -75,9 +74,8 @@ export default function Contas() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<InsertAccount> }) => 
       apiRequest("PATCH", `/api/accounts/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    onSuccess: async () => {
+      await syncAccounts();
       setEditingAccount(null);
       toast({
         title: "Conta atualizada",
@@ -96,10 +94,8 @@ export default function Contas() {
   // Deletar conta
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/accounts/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
+    onSuccess: async () => {
+      await syncAccounts();
       toast({
         title: "Conta removida",
         description: "A conta foi removida com sucesso.",

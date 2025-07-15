@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateInput } from "@/lib/utils";
+import { useCacheSync } from "@/hooks/use-cache-sync";
 
 import CategoryForm from "@/components/forms/category-form";
 import AccountLimitGuard from "@/components/auth/account-limit-guard";
@@ -36,6 +37,7 @@ interface TransactionFormProps {
 export default function TransactionForm({ defaultType = "receita", onSuccess }: TransactionFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { syncTransactions, syncAccounts, syncCategories } = useCacheSync();
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showAccountForm, setShowAccountForm] = useState(false);
   
@@ -70,11 +72,8 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
         title: "Transação criada",
         description: "A transação foi registrada com sucesso.",
       });
-      // Invalidate all related queries to ensure UI consistency
-      await queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/accounts"] });
+      // Sync all related data
+      await syncTransactions();
       form.reset();
       onSuccess?.();
     },
@@ -108,11 +107,9 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
       console.log("Sending account data to API:", data);
       return apiRequest("POST", "/api/accounts", data);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       console.log("Account created successfully");
-      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
+      await syncAccounts();
       setShowAccountForm(false);
       accountForm.reset();
       toast({
