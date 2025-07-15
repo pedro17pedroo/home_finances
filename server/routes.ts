@@ -426,6 +426,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/accounts/savings", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const accounts = await storage.getAccounts(userId);
+      const savingsAccounts = accounts.filter(account => account.type === 'poupanca');
+      res.json(savingsAccounts);
+    } catch (error) {
+      console.error("Error fetching savings accounts:", error);
+      res.status(500).json({ message: "Erro ao buscar contas poupança" });
+    }
+  });
+
   app.post("/api/accounts", isAuthenticated, validateAccountLimit, async (req, res) => {
     try {
       const userId = req.session!.userId;

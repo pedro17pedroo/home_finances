@@ -17,12 +17,7 @@ export default function Poupanca() {
   });
 
   const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({
-    queryKey: ["/api/accounts"],
-    queryFn: async () => {
-      const response = await fetch("/api/accounts");
-      const data = await response.json();
-      return data.filter((a: Account) => a.type === 'poupanca');
-    },
+    queryKey: ["/api/accounts/savings"],
   });
 
   const totalSavings = accounts?.reduce((sum, a) => sum + parseFloat(a.balance), 0) || 0;
