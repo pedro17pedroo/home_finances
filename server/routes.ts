@@ -547,10 +547,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/savings-goals", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;
-      const validatedData = insertSavingsGoalSchema.parse({
-        ...req.body,
-        userId
-      });
+      const data = { ...req.body, userId };
+      
+      // Convert targetDate string to Date object if provided
+      if (data.targetDate && typeof data.targetDate === 'string') {
+        data.targetDate = new Date(data.targetDate);
+      }
+      
+      const validatedData = insertSavingsGoalSchema.parse(data);
       const goal = await storage.createSavingsGoal(validatedData);
       res.status(201).json(goal);
     } catch (error) {
@@ -563,7 +567,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const userId = req.session!.userId;
-      const validatedData = insertSavingsGoalSchema.partial().parse(req.body);
+      const data = { ...req.body };
+      
+      // Convert targetDate string to Date object if provided
+      if (data.targetDate && typeof data.targetDate === 'string') {
+        data.targetDate = new Date(data.targetDate);
+      }
+      
+      const validatedData = insertSavingsGoalSchema.partial().parse(data);
       const goal = await storage.updateSavingsGoal(id, validatedData, userId);
       res.json(goal);
     } catch (error) {
@@ -599,10 +610,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/loans", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const userId = req.session!.userId;
-      const validatedData = insertLoanSchema.parse({
-        ...req.body,
-        userId
-      });
+      const data = { ...req.body, userId };
+      
+      // Convert dueDate string to Date object if provided
+      if (data.dueDate && typeof data.dueDate === 'string') {
+        data.dueDate = new Date(data.dueDate);
+      }
+      
+      const validatedData = insertLoanSchema.parse(data);
       const loan = await storage.createLoan(validatedData);
       res.status(201).json(loan);
     } catch (error) {
@@ -615,7 +630,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const userId = req.session!.userId;
-      const validatedData = insertLoanSchema.partial().parse(req.body);
+      const data = { ...req.body };
+      
+      // Convert dueDate string to Date object if provided
+      if (data.dueDate && typeof data.dueDate === 'string') {
+        data.dueDate = new Date(data.dueDate);
+      }
+      
+      const validatedData = insertLoanSchema.partial().parse(data);
       const loan = await storage.updateLoan(id, validatedData, userId);
       res.json(loan);
     } catch (error) {
@@ -651,10 +673,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/debts", isAuthenticated, requirePlan('premium'), async (req, res) => {
     try {
       const userId = req.session!.userId;
-      const validatedData = insertDebtSchema.parse({
-        ...req.body,
-        userId
-      });
+      const data = { ...req.body, userId };
+      
+      // Convert dueDate string to Date object if provided
+      if (data.dueDate && typeof data.dueDate === 'string') {
+        data.dueDate = new Date(data.dueDate);
+      }
+      
+      const validatedData = insertDebtSchema.parse(data);
       const debt = await storage.createDebt(validatedData);
       res.status(201).json(debt);
     } catch (error) {
@@ -667,7 +693,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const userId = req.session!.userId;
-      const validatedData = insertDebtSchema.partial().parse(req.body);
+      const data = { ...req.body };
+      
+      // Convert dueDate string to Date object if provided
+      if (data.dueDate && typeof data.dueDate === 'string') {
+        data.dueDate = new Date(data.dueDate);
+      }
+      
+      const validatedData = insertDebtSchema.partial().parse(data);
       const debt = await storage.updateDebt(id, validatedData, userId);
       res.json(debt);
     } catch (error) {
