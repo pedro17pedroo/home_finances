@@ -1,15 +1,20 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { HandCoins, CreditCard, Plus, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { HandCoins, CreditCard, Plus, Clock, CheckCircle, XCircle, Search, Filter, MoreVertical } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LoanForm from "@/components/forms/loan-form";
 import DebtForm from "@/components/forms/debt-form";
 import PlanGuard from "@/components/auth/plan-guard";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Loan, Debt } from "@shared/schema";
 
 export default function Emprestimos() {
@@ -23,6 +28,15 @@ export default function Emprestimos() {
 function EmprestimosContent() {
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
+  
+  // Filter states
+  const [loanSearch, setLoanSearch] = useState("");
+  const [loanStatusFilter, setLoanStatusFilter] = useState<string>("todos");
+  const [debtSearch, setDebtSearch] = useState("");
+  const [debtStatusFilter, setDebtStatusFilter] = useState<string>("todos");
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: loans, isLoading: loansLoading } = useQuery<Loan[]>({
     queryKey: ["/api/loans"],
@@ -36,6 +50,64 @@ function EmprestimosContent() {
   const pendingLoans = loans?.filter(l => l.status === 'pendente') || [];
   const totalDebts = debts?.reduce((sum, d) => sum + parseFloat(d.amount), 0) || 0;
   const pendingDebts = debts?.filter(d => d.status === 'pendente') || [];
+
+  // Filter functions
+  const filteredLoans = loans?.filter(loan => {
+    const matchesSearch = loan.borrower.toLowerCase().includes(loanSearch.toLowerCase()) ||
+                         (loan.description || '').toLowerCase().includes(loanSearch.toLowerCase());
+    const matchesStatus = loanStatusFilter === "todos" || loan.status === loanStatusFilter;
+    return matchesSearch && matchesStatus;
+  }) || [];
+
+  const filteredDebts = debts?.filter(debt => {
+    const matchesSearch = debt.creditor.toLowerCase().includes(debtSearch.toLowerCase()) ||
+                         (debt.description || '').toLowerCase().includes(debtSearch.toLowerCase());
+    const matchesStatus = debtStatusFilter === "todos" || debt.status === debtStatusFilter;
+    return matchesSearch && matchesStatus;
+  }) || [];
+
+  // Update status mutations
+  const updateLoanStatusMutation = useMutation({
+    mutationFn: async ({ loanId, status }: { loanId: number; status: string }) => {
+      return await apiRequest("PUT", `/api/loans/${loanId}`, { status });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Status atualizado",
+        description: "O status do empréstimo foi atualizado com sucesso.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateDebtStatusMutation = useMutation({
+    mutationFn: async ({ debtId, status }: { debtId: number; status: string }) => {
+      return await apiRequest("PUT", `/api/debts/${debtId}`, { status });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Status atualizado",
+        description: "O status da dívida foi atualizado com sucesso.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/debts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -171,7 +243,7 @@ function EmprestimosContent() {
           <TabsContent value="loans" className="space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-4">
                   <CardTitle>Empréstimos Dados</CardTitle>
                   <Button
                     onClick={() => setIsLoanModalOpen(true)}
@@ -180,6 +252,33 @@ function EmprestimosContent() {
                     <Plus className="h-4 w-4 mr-2" />
                     Novo Empréstimo
                   </Button>
+                </div>
+                
+                {/* Filtros para Empréstimos */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Buscar por nome ou descrição..."
+                      value={loanSearch}
+                      onChange={(e) => setLoanSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="w-full sm:w-48">
+                    <Select value={loanStatusFilter} onValueChange={setLoanStatusFilter}>
+                      <SelectTrigger>
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="pendente">Pendente</SelectItem>
+                        <SelectItem value="pago">Pago</SelectItem>
+                        <SelectItem value="cancelado">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -220,7 +319,7 @@ function EmprestimosContent() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {loans?.map((loan) => (
+                    {filteredLoans.map((loan) => (
                       <div key={loan.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
@@ -238,19 +337,48 @@ function EmprestimosContent() {
                             )}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-slate-900">
-                            {formatCurrency(loan.amount)}
-                          </p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge className={getStatusColor(loan.status)}>
-                              {getStatusLabel(loan.status)}
-                            </Badge>
-                          </div>
-                          {loan.dueDate && (
-                            <p className="text-sm text-slate-500 mt-1">
-                              Vence: {formatDate(loan.dueDate)}
+                        <div className="flex items-center space-x-3">
+                          <div className="text-right">
+                            <p className="font-semibold text-slate-900">
+                              {formatCurrency(loan.amount)}
                             </p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Badge className={getStatusColor(loan.status)}>
+                                {getStatusLabel(loan.status)}
+                              </Badge>
+                            </div>
+                            {loan.dueDate && (
+                              <p className="text-sm text-slate-500 mt-1">
+                                Vence: {formatDate(loan.dueDate)}
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Menu de ações apenas para status pendente */}
+                          {loan.status === 'pendente' && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => updateLoanStatusMutation.mutate({ loanId: loan.id, status: 'pago' })}
+                                  className="text-green-600"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  Marcar como Pago
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => updateLoanStatusMutation.mutate({ loanId: loan.id, status: 'cancelado' })}
+                                  className="text-red-600"
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Cancelar Empréstimo
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </div>
                       </div>
@@ -264,7 +392,7 @@ function EmprestimosContent() {
           <TabsContent value="debts" className="space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-4">
                   <CardTitle>Dívidas</CardTitle>
                   <Button
                     onClick={() => setIsDebtModalOpen(true)}
@@ -273,6 +401,33 @@ function EmprestimosContent() {
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Dívida
                   </Button>
+                </div>
+                
+                {/* Filtros para Dívidas */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Buscar por credor ou descrição..."
+                      value={debtSearch}
+                      onChange={(e) => setDebtSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="w-full sm:w-48">
+                    <Select value={debtStatusFilter} onValueChange={setDebtStatusFilter}>
+                      <SelectTrigger>
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="pendente">Pendente</SelectItem>
+                        <SelectItem value="pago">Pago</SelectItem>
+                        <SelectItem value="cancelado">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -313,7 +468,7 @@ function EmprestimosContent() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {debts?.map((debt) => (
+                    {filteredDebts.map((debt) => (
                       <div key={debt.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
@@ -331,19 +486,48 @@ function EmprestimosContent() {
                             )}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-slate-900">
-                            {formatCurrency(debt.amount)}
-                          </p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge className={getStatusColor(debt.status)}>
-                              {getStatusLabel(debt.status)}
-                            </Badge>
-                          </div>
-                          {debt.dueDate && (
-                            <p className="text-sm text-slate-500 mt-1">
-                              Vence: {formatDate(debt.dueDate)}
+                        <div className="flex items-center space-x-3">
+                          <div className="text-right">
+                            <p className="font-semibold text-slate-900">
+                              {formatCurrency(debt.amount)}
                             </p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Badge className={getStatusColor(debt.status)}>
+                                {getStatusLabel(debt.status)}
+                              </Badge>
+                            </div>
+                            {debt.dueDate && (
+                              <p className="text-sm text-slate-500 mt-1">
+                                Vence: {formatDate(debt.dueDate)}
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Menu de ações apenas para status pendente */}
+                          {debt.status === 'pendente' && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => updateDebtStatusMutation.mutate({ debtId: debt.id, status: 'pago' })}
+                                  className="text-green-600"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  Marcar como Pago
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => updateDebtStatusMutation.mutate({ debtId: debt.id, status: 'cancelado' })}
+                                  className="text-red-600"
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Cancelar Dívida
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </div>
                       </div>
