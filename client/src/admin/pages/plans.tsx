@@ -356,9 +356,34 @@ export default function AdminPlans() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Máximo de Contas</FormLabel>
-                        <FormControl>
-                          <Input {...field} type="number" onChange={(e) => field.onChange(parseInt(e.target.value))} />
-                        </FormControl>
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="unlimited-accounts"
+                              checked={field.value === null}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  field.onChange(null); // null means unlimited
+                                } else {
+                                  field.onChange(5); // default to 5 when unchecked
+                                }
+                              }}
+                            />
+                            <label htmlFor="unlimited-accounts" className="text-sm font-medium">
+                              Contas Ilimitadas
+                            </label>
+                          </div>
+                          {field.value !== null && (
+                            <FormControl>
+                              <Input 
+                                value={field.value || ''} 
+                                type="number" 
+                                placeholder="Número máximo de contas"
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} 
+                              />
+                            </FormControl>
+                          )}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -369,9 +394,34 @@ export default function AdminPlans() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Máximo de Transações/Mês</FormLabel>
-                        <FormControl>
-                          <Input {...field} type="number" onChange={(e) => field.onChange(parseInt(e.target.value))} />
-                        </FormControl>
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="unlimited-transactions"
+                              checked={field.value === null}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  field.onChange(null); // null means unlimited
+                                } else {
+                                  field.onChange(1000); // default to 1000 when unchecked
+                                }
+                              }}
+                            />
+                            <label htmlFor="unlimited-transactions" className="text-sm font-medium">
+                              Transações Ilimitadas
+                            </label>
+                          </div>
+                          {field.value !== null && (
+                            <FormControl>
+                              <Input 
+                                value={field.value || ''} 
+                                type="number" 
+                                placeholder="Número máximo de transações por mês"
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} 
+                              />
+                            </FormControl>
+                          )}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -526,8 +576,24 @@ export default function AdminPlans() {
                         <DollarSign className="w-4 h-4 mr-1" />
                         {plan.price} Kz
                       </TableCell>
-                      <TableCell>{plan.maxAccounts}</TableCell>
-                      <TableCell>{plan.maxTransactions}</TableCell>
+                      <TableCell>
+                        {plan.maxAccounts === null ? (
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            Ilimitada
+                          </Badge>
+                        ) : (
+                          plan.maxAccounts
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {plan.maxTransactions === null ? (
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            Ilimitada
+                          </Badge>
+                        ) : (
+                          plan.maxTransactions
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={plan.isActive ? 'default' : 'secondary'}>
                           {plan.isActive ? 'Ativo' : 'Inativo'}
