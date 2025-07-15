@@ -205,9 +205,7 @@ export default function Register() {
               <Button 
                 variant="ghost" 
                 className="mb-4"
-              >
-                ← Voltar aos planos
-              </Button>
+              >← Voltar ao Inicio</Button>
             </Link>
             <Card>
             <CardHeader>
