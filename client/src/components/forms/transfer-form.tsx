@@ -16,11 +16,15 @@ import { useCacheSync } from "@/hooks/use-cache-sync";
 import { Account, insertTransferSchema } from "@shared/schema";
 import { ArrowLeftRight, Loader2 } from "lucide-react";
 
-const transferFormSchema = insertTransferSchema.extend({
+const transferFormSchema = z.object({
+  fromAccountId: z.string().min(1, "Conta de origem é obrigatória").transform(val => parseInt(val)),
+  toAccountId: z.string().min(1, "Conta de destino é obrigatória").transform(val => parseInt(val)),
+  amount: z.string().min(1, "Valor é obrigatório"),
+  description: z.string().optional(),
   date: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Data inválida",
   }),
-}).omit({ userId: true });
+});
 
 interface TransferFormProps {
   onSuccess?: () => void;
@@ -40,8 +44,8 @@ export default function TransferForm({ onSuccess, children }: TransferFormProps)
   const form = useForm<z.infer<typeof transferFormSchema>>({
     resolver: zodResolver(transferFormSchema),
     defaultValues: {
-      fromAccountId: 0,
-      toAccountId: 0,
+      fromAccountId: "",
+      toAccountId: "",
       amount: "",
       description: "",
       date: new Date().toISOString().split('T')[0],
@@ -52,8 +56,7 @@ export default function TransferForm({ onSuccess, children }: TransferFormProps)
     mutationFn: (data: z.infer<typeof transferFormSchema>) => {
       return apiRequest("POST", "/api/transfers", {
         ...data,
-        fromAccountId: Number(data.fromAccountId),
-        toAccountId: Number(data.toAccountId),
+        userId: 1, // This will be set by the backend from session
       });
     },
     onSuccess: async () => {
@@ -112,7 +115,7 @@ export default function TransferForm({ onSuccess, children }: TransferFormProps)
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Conta de origem</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value.toString()}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecionar conta de origem" />
@@ -137,7 +140,7 @@ export default function TransferForm({ onSuccess, children }: TransferFormProps)
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Conta de destino</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value.toString()}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecionar conta de destino" />
