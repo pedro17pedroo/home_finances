@@ -68,12 +68,9 @@ export default function AdminPlans() {
   });
 
   const createPlanMutation = useMutation({
-    mutationFn: (data: PlanForm) => apiRequest('/api/admin/plans', {
-      method: 'POST',
-      body: {
-        ...data,
-        features: JSON.parse(data.features),
-      },
+    mutationFn: (data: PlanForm) => apiRequest('POST', '/api/admin/plans', {
+      ...data,
+      features: JSON.parse(data.features),
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/plans'] });
@@ -92,12 +89,9 @@ export default function AdminPlans() {
 
   const updatePlanMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: PlanForm }) => 
-      apiRequest(`/api/admin/plans/${id}`, {
-        method: 'PUT',
-        body: {
-          ...data,
-          features: JSON.parse(data.features),
-        },
+      apiRequest('PUT', `/api/admin/plans/${id}`, {
+        ...data,
+        features: JSON.parse(data.features),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/plans'] });
@@ -115,9 +109,7 @@ export default function AdminPlans() {
   });
 
   const deletePlanMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/admin/plans/${id}`, {
-      method: 'DELETE',
-    }),
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/admin/plans/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/plans'] });
       toast({ title: 'Plano excluído com sucesso' });

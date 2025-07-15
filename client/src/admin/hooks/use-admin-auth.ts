@@ -8,14 +8,23 @@ export function useAdminAuth() {
   const { data: user, isLoading } = useQuery<AdminUser>({
     queryKey: ['/api/admin/auth/me'],
     retry: false,
+    queryFn: async () => {
+      const res = await fetch('/api/admin/auth/me', {
+        credentials: 'include',
+      });
+      if (res.status === 401) {
+        return null;
+      }
+      if (!res.ok) {
+        throw new Error('Failed to fetch admin user');
+      }
+      return res.json();
+    },
   });
 
   const loginMutation = useMutation({
     mutationFn: (credentials: { email: string; password: string }) =>
-      apiRequest('/api/admin/auth/login', {
-        method: 'POST',
-        body: credentials,
-      }),
+      apiRequest('POST', '/api/admin/auth/login', credentials),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/auth/me'] });
     },
@@ -23,9 +32,7 @@ export function useAdminAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: () =>
-      apiRequest('/api/admin/auth/logout', {
-        method: 'POST',
-      }),
+      apiRequest('POST', '/api/admin/auth/logout'),
     onSuccess: () => {
       queryClient.clear();
     },
