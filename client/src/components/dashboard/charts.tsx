@@ -57,7 +57,20 @@ export default function Charts() {
     labels: expenseData?.map(item => item.category) || [],
     datasets: [{
       data: expenseData?.map(item => parseFloat(item.amount)) || [],
-      backgroundColor: expenseData?.map(item => CATEGORY_COLORS[item.category as keyof typeof CATEGORY_COLORS]) || [],
+      backgroundColor: [
+        '#10B981', // Verde
+        '#F59E0B', // Amarelo
+        '#EF4444', // Vermelho
+        '#8B5CF6', // Roxo
+        '#06B6D4', // Ciano
+        '#84CC16', // Lima
+        '#F97316', // Laranja
+        '#EC4899', // Rosa
+        '#14B8A6', // Teal
+        '#F472B6', // Pink
+        '#6366F1', // Indigo
+        '#EAB308', // Amber
+      ],
     }]
   };
 

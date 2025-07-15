@@ -104,7 +104,10 @@ export default function AccountManagement() {
             {accounts?.map((account) => (
               <div key={account.id} className="p-4 bg-slate-50 rounded-lg">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-slate-900">{account.bank}</h4>
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-900">{account.name}</h4>
+                    <p className="text-xs text-slate-500">{account.bank}</p>
+                  </div>
                   <span className={`text-xs px-2 py-1 rounded ${
                     account.type === 'poupanca' 
                       ? 'bg-green-100 text-green-800' 

@@ -79,9 +79,9 @@ export default function FinancialSummary() {
         <Card key={index} className="border border-slate-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-600">{card.title}</p>
-                <p className="text-3xl font-bold text-slate-900">
+                <p className="text-2xl sm:text-3xl font-bold text-slate-900 break-words">
                   {formatCurrency(card.value)}
                 </p>
                 <div className="flex items-center text-sm mt-1">
@@ -91,7 +91,7 @@ export default function FinancialSummary() {
                   <span className={card.trendColor}>{card.trend}</span>
                 </div>
               </div>
-              <div className={`w-12 h-12 ${card.iconBg} rounded-lg flex items-center justify-center`}>
+              <div className={`w-12 h-12 ${card.iconBg} rounded-lg flex items-center justify-center flex-shrink-0 ml-4`}>
                 <card.icon className={`w-6 h-6 ${card.iconColor}`} />
               </div>
             </div>
