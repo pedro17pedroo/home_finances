@@ -1,18 +1,28 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Filter, Search, Calendar, DollarSign } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import TransactionForm from "@/components/forms/transaction-form";
 import TransactionLimitGuard from "@/components/auth/transaction-limit-guard";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-import type { Transaction } from "@shared/schema";
+import type { Transaction, Category } from "@shared/schema";
 
 export default function Receitas() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
     queryKey: ["/api/transactions", "receitas"],
@@ -24,6 +34,10 @@ export default function Receitas() {
       const data = await response.json();
       return data.filter((t: Transaction) => t.type === 'receita');
     },
+  });
+
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
   });
 
   const totalReceitas = transactions?.reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
@@ -49,6 +63,47 @@ export default function Receitas() {
 
   const monthsWithData = Object.keys(monthlyTotals).length;
   const averageMonthlyReceitas = monthsWithData > 0 ? totalReceitas / monthsWithData : 0;
+
+  // Filter and paginate transactions
+  const filteredTransactions = useMemo(() => {
+    if (!transactions) return [];
+    
+    return transactions.filter(transaction => {
+      const matchesSearch = !searchTerm || 
+        transaction.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = selectedCategory === "all" || transaction.category === selectedCategory;
+      
+      const amount = parseFloat(transaction.amount);
+      const matchesMinAmount = !minAmount || amount >= parseFloat(minAmount);
+      const matchesMaxAmount = !maxAmount || amount <= parseFloat(maxAmount);
+      
+      const transactionDate = new Date(transaction.date);
+      const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
+      const matchesEndDate = !endDate || transactionDate <= new Date(endDate);
+      
+      return matchesSearch && matchesCategory && matchesMinAmount && matchesMaxAmount && matchesStartDate && matchesEndDate;
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions, searchTerm, selectedCategory, minAmount, maxAmount, startDate, endDate]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedCategory("all");
+    setMinAmount("");
+    setMaxAmount("");
+    setStartDate("");
+    setEndDate("");
+    setCurrentPage(1);
+  };
+
+  const receitaCategories = categories?.filter(cat => cat.type === 'receita') || [];
 
   return (
     <TransactionLimitGuard>
@@ -102,8 +157,95 @@ export default function Receitas() {
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Histórico de Receitas</CardTitle>
+          <CardHeader className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <CardTitle>Histórico de Receitas</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={clearFilters}
+                  className="text-xs"
+                >
+                  <Filter className="h-3 w-3 mr-1" />
+                  Limpar Filtros
+                </Button>
+                <span className="text-sm text-slate-500">
+                  {filteredTransactions.length} de {transactions?.length || 0} transações
+                </span>
+              </div>
+            </div>
+            
+            {/* Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Buscar..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
+              
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  {receitaCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  type="number"
+                  placeholder="Valor mín."
+                  value={minAmount}
+                  onChange={(e) => setMinAmount(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
+              
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  type="number"
+                  placeholder="Valor máx."
+                  value={maxAmount}
+                  onChange={(e) => setMaxAmount(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
+              
+              <div className="relative">
+                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  type="date"
+                  placeholder="Data início"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
+              
+              <div className="relative">
+                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  type="date"
+                  placeholder="Data fim"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -124,14 +266,14 @@ export default function Receitas() {
                   </div>
                 ))}
               </div>
-            ) : transactions?.length === 0 ? (
+            ) : filteredTransactions.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-500 text-lg">Nenhuma receita registrada</p>
                 <p className="text-slate-400 mt-2">Clique em "Nova Receita" para começar</p>
               </div>
             ) : (
               <div className="space-y-3 sm:space-y-4">
-                {transactions?.map((transaction) => (
+                {paginatedTransactions.map((transaction) => (
                   <div key={transaction.id} className="flex items-center justify-between p-3 sm:p-4 bg-slate-50 rounded-lg">
                     <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -156,6 +298,33 @@ export default function Receitas() {
                     </div>
                   </div>
                 ))}
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-6 border-t border-slate-200">
+                    <div className="text-sm text-slate-600">
+                      Página {currentPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Próxima
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
