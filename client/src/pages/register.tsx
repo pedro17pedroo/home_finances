@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -70,6 +70,17 @@ export default function Register() {
   const [step, setStep] = useState<'plan' | 'form'>('plan');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Check for plan parameter in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const planParam = urlParams.get('plan');
+    
+    if (planParam && ['basic', 'premium', 'enterprise'].includes(planParam)) {
+      setSelectedPlan(planParam);
+      setStep('form'); // Skip plan selection step
+    }
+  }, []);
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),

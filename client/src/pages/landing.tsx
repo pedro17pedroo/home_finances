@@ -101,7 +101,7 @@ export default function Landing() {
             <Link href="/login">
               <Button variant="ghost">Entrar</Button>
             </Link>
-            <Link href="/register">
+            <Link href="/register?plan=premium">
               <Button>Começar Grátis</Button>
             </Link>
           </div>
@@ -122,7 +122,7 @@ export default function Landing() {
             Simplifique sua vida financeira com relatórios inteligentes e insights personalizados.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Link href="/register">
+            <Link href="/register?plan=premium">
               <Button size="lg" className="text-lg px-8 py-3">
                 Começar Grátis por 14 dias
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -248,7 +248,7 @@ export default function Landing() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/register">
+                  <Link href={`/register?plan=${key}`}>
                     <Button 
                       className={`w-full ${plan.highlight ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
                       variant={plan.highlight ? 'default' : 'outline'}
