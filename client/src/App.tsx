@@ -1,4 +1,5 @@
 import { Switch, Route } from "wouter";
+import { lazy, Suspense } from 'react';
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -97,6 +98,11 @@ function Router() {
       <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/plans" component={AdminPlans} />
+      <Route path="/admin/payment-methods" component={lazy(() => import('./admin/pages/payment-methods'))} />
+      <Route path="/admin/campaigns" component={lazy(() => import('./admin/pages/campaigns'))} />
+      <Route path="/admin/landing-content" component={lazy(() => import('./admin/pages/landing-content'))} />
+      <Route path="/admin/legal-content" component={lazy(() => import('./admin/pages/legal-content'))} />
+      <Route path="/admin/system-settings" component={lazy(() => import('./admin/pages/system-settings'))} />
       
       <Route component={NotFound} />
     </Switch>

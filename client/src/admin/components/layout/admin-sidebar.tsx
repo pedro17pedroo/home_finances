@@ -7,7 +7,11 @@ import {
   FileText,
   BarChart3,
   Shield,
-  LogOut
+  LogOut,
+  Wallet,
+  Gift,
+  Globe,
+  Scale
 } from 'lucide-react';
 import { useAdminAuth } from '../../hooks/use-admin-auth';
 import { hasPermission } from '../../lib/permissions';
@@ -37,22 +41,40 @@ export function AdminSidebar() {
       permission: ADMIN_PERMISSIONS.PLANS.VIEW,
     },
     {
+      name: 'Métodos de Pagamento',
+      href: '/admin/payment-methods',
+      icon: Wallet,
+      permission: ADMIN_PERMISSIONS.PAYMENTS.VIEW,
+    },
+    {
+      name: 'Campanhas',
+      href: '/admin/campaigns',
+      icon: Gift,
+      permission: ADMIN_PERMISSIONS.CAMPAIGNS.VIEW,
+    },
+    {
+      name: 'Conteúdo Landing',
+      href: '/admin/landing-content',
+      icon: Globe,
+      permission: ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING,
+    },
+    {
+      name: 'Conteúdo Legal',
+      href: '/admin/legal-content',
+      icon: Scale,
+      permission: ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL,
+    },
+    {
+      name: 'Configurações',
+      href: '/admin/system-settings',
+      icon: Settings,
+      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_SETTINGS,
+    },
+    {
       name: 'Relatórios',
       href: '/admin/reports',
       icon: BarChart3,
       permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS,
-    },
-    {
-      name: 'Conteúdo',
-      href: '/admin/content',
-      icon: FileText,
-      permission: ADMIN_PERMISSIONS.CONTENT.VIEW,
-    },
-    {
-      name: 'Configurações',
-      href: '/admin/settings',
-      icon: Settings,
-      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_SETTINGS,
     },
   ];
 

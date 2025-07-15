@@ -240,14 +240,12 @@ export const ADMIN_PERMISSIONS = {
   },
   PAYMENTS: {
     VIEW: 'payments.view',
-    MANAGE_METHODS: 'payments.manage_methods',
+    MANAGE: 'payments.manage',
     PROCESS_REFUNDS: 'payments.process_refunds'
   },
   CAMPAIGNS: {
     VIEW: 'campaigns.view',
-    CREATE: 'campaigns.create',
-    UPDATE: 'campaigns.update',
-    DELETE: 'campaigns.delete'
+    MANAGE: 'campaigns.manage'
   },
   CONTENT: {
     VIEW: 'content.view',

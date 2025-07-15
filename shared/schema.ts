@@ -124,6 +124,56 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Payment Methods table - for Phase 3
+export const paymentMethods = pgTable("payment_methods", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(), // 'stripe', 'paypal', 'bank_transfer'
+  displayName: varchar("display_name", { length: 100 }).notNull(),
+  isActive: boolean("is_active").default(true),
+  config: jsonb("config"), // Method-specific configurations
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Campaigns table - for Phase 3
+export const campaigns = pgTable("campaigns", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  discountType: varchar("discount_type", { length: 50 }), // 'percentage', 'fixed_amount', 'free_trial'
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }),
+  couponCode: varchar("coupon_code", { length: 100 }).unique(),
+  validFrom: timestamp("valid_from"),
+  validUntil: timestamp("valid_until"),
+  usageLimit: integer("usage_limit"),
+  usageCount: integer("usage_count").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Landing Content table - for Phase 4
+export const landingContent = pgTable("landing_content", {
+  id: serial("id").primaryKey(),
+  section: varchar("section", { length: 100 }).notNull(), // 'hero', 'features', 'testimonials', 'pricing'
+  content: jsonb("content").notNull(), // Structured content
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Legal Content table - for Phase 4
+export const legalContent = pgTable("legal_content", {
+  id: serial("id").primaryKey(),
+  type: varchar("type", { length: 100 }).notNull(), // 'terms', 'privacy', 'contacts', 'contracts'
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  version: varchar("version", { length: 20 }).notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Contas bancárias
 export const accounts = pgTable("accounts", {
   id: serial("id").primaryKey(),
@@ -428,6 +478,31 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   createdAt: true
 });
 
+// Phase 3 & 4 schemas
+export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCampaignSchema = createInsertSchema(campaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLandingContentSchema = createInsertSchema(landingContent).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLegalContentSchema = createInsertSchema(legalContent).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Admin authentication schemas
 export const adminLoginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -492,3 +567,16 @@ export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+// Phase 3 & 4 types
+export type PaymentMethod = typeof paymentMethods.$inferSelect;
+export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
+
+export type Campaign = typeof campaigns.$inferSelect;
+export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+
+export type LandingContent = typeof landingContent.$inferSelect;
+export type InsertLandingContent = z.infer<typeof insertLandingContentSchema>;
+
+export type LegalContent = typeof legalContent.$inferSelect;
+export type InsertLegalContent = z.infer<typeof insertLegalContentSchema>;

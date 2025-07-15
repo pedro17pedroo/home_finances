@@ -14,7 +14,17 @@ import {
   insertLoanSchema, 
   insertDebtSchema, 
   insertCategorySchema,
-  insertTransferSchema 
+  insertTransferSchema,
+  insertPaymentMethodSchema,
+  insertCampaignSchema,
+  insertLandingContentSchema,
+  insertLegalContentSchema,
+  insertSystemSettingSchema,
+  paymentMethods,
+  campaigns,
+  landingContent,
+  legalContent,
+  systemSettings
 } from "@shared/schema";
 import { 
   isAuthenticated, 
@@ -1185,6 +1195,347 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching admin stats:", error);
       res.status(500).json({ message: "Erro ao buscar estatísticas" });
+    }
+  });
+
+  // Phase 3 - Payment Methods Admin Routes
+  app.get("/api/admin/payment-methods", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.VIEW), async (req, res) => {
+    try {
+      const methods = await db.select().from(paymentMethods).orderBy(paymentMethods.id);
+      res.json(methods);
+    } catch (error: any) {
+      console.error("Error fetching payment methods:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/payment-methods", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.MANAGE), async (req, res) => {
+    try {
+      const validatedData = insertPaymentMethodSchema.parse(req.body);
+      const [method] = await db.insert(paymentMethods).values(validatedData).returning();
+      
+      await logAdminAction(req, 'create', 'payment_method', method.id, validatedData);
+      res.status(201).json(method);
+    } catch (error: any) {
+      console.error("Error creating payment method:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/payment-methods/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.MANAGE), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertPaymentMethodSchema.partial().parse(req.body);
+      
+      const [updated] = await db.update(paymentMethods)
+        .set(validatedData)
+        .where(eq(paymentMethods.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Payment method not found" });
+      }
+      
+      await logAdminAction(req, 'update', 'payment_method', id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating payment method:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/payment-methods/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.MANAGE), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const [deleted] = await db.delete(paymentMethods)
+        .where(eq(paymentMethods.id, id))
+        .returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Payment method not found" });
+      }
+      
+      await logAdminAction(req, 'delete', 'payment_method', id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting payment method:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Phase 3 - Campaigns Admin Routes
+  app.get("/api/admin/campaigns", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.VIEW), async (req, res) => {
+    try {
+      const { status } = req.query;
+      
+      let query = db.select().from(campaigns);
+      
+      if (status) {
+        query = query.where(eq(campaigns.status, status as string));
+      }
+      
+      const allCampaigns = await query.orderBy(campaigns.createdAt);
+      res.json(allCampaigns);
+    } catch (error: any) {
+      console.error("Error fetching campaigns:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/campaigns", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.MANAGE), async (req, res) => {
+    try {
+      const validatedData = insertCampaignSchema.parse(req.body);
+      const [campaign] = await db.insert(campaigns).values(validatedData).returning();
+      
+      await logAdminAction(req, 'create', 'campaign', campaign.id, validatedData);
+      res.status(201).json(campaign);
+    } catch (error: any) {
+      console.error("Error creating campaign:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/campaigns/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.MANAGE), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertCampaignSchema.partial().parse(req.body);
+      
+      const [updated] = await db.update(campaigns)
+        .set(validatedData)
+        .where(eq(campaigns.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      await logAdminAction(req, 'update', 'campaign', id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating campaign:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/campaigns/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.MANAGE), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const [deleted] = await db.delete(campaigns)
+        .where(eq(campaigns.id, id))
+        .returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      await logAdminAction(req, 'delete', 'campaign', id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting campaign:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Phase 4 - Landing Content Admin Routes
+  app.get("/api/admin/landing-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING), async (req, res) => {
+    try {
+      const content = await db.select().from(landingContent).orderBy(landingContent.section);
+      res.json(content);
+    } catch (error: any) {
+      console.error("Error fetching landing content:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/landing-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING), async (req, res) => {
+    try {
+      const validatedData = insertLandingContentSchema.parse(req.body);
+      const [content] = await db.insert(landingContent).values(validatedData).returning();
+      
+      await logAdminAction(req, 'create', 'landing_content', content.id, validatedData);
+      res.status(201).json(content);
+    } catch (error: any) {
+      console.error("Error creating landing content:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/landing-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertLandingContentSchema.partial().parse(req.body);
+      
+      const [updated] = await db.update(landingContent)
+        .set(validatedData)
+        .where(eq(landingContent.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Landing content not found" });
+      }
+      
+      await logAdminAction(req, 'update', 'landing_content', id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating landing content:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/landing-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const [deleted] = await db.delete(landingContent)
+        .where(eq(landingContent.id, id))
+        .returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Landing content not found" });
+      }
+      
+      await logAdminAction(req, 'delete', 'landing_content', id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting landing content:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Phase 4 - Legal Content Admin Routes
+  app.get("/api/admin/legal-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL), async (req, res) => {
+    try {
+      const content = await db.select().from(legalContent).orderBy(legalContent.type, legalContent.createdAt);
+      res.json(content);
+    } catch (error: any) {
+      console.error("Error fetching legal content:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/legal-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL), async (req, res) => {
+    try {
+      const validatedData = insertLegalContentSchema.parse(req.body);
+      const [content] = await db.insert(legalContent).values(validatedData).returning();
+      
+      await logAdminAction(req, 'create', 'legal_content', content.id, validatedData);
+      res.status(201).json(content);
+    } catch (error: any) {
+      console.error("Error creating legal content:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/legal-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertLegalContentSchema.partial().parse(req.body);
+      
+      const [updated] = await db.update(legalContent)
+        .set({
+          ...validatedData,
+          updatedAt: new Date()
+        })
+        .where(eq(legalContent.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Legal content not found" });
+      }
+      
+      await logAdminAction(req, 'update', 'legal_content', id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating legal content:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/legal-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const [deleted] = await db.delete(legalContent)
+        .where(eq(legalContent.id, id))
+        .returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Legal content not found" });
+      }
+      
+      await logAdminAction(req, 'delete', 'legal_content', id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting legal content:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Phase 4 - System Settings Admin Routes
+  app.get("/api/admin/system-settings", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_SETTINGS), async (req, res) => {
+    try {
+      const settings = await db.select().from(systemSettings).orderBy(systemSettings.category, systemSettings.key);
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error fetching system settings:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/system-settings", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
+    try {
+      const validatedData = insertSystemSettingSchema.parse(req.body);
+      const [setting] = await db.insert(systemSettings).values(validatedData).returning();
+      
+      await logAdminAction(req, 'create', 'system_setting', setting.id, validatedData);
+      res.status(201).json(setting);
+    } catch (error: any) {
+      console.error("Error creating system setting:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/system-settings/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertSystemSettingSchema.partial().parse(req.body);
+      
+      const [updated] = await db.update(systemSettings)
+        .set(validatedData)
+        .where(eq(systemSettings.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ message: "System setting not found" });
+      }
+      
+      await logAdminAction(req, 'update', 'system_setting', id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating system setting:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/system-settings/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const [deleted] = await db.delete(systemSettings)
+        .where(eq(systemSettings.id, id))
+        .returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "System setting not found" });
+      }
+      
+      await logAdminAction(req, 'delete', 'system_setting', id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting system setting:", error);
+      res.status(500).json({ message: error.message });
     }
   });
 
