@@ -91,6 +91,15 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
     createTransactionMutation.mutate(data);
   };
 
+  // Handle transaction form submission and prevent unwanted submissions
+  const handleTransactionFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Only submit if we're not in the process of creating an account
+    if (!showAccountForm && !showCategoryForm) {
+      form.handleSubmit(onSubmit)(e);
+    }
+  };
+
   const availableCategories = categories?.filter(cat => cat.type === defaultType) || [];
 
   // Criar conta
@@ -138,8 +147,15 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
     createAccountMutation.mutate(data);
   };
 
+  // Prevent account form submission from triggering transaction form submission
+  const handleAccountFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    accountForm.handleSubmit(onAccountSubmit)(e);
+  };
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleTransactionFormSubmit} className="space-y-4">
 
       <div>
         <Label htmlFor="amount">Valor</Label>
@@ -197,7 +213,11 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setShowAccountForm(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowAccountForm(true);
+              }}
               className="text-xs text-blue-600 hover:text-blue-800"
             >
               + Nova conta
@@ -277,7 +297,7 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
           </DialogHeader>
 
           <Form {...accountForm}>
-            <form onSubmit={accountForm.handleSubmit(onAccountSubmit)} className="space-y-4">
+            <form onSubmit={handleAccountFormSubmit} className="space-y-4">
               <FormField
                 control={accountForm.control}
                 name="name"
@@ -390,6 +410,11 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
                 <Button 
                   type="submit" 
                   disabled={createAccountMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAccountFormSubmit(e);
+                  }}
                 >
                   {createAccountMutation.isPending ? "Criando..." : "Criar Conta"}
                 </Button>
