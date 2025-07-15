@@ -15,6 +15,7 @@ export const useCacheSync = () => {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/expenses-by-category"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/financial-summary"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts/savings"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] }),
     ]);
   };

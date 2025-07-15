@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,12 @@ import { Plus, Target } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import SavingsGoalForm from "@/components/forms/savings-goal-form";
 import { formatCurrency, calculatePercentage } from "@/lib/utils";
+import { useCacheSync } from "@/hooks/use-cache-sync";
 import type { SavingsGoal, Account } from "@shared/schema";
 
 export default function Poupanca() {
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const { syncSavingsGoals, syncAccounts } = useCacheSync();
 
   const { data: goals, isLoading: goalsLoading } = useQuery<SavingsGoal[]>({
     queryKey: ["/api/savings-goals"],
@@ -19,6 +21,15 @@ export default function Poupanca() {
   const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({
     queryKey: ["/api/accounts/savings"],
   });
+
+  // Sincronizar dados quando a página for carregada
+  useEffect(() => {
+    const syncData = async () => {
+      await syncSavingsGoals();
+      await syncAccounts();
+    };
+    syncData();
+  }, [syncSavingsGoals, syncAccounts]);
 
   const totalSavings = accounts?.reduce((sum, a) => sum + parseFloat(a.balance), 0) || 0;
   const totalGoals = goals?.reduce((sum, g) => sum + parseFloat(g.targetAmount), 0) || 0;
