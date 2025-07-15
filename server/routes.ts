@@ -6,7 +6,7 @@ import Stripe from "stripe";
 import { storage } from "./storage";
 import { db } from "./db";
 import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { 
   insertAccountSchema, 
   insertTransactionSchema, 
@@ -32,7 +32,9 @@ import {
   getCurrentAdmin, 
   isAdminAuthenticated, 
   requireAdminRole,
-  requireAdminPermission
+  requireAdminPermission,
+  logAdminAction,
+  ADMIN_PERMISSIONS
 } from "./admin-auth";
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -76,6 +78,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/auth/login", loginAdmin);
   app.post("/api/admin/auth/logout", logoutAdmin);
   app.get("/api/admin/auth/me", isAdminAuthenticated, getCurrentAdmin);
+
+  // Admin Dashboard routes
+  app.get("/api/admin/dashboard/metrics", isAdminAuthenticated, async (req, res) => {
+    try {
+      const usersCount = await db.select({ count: sql<number>`count(*)` }).from(users);
+      const activeUsersCount = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.subscriptionStatus, 'active'));
+      
+      const planDistribution = await db.select({
+        planType: users.planType,
+        count: sql<number>`count(*)`
+      }).from(users).groupBy(users.planType);
+      
+      const distribution = planDistribution.reduce((acc, row) => {
+        acc[row.planType] = Number(row.count);
+        return acc;
+      }, {} as Record<string, number>);
+
+      const metrics = {
+        totalUsers: Number(usersCount[0]?.count || 0),
+        activeUsers: Number(activeUsersCount[0]?.count || 0),
+        monthlyRevenue: 0, // TODO: Calculate from payments
+        trialConversionRate: 0, // TODO: Calculate conversion rate
+        churnRate: 0, // TODO: Calculate churn rate
+        planDistribution: {
+          basic: distribution.basic || 0,
+          premium: distribution.premium || 0,
+          enterprise: distribution.enterprise || 0
+        }
+      };
+
+      res.json(metrics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin Users routes
+  app.get("/api/admin/users", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.VIEW), async (req, res) => {
+    try {
+      const { search, status } = req.query;
+      
+      let query = db.select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        subscriptionStatus: users.subscriptionStatus,
+        planType: users.planType,
+        organizationId: users.organizationId,
+        createdAt: users.createdAt
+      }).from(users);
+
+      // Add filters if provided
+      if (status && status !== 'all') {
+        query = query.where(eq(users.subscriptionStatus, status as string));
+      }
+
+      const usersList = await query;
+      
+      // Filter by search term if provided
+      let filteredUsers = usersList;
+      if (search) {
+        const searchTerm = (search as string).toLowerCase();
+        filteredUsers = usersList.filter(user => 
+          user.email?.toLowerCase().includes(searchTerm) ||
+          `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      res.json(filteredUsers);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin Plans routes
+  app.get("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.VIEW), async (req, res) => {
+    try {
+      const allPlans = await storage.getPlans();
+      res.json(allPlans);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.CREATE), async (req, res) => {
+    try {
+      const adminUserId = req.session.adminUserId!;
+      const planData = req.body;
+      
+      const newPlan = await storage.createPlan(planData);
+      
+      // Log the action
+      await logAdminAction(adminUserId, 'create_plan', 'plan', newPlan.id, null, newPlan, req);
+      
+      res.json(newPlan);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.UPDATE), async (req, res) => {
+    try {
+      const adminUserId = req.session.adminUserId!;
+      const planId = parseInt(req.params.id);
+      const planData = req.body;
+      
+      const oldPlan = await storage.getPlan(planId);
+      const updatedPlan = await storage.updatePlan(planId, planData);
+      
+      // Log the action
+      await logAdminAction(adminUserId, 'update_plan', 'plan', planId, oldPlan, updatedPlan, req);
+      
+      res.json(updatedPlan);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.DELETE), async (req, res) => {
+    try {
+      const adminUserId = req.session.adminUserId!;
+      const planId = parseInt(req.params.id);
+      
+      const oldPlan = await storage.getPlan(planId);
+      await storage.deletePlan(planId);
+      
+      // Log the action
+      await logAdminAction(adminUserId, 'delete_plan', 'plan', planId, oldPlan, null, req);
+      
+      res.json({ message: 'Plan deleted successfully' });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
   app.get("/api/auth/me", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;

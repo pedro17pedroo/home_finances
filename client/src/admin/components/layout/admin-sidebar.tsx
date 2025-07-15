@@ -1,0 +1,116 @@
+import { Link, useLocation } from 'wouter';
+import { 
+  LayoutDashboard, 
+  Users, 
+  CreditCard, 
+  Settings, 
+  FileText,
+  BarChart3,
+  Shield,
+  LogOut
+} from 'lucide-react';
+import { useAdminAuth } from '../../hooks/use-admin-auth';
+import { hasPermission } from '../../lib/permissions';
+import { ADMIN_PERMISSIONS } from '../../lib/permissions';
+
+export function AdminSidebar() {
+  const [location] = useLocation();
+  const { user, logout } = useAdminAuth();
+
+  const navigation = [
+    {
+      name: 'Dashboard',
+      href: '/admin/dashboard',
+      icon: LayoutDashboard,
+      permission: null,
+    },
+    {
+      name: 'Utilizadores',
+      href: '/admin/users',
+      icon: Users,
+      permission: ADMIN_PERMISSIONS.USERS.VIEW,
+    },
+    {
+      name: 'Planos',
+      href: '/admin/plans',
+      icon: CreditCard,
+      permission: ADMIN_PERMISSIONS.PLANS.VIEW,
+    },
+    {
+      name: 'Relatórios',
+      href: '/admin/reports',
+      icon: BarChart3,
+      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS,
+    },
+    {
+      name: 'Conteúdo',
+      href: '/admin/content',
+      icon: FileText,
+      permission: ADMIN_PERMISSIONS.CONTENT.VIEW,
+    },
+    {
+      name: 'Configurações',
+      href: '/admin/settings',
+      icon: Settings,
+      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_SETTINGS,
+    },
+  ];
+
+  const filteredNavigation = navigation.filter(item => 
+    !item.permission || hasPermission(user?.permissions || [], item.permission)
+  );
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
+  };
+
+  return (
+    <div className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+          Admin Panel
+        </h1>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          {user?.firstName} {user?.lastName}
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-500 capitalize">
+          {user?.role.replace('_', ' ')}
+        </p>
+      </div>
+
+      <nav className="flex-1 p-4 space-y-2">
+        {filteredNavigation.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.startsWith(item.href);
+
+          return (
+            <Link key={item.name} href={item.href}>
+              <div className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
+                isActive
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}>
+                <Icon className="w-5 h-5 mr-3" />
+                <span className="font-medium">{item.name}</span>
+              </div>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <button
+          onClick={handleLogout}
+          className="flex items-center w-full px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
+        >
+          <LogOut className="w-5 h-5 mr-3" />
+          <span className="font-medium">Logout</span>
+        </button>
+      </div>
+    </div>
+  );
+}

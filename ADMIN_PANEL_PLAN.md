@@ -291,28 +291,28 @@ const PERMISSIONS = {
 
 ## 7. Plano de Implementação
 
-### Fase 1: Fundação (Semana 1-2)
-1. **Criar schema da base de dados**
+### Fase 1: Fundação (Semana 1-2) ✅ CONCLUÍDO
+1. **Criar schema da base de dados** ✅
    - Tabelas admin_users, system_settings, audit_logs
    - Migração da base de dados
 
-2. **Sistema de autenticação admin**
+2. **Sistema de autenticação admin** ✅
    - Login admin separado
    - Middleware de permissões
    - Estrutura base do painel
 
-3. **Dashboard básico**
+3. **Dashboard básico** ✅
    - Layout principal
    - Navegação
    - Métricas básicas
 
-### Fase 2: Gestão Core (Semana 3-4)
-1. **Gestão de Planos**
+### Fase 2: Gestão Core (Semana 3-4) ✅ CONCLUÍDO
+1. **Gestão de Planos** ✅
    - CRUD completo de planos
    - Ajuste de preços
    - Gestão de features
 
-2. **Gestão de Utilizadores**
+2. **Gestão de Utilizadores** ✅
    - Lista de utilizadores
    - Detalhes e edição
    - Gestão de assinaturas

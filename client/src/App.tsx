@@ -19,8 +19,7 @@ import NotFound from "@/pages/not-found";
 import Perfil from "@/pages/perfil";
 import Categorias from "@/pages/categorias";
 import Contas from "@/pages/contas";
-import AdminLogin from "@/pages/admin/login";
-import AdminDashboard from "@/pages/admin/dashboard";
+import { AdminLogin, AdminDashboard, AdminUsers, AdminPlans } from "@/admin";
 
 function Router() {
   return (
@@ -96,6 +95,8 @@ function Router() {
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
+      <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/plans" component={AdminPlans} />
       
       <Route component={NotFound} />
     </Switch>
