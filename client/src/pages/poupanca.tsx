@@ -157,7 +157,7 @@ export default function Poupanca() {
                           <h4 className="font-medium text-slate-900">{goal.name}</h4>
                           <span className="text-sm text-slate-500">{percentage}%</span>
                         </div>
-                        <Progress value={percentage} className="mb-2" />
+                        <Progress value={percentage} className="mb-2 bg-[#2463eb]" />
                         <div className="flex justify-between text-sm text-slate-600">
                           <span>
                             {formatCurrency(currentAmount)} de {formatCurrency(targetAmount)}
