@@ -6,7 +6,7 @@ import { formatCurrency, calculatePercentage } from "@/lib/utils";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import SavingsGoalForm from "@/components/forms/savings-goal-form";
-import type { SavingsGoal } from "@shared/schema";
+import type { SavingsGoal, Account } from "@shared/schema";
 
 export default function SavingsGoals() {
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
@@ -14,6 +14,12 @@ export default function SavingsGoals() {
   const { data: goals, isLoading } = useQuery<SavingsGoal[]>({
     queryKey: ["/api/savings-goals"],
   });
+
+  const { data: accounts } = useQuery<Account[]>({
+    queryKey: ["/api/accounts/savings"],
+  });
+
+  const totalSavings = accounts?.reduce((sum, a) => sum + parseFloat(a.balance), 0) || 0;
 
   if (isLoading) {
     return (
@@ -67,7 +73,8 @@ export default function SavingsGoals() {
               </div>
             ) : (
               goals?.map((goal) => {
-                const currentAmount = parseFloat(goal.currentAmount);
+                // Use total savings from accounts as current amount instead of stored currentAmount
+                const currentAmount = totalSavings;
                 const targetAmount = parseFloat(goal.targetAmount);
                 const percentage = calculatePercentage(currentAmount, targetAmount);
                 const remainingAmount = targetAmount - currentAmount;
