@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, CreditCard, Wallet, PiggyBank } from "lucide-react";
+import { Plus, Edit2, Trash2, CreditCard, Wallet, PiggyBank, ArrowLeftRight, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import AccountLimitGuard from "@/components/auth/account-limit-guard";
 import { useCacheSync } from "@/hooks/use-cache-sync";
+import TransferForm from "@/components/forms/transfer-form";
+import TransferHistory from "@/components/transfers/transfer-history";
 
 const accountTypeIcons = {
   corrente: CreditCard,
@@ -29,6 +31,7 @@ const accountTypeLabels = {
 export default function Contas() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [showTransferHistory, setShowTransferHistory] = useState(false);
   const { toast } = useToast();
   const { syncAccounts } = useCacheSync();
 
@@ -194,15 +197,30 @@ export default function Contas() {
           </p>
         </div>
 
-        <AccountLimitGuard>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Conta
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowTransferHistory(!showTransferHistory)}
+            className="flex items-center gap-2"
+          >
+            <History className="h-4 w-4" />
+            {showTransferHistory ? 'Ocultar' : 'Histórico'}
+          </Button>
+          <TransferForm>
+            <Button variant="outline" className="flex items-center gap-2">
+              <ArrowLeftRight className="h-4 w-4" />
+              Transferir
+            </Button>
+          </TransferForm>
+          <AccountLimitGuard>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova Conta
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
               <DialogHeader>
                 <DialogTitle>Criar Nova Conta</DialogTitle>
                 <DialogDescription>
@@ -340,7 +358,15 @@ export default function Contas() {
             </DialogContent>
           </Dialog>
         </AccountLimitGuard>
+        </div>
       </div>
+
+      {/* Histórico de Transferências */}
+      {showTransferHistory && (
+        <div className="mb-8">
+          <TransferHistory />
+        </div>
+      )}
 
       {/* Lista de Contas */}
       {accounts.length === 0 ? (

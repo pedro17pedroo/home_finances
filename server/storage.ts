@@ -1,6 +1,7 @@
 import { 
   accounts, 
   transactions, 
+  transfers,
   savingsGoals, 
   loans, 
   debts, 
@@ -13,6 +14,8 @@ import {
   type InsertAccount,
   type Transaction, 
   type InsertTransaction,
+  type Transfer,
+  type InsertTransfer,
   type SavingsGoal,
   type InsertSavingsGoal,
   type Loan,
@@ -63,6 +66,10 @@ export interface IStorage {
   deleteTransaction(id: number, userId: number): Promise<void>;
   getTransactionsByDateRange(userId: number, startDate: Date, endDate: Date): Promise<Transaction[]>;
   getTransactionsByCategory(userId: number, category: string): Promise<Transaction[]>;
+
+  // Transfers
+  getTransfers(userId: number): Promise<Transfer[]>;
+  createTransfer(transfer: InsertTransfer): Promise<Transfer>;
 
   // Savings Goals
   getSavingsGoals(userId: number): Promise<SavingsGoal[]>;
@@ -466,6 +473,78 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCategory(id: number): Promise<void> {
     await db.delete(categories).where(eq(categories.id, id));
+  }
+
+  // Transfers
+  async getTransfers(userId: number): Promise<Transfer[]> {
+    return await db
+      .select({
+        id: transfers.id,
+        userId: transfers.userId,
+        fromAccountId: transfers.fromAccountId,
+        toAccountId: transfers.toAccountId,
+        amount: transfers.amount,
+        description: transfers.description,
+        date: transfers.date,
+        createdAt: transfers.createdAt,
+        updatedAt: transfers.updatedAt,
+      })
+      .from(transfers)
+      .where(eq(transfers.userId, userId))
+      .orderBy(desc(transfers.date));
+  }
+
+  async createTransfer(insertTransfer: InsertTransfer): Promise<Transfer> {
+    // Start a transaction to ensure data consistency
+    const result = await db.transaction(async (tx) => {
+      // Get the fromAccount and toAccount
+      const fromAccount = await tx
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.id, insertTransfer.fromAccountId), eq(accounts.userId, insertTransfer.userId)));
+      
+      const toAccount = await tx
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.id, insertTransfer.toAccountId), eq(accounts.userId, insertTransfer.userId)));
+
+      if (fromAccount.length === 0 || toAccount.length === 0) {
+        throw new Error('One or both accounts not found');
+      }
+
+      // Check if from account has sufficient balance
+      const fromBalance = parseFloat(fromAccount[0].balance);
+      const transferAmount = parseFloat(insertTransfer.amount);
+      
+      if (fromBalance < transferAmount) {
+        throw new Error('Insufficient balance in source account');
+      }
+
+      // Create the transfer record
+      const [transfer] = await tx.insert(transfers).values(insertTransfer).returning();
+
+      // Update account balances
+      await tx
+        .update(accounts)
+        .set({ 
+          balance: (fromBalance - transferAmount).toFixed(2),
+          updatedAt: new Date()
+        })
+        .where(eq(accounts.id, insertTransfer.fromAccountId));
+
+      const toBalance = parseFloat(toAccount[0].balance);
+      await tx
+        .update(accounts)
+        .set({ 
+          balance: (toBalance + transferAmount).toFixed(2),
+          updatedAt: new Date()
+        })
+        .where(eq(accounts.id, insertTransfer.toAccountId));
+
+      return transfer;
+    });
+
+    return result;
   }
 
   // Organizations (Multi-user support)

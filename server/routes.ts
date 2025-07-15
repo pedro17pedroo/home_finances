@@ -13,7 +13,8 @@ import {
   insertSavingsGoalSchema, 
   insertLoanSchema, 
   insertDebtSchema, 
-  insertCategorySchema 
+  insertCategorySchema,
+  insertTransferSchema 
 } from "@shared/schema";
 import { 
   isAuthenticated, 
@@ -529,6 +530,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting transaction:", error);
       res.status(500).json({ message: "Erro ao deletar transação" });
+    }
+  });
+
+  // Transfers
+  app.get("/api/transfers", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const transfers = await storage.getTransfers(userId);
+      res.json(transfers);
+    } catch (error) {
+      console.error("Error fetching transfers:", error);
+      res.status(500).json({ message: "Erro ao buscar transferências" });
+    }
+  });
+
+  app.post("/api/transfers", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const validatedData = insertTransferSchema.parse({
+        ...req.body,
+        userId,
+        date: new Date(req.body.date),
+      });
+      const transfer = await storage.createTransfer(validatedData);
+      res.status(201).json(transfer);
+    } catch (error) {
+      console.error("Error creating transfer:", error);
+      res.status(500).json({ message: "Erro ao criar transferência" });
     }
   });
 

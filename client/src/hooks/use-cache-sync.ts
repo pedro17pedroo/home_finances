@@ -17,6 +17,7 @@ export const useCacheSync = () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/accounts/savings"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] }),
     ]);
   };
 
@@ -27,6 +28,7 @@ export const useCacheSync = () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts/savings"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/financial-summary"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] }),
     ]);
   };
 
@@ -90,6 +92,16 @@ export const useCacheSync = () => {
     ]);
   };
 
+  // Invalidar todas as queries relacionadas a transferências
+  const syncTransfers = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts/savings"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/financial-summary"] }),
+    ]);
+  };
+
   // Invalidar tudo (usar apenas em casos extremos)
   const syncAll = async () => {
     await queryClient.invalidateQueries();
@@ -102,6 +114,7 @@ export const useCacheSync = () => {
     syncSavingsGoals,
     syncLoans,
     syncDebts,
+    syncTransfers,
     syncSubscription,
     syncUser,
     syncDashboard,

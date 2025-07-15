@@ -122,6 +122,19 @@ export const transactions = pgTable("transactions", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
+// Transferências entre contas
+export const transfers = pgTable("transfers", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  fromAccountId: integer("from_account_id").references(() => accounts.id).notNull(),
+  toAccountId: integer("to_account_id").references(() => accounts.id).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  description: text("description"),
+  date: timestamp("date").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // Metas de poupança
 export const savingsGoals = pgTable("savings_goals", {
   id: serial("id").primaryKey(),
@@ -176,6 +189,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   sentInvitations: many(teamInvitations),
   accounts: many(accounts),
   transactions: many(transactions),
+  transfers: many(transfers),
   savingsGoals: many(savingsGoals),
   loans: many(loans),
   debts: many(debts),
@@ -183,6 +197,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 
 export const accountsRelations = relations(accounts, ({ many, one }) => ({
   transactions: many(transactions),
+  transfersFrom: many(transfers, { relationName: "fromAccount" }),
+  transfersTo: many(transfers, { relationName: "toAccount" }),
   loans: many(loans),
   debts: many(debts),
   user: one(users, {
@@ -198,6 +214,23 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   }),
   user: one(users, {
     fields: [transactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const transfersRelations = relations(transfers, ({ one }) => ({
+  fromAccount: one(accounts, {
+    fields: [transfers.fromAccountId],
+    references: [accounts.id],
+    relationName: "fromAccount",
+  }),
+  toAccount: one(accounts, {
+    fields: [transfers.toAccountId],
+    references: [accounts.id],
+    relationName: "toAccount",
+  }),
+  user: one(users, {
+    fields: [transfers.userId],
     references: [users.id],
   }),
 }));
@@ -259,6 +292,18 @@ export const insertAccountSchema = createInsertSchema(accounts).omit({
   createdAt: true,
   updatedAt: true
 });
+
+export const insertTransferSchema = createInsertSchema(transfers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+// Types
+export type Account = typeof accounts.$inferSelect;
+export type InsertAccount = z.infer<typeof insertAccountSchema>;
+export type Transfer = typeof transfers.$inferSelect;
+export type InsertTransfer = z.infer<typeof insertTransferSchema>;
 
 export const insertTransactionSchema = createInsertSchema(transactions).omit({
   id: true,
