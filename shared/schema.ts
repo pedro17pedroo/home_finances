@@ -13,6 +13,7 @@ export const categoryEnum = pgEnum('category', [
 ]);
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'canceled', 'past_due', 'trialing']);
 export const planTypeEnum = pgEnum('plan_type', ['basic', 'premium', 'enterprise']);
+export const adminRoleEnum = pgEnum('admin_role', ['super_admin', 'admin']);
 
 // Session storage table for authentication
 export const sessions = pgTable(
@@ -80,6 +81,46 @@ export const plans = pgTable("plans", {
   maxAccounts: integer("max_accounts").default(5),
   maxTransactions: integer("max_transactions").default(1000),
   isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Admin Users table - for support team
+export const adminUsers = pgTable("admin_users", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).unique().notNull(),
+  password: varchar("password", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  role: adminRoleEnum("role").default('admin'),
+  permissions: jsonb("permissions").default([]),
+  isActive: boolean("is_active").default(true),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// System Settings table
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 100 }).unique().notNull(),
+  value: jsonb("value").notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Audit Logs table
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  adminUserId: integer("admin_user_id").references(() => adminUsers.id),
+  action: varchar("action", { length: 255 }).notNull(),
+  entityType: varchar("entity_type", { length: 100 }),
+  entityId: integer("entity_id"),
+  oldData: jsonb("old_data"),
+  newData: jsonb("new_data"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -286,6 +327,19 @@ export const teamInvitationsRelations = relations(teamInvitations, ({ one }) => 
   }),
 }));
 
+// Admin Users Relations
+export const adminUsersRelations = relations(adminUsers, ({ many }) => ({
+  auditLogs: many(auditLogs),
+}));
+
+// Audit Logs Relations
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  adminUser: one(adminUsers, {
+    fields: [auditLogs.adminUserId],
+    references: [adminUsers.id],
+  }),
+}));
+
 // Insert schemas
 export const insertAccountSchema = createInsertSchema(accounts).omit({
   id: true,
@@ -356,6 +410,30 @@ export const insertTeamInvitationSchema = createInsertSchema(teamInvitations).om
   createdAt: true
 });
 
+// Admin schemas
+export const insertAdminUserSchema = createInsertSchema(adminUsers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true
+});
+
+// Admin authentication schemas
+export const adminLoginSchema = z.object({
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres")
+});
+
 // Authentication schemas
 export const loginSchema = z.object({
   emailOrPhone: z.string().min(1, "Email ou telefone é obrigatório"),
@@ -405,11 +483,12 @@ export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 export type TeamInvitation = typeof teamInvitations.$inferSelect;
 export type InsertTeamInvitation = z.infer<typeof insertTeamInvitationSchema>;
 
-export type Category = typeof categories.$inferSelect;
-export type InsertCategory = z.infer<typeof insertCategorySchema>;
+// Admin types
+export type AdminUser = typeof adminUsers.$inferSelect;
+export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
 
-export type Organization = typeof organizations.$inferSelect;
-export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
 
-export type TeamInvitation = typeof teamInvitations.$inferSelect;
-export type InsertTeamInvitation = z.infer<typeof insertTeamInvitationSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;

@@ -26,6 +26,14 @@ import {
   getCurrentUser 
 } from "./auth";
 import { validateAccountLimit, validateTransactionLimit, getUserLimitsStatus } from "./plan-limits";
+import { 
+  loginAdmin, 
+  logoutAdmin, 
+  getCurrentAdmin, 
+  isAdminAuthenticated, 
+  requireAdminRole,
+  requireAdminPermission
+} from "./admin-auth";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -63,6 +71,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", registerUser);
   app.post("/api/auth/logout", logoutUser);
   app.get("/api/auth/user", getCurrentUser);
+  
+  // Admin Auth routes
+  app.post("/api/admin/auth/login", loginAdmin);
+  app.post("/api/admin/auth/logout", logoutAdmin);
+  app.get("/api/admin/auth/me", isAdminAuthenticated, getCurrentAdmin);
   app.get("/api/auth/me", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;
@@ -995,6 +1008,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating category:", error);
       res.status(500).json({ message: "Erro ao criar categoria" });
+    }
+  });
+
+  // Admin dashboard routes
+  app.get("/api/admin/dashboard/stats", isAdminAuthenticated, async (req, res) => {
+    try {
+      // Get basic stats
+      const activeUsers = await db.execute(`
+        SELECT COUNT(*) as count 
+        FROM users 
+        WHERE subscription_status = 'active'
+      `);
+      
+      const activeSubscriptions = await db.execute(`
+        SELECT COUNT(*) as count 
+        FROM users 
+        WHERE subscription_status IN ('active', 'trialing')
+      `);
+      
+      const monthlyRevenue = await db.execute(`
+        SELECT SUM(CASE 
+          WHEN plan_type = 'basic' THEN 14500
+          WHEN plan_type = 'premium' THEN 29500
+          WHEN plan_type = 'enterprise' THEN 74500
+          ELSE 0
+        END) as total
+        FROM users 
+        WHERE subscription_status = 'active'
+      `);
+      
+      const stats = {
+        activeUsers: Number(activeUsers[0]?.count || 0),
+        activeSubscriptions: Number(activeSubscriptions[0]?.count || 0),
+        monthlyRevenue: Number(monthlyRevenue[0]?.total || 0)
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas" });
     }
   });
 
