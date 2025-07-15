@@ -371,12 +371,14 @@ export default function Contas() {
             
             return (
               <Card key={account.id} className="group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div className="flex items-center space-x-2">
-                    <IconComponent className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <CardTitle className="text-base">{account.name}</CardTitle>
-                      <CardDescription>{typeLabel}</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <div className="flex items-center space-x-3">
+                    <IconComponent className="h-6 w-6 text-muted-foreground" />
+                    <div className="flex flex-col">
+                      <CardTitle className="text-lg font-semibold">{account.name}</CardTitle>
+                      <CardDescription className="text-sm text-muted-foreground">
+                        {account.bank} • {typeLabel}
+                      </CardDescription>
                     </div>
                   </div>
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
@@ -397,11 +399,11 @@ export default function Contas() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-slate-900">
                     {formatCurrency(parseFloat(account.balance))}
                   </div>
                   {account.interestRate && parseFloat(account.interestRate) > 0 && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground mt-1">
                       Taxa: {account.interestRate}% a.a.
                     </p>
                   )}
