@@ -33,6 +33,8 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Plan Selection Fix**: Fixed registration flow to properly respect selected plan type during account creation
 - ✅ **Replit Migration Completed**: Successfully migrated from Replit Agent to standard Replit environment with PostgreSQL database
 - ✅ **Account Balance Synchronization**: Fixed critical issue where account balances weren't updating with transactions - implemented automatic balance calculation
+- ✅ **Form Conflict Resolution**: Fixed issue where creating accounts from transaction forms inadvertently saved transactions
+- ✅ **Dynamic Statistics**: Implemented automatic calculation for "Este Mês" and "Média Mensal" cards in Receitas and Despesas pages
 
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.

@@ -28,6 +28,28 @@ export default function Despesas() {
 
   const totalDespesas = transactions?.reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
 
+  // Calculate this month's expenses
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
+  
+  const thisMonthDespesas = transactions?.filter(t => {
+    const transactionDate = new Date(t.date);
+    return transactionDate.getMonth() === currentMonth && 
+           transactionDate.getFullYear() === currentYear;
+  }).reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
+
+  // Calculate monthly average (based on months with data)
+  const monthlyTotals = transactions?.reduce((acc, t) => {
+    const transactionDate = new Date(t.date);
+    const monthKey = `${transactionDate.getFullYear()}-${transactionDate.getMonth()}`;
+    acc[monthKey] = (acc[monthKey] || 0) + parseFloat(t.amount);
+    return acc;
+  }, {} as Record<string, number>) || {};
+
+  const monthsWithData = Object.keys(monthlyTotals).length;
+  const averageMonthlyDespesas = monthsWithData > 0 ? totalDespesas / monthsWithData : 0;
+
   return (
     <TransactionLimitGuard>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -63,7 +85,7 @@ export default function Despesas() {
             </CardHeader>
             <CardContent className="pt-2">
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 break-words">
-                {formatCurrency(0)}
+                {formatCurrency(thisMonthDespesas)}
               </p>
             </CardContent>
           </Card>
@@ -73,7 +95,7 @@ export default function Despesas() {
             </CardHeader>
             <CardContent className="pt-2">
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 break-words">
-                {formatCurrency(0)}
+                {formatCurrency(averageMonthlyDespesas)}
               </p>
             </CardContent>
           </Card>
