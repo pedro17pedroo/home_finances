@@ -46,12 +46,48 @@ export default function Landing() {
       enterprise: 'Para empresas e contadores'
     };
     
+    // Convert features to array format (handles both object and array formats)
+    let featuresArray: string[] = [];
+    
+    if (Array.isArray(plan.features)) {
+      // Features are already in array format (old format)
+      featuresArray = plan.features;
+    } else if (plan.features && typeof plan.features === 'object') {
+      // Features are in object format (new format from admin panel)
+      featuresArray = Object.entries(plan.features)
+        .filter(([key, value]) => value === true)
+        .map(([key, value]) => {
+          // Map feature keys to user-friendly names
+          const featureNames = {
+            dashboard: 'Dashboard Completo',
+            transactions: 'Gestão de Transações',
+            accounts: 'Múltiplas Contas',
+            savingsGoals: 'Objetivos de Poupança',
+            loans: 'Gestão de Empréstimos',
+            debts: 'Gestão de Dívidas',
+            reports: 'Relatórios Detalhados',
+            analytics: 'Análise Avançada',
+            teamManagement: 'Gestão de Equipe',
+            apiAccess: 'Acesso à API',
+            prioritySupport: 'Suporte Prioritário',
+            customization: 'Personalização Avançada',
+            backup: 'Backup Automático',
+            sso: 'Single Sign-On',
+            whiteLabel: 'Marca Branca'
+          };
+          return featureNames[key as keyof typeof featureNames] || key;
+        });
+    } else {
+      // Fallback to empty array if features is not defined
+      featuresArray = [];
+    }
+    
     const formattedPlan = {
       name: plan.name,
       price: `${parseFloat(plan.price).toLocaleString('pt-AO')} Kz`,
       period: '/mês',
       description: descriptions[plan.type as keyof typeof descriptions] || plan.description,
-      features: plan.features,
+      features: featuresArray,
       buttonText: plan.type === 'premium' ? 'Mais Popular' : 
                   plan.type === 'enterprise' ? 'Selecionar Plano' : 'Começar Grátis',
       highlight: plan.type === 'premium'
