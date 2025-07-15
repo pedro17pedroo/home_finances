@@ -5,10 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, TrendingUp, Shield, Target, CreditCard, PieChart, DollarSign, BarChart3, Users, Star, ArrowRight, Play, Smartphone } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Landing() {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+
+  // Fetch plans from database
+  const { data: plansData, isLoading: plansLoading } = useQuery({
+    queryKey: ['/api/plans'],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   // Redirect authenticated users to dashboard
   useEffect(() => {
@@ -17,8 +24,8 @@ export default function Landing() {
     }
   }, [user, isLoading, setLocation]);
 
-  // Show loading while checking authentication
-  if (isLoading) {
+  // Show loading while checking authentication or loading plans
+  if (isLoading || plansLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -31,57 +38,27 @@ export default function Landing() {
     return null;
   }
 
-  const plans = {
-    basic: {
-      name: 'Básico',
-      price: '14.500 Kz',
+  // Transform database plans into landing page format
+  const plans = plansData?.reduce((acc: any, plan: any) => {
+    const descriptions = {
+      basic: 'Perfeito para uso pessoal',
+      premium: 'Ideal para famílias e pequenos negócios',
+      enterprise: 'Para empresas e contadores'
+    };
+    
+    const formattedPlan = {
+      name: plan.name,
+      price: `${parseFloat(plan.price).toLocaleString('pt-AO')} Kz`,
       period: '/mês',
-      description: 'Perfeito para uso pessoal',
-      features: [
-        'Até 5 contas bancárias',
-        '1.000 transações/mês',
-        'Relatórios básicos',
-        'Metas de poupança',
-        'Suporte por email'
-      ],
-      buttonText: 'Começar Grátis',
-      highlight: false
-    },
-    premium: {
-      name: 'Premium',
-      price: '29.500 Kz',
-      period: '/mês',
-      description: 'Ideal para famílias e pequenos negócios',
-      features: [
-        'Contas bancárias ilimitadas',
-        'Transações ilimitadas',
-        'Relatórios avançados',
-        'Controle de empréstimos',
-        'Gestão de dívidas',
-        'Suporte prioritário',
-        'Exportação de dados'
-      ],
-      buttonText: 'Mais Popular',
-      highlight: true
-    },
-    enterprise: {
-      name: 'Empresarial',
-      price: '74.500 Kz',
-      period: '/mês',
-      description: 'Para empresas e contadores',
-      features: [
-        'Tudo do Premium',
-        'Múltiplos usuários',
-        'API personalizada',
-        'Integração com bancos angolanos',
-        'Relatórios personalizados',
-        'Suporte dedicado',
-        'Treinamento incluído'
-      ],
-      buttonText: 'Contatar Vendas',
-      highlight: false
-    }
-  };
+      description: descriptions[plan.type as keyof typeof descriptions] || plan.description,
+      features: plan.features,
+      buttonText: plan.type === 'premium' ? 'Mais Popular' : 
+                  plan.type === 'enterprise' ? 'Selecionar Plano' : 'Começar Grátis',
+      highlight: plan.type === 'premium'
+    };
+    acc[plan.type] = formattedPlan;
+    return acc;
+  }, {}) || {};
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">

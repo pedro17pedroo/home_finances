@@ -201,13 +201,14 @@ export default function Register() {
         {/* Registration Form */}
         {step === 'form' && (
           <div className="max-w-md mx-auto">
-            <Button 
-              variant="ghost" 
-              onClick={() => setStep('plan')} 
-              className="mb-4"
-            >
-              ← Voltar aos planos
-            </Button>
+            <Link href="/">
+              <Button 
+                variant="ghost" 
+                className="mb-4"
+              >
+                ← Voltar aos planos
+              </Button>
+            </Link>
             <Card>
             <CardHeader>
               <CardTitle>Criar Conta</CardTitle>
