@@ -1911,9 +1911,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/audit-logs/export", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
     try {
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename=audit-logs.csv');
-      res.send('Date,Action,Entity,Admin,IP\nSample audit log export data\n');
+      const { search = '', action = '', entityType = '', adminUser = '', format = 'csv' } = req.query;
+      
+      let query = db.select({
+        id: auditLogs.id,
+        action: auditLogs.action,
+        entityType: auditLogs.entityType,
+        entityId: auditLogs.entityId,
+        oldData: auditLogs.oldData,
+        newData: auditLogs.newData,
+        ipAddress: auditLogs.ipAddress,
+        userAgent: auditLogs.userAgent,
+        createdAt: auditLogs.createdAt,
+        adminUser: {
+          id: adminUsers.id,
+          firstName: adminUsers.firstName,
+          lastName: adminUsers.lastName,
+          email: adminUsers.email
+        }
+      })
+      .from(auditLogs)
+      .leftJoin(adminUsers, eq(auditLogs.adminUserId, adminUsers.id))
+      .orderBy(auditLogs.createdAt);
+
+      // Apply same filters as the main query
+      if (search) {
+        query = query.where(
+          sql`${auditLogs.ipAddress} ILIKE ${'%' + search + '%'} OR ${auditLogs.userAgent} ILIKE ${'%' + search + '%'}`
+        );
+      }
+      if (action) {
+        query = query.where(eq(auditLogs.action, action));
+      }
+      if (entityType) {
+        query = query.where(eq(auditLogs.entityType, entityType));
+      }
+      if (adminUser) {
+        query = query.where(eq(auditLogs.adminUserId, parseInt(adminUser as string)));
+      }
+
+      const logs = await query;
+      
+      if (format === 'csv') {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=audit-logs.csv');
+        
+        // CSV header
+        let csv = 'ID,Data,Ação,Tipo de Entidade,ID da Entidade,Administrador,Email,Endereço IP,User Agent\n';
+        
+        // CSV data
+        logs.forEach(log => {
+          const adminName = log.adminUser ? `${log.adminUser.firstName} ${log.adminUser.lastName}` : 'N/A';
+          const adminEmail = log.adminUser ? log.adminUser.email : 'N/A';
+          const formattedDate = new Date(log.createdAt).toLocaleString('pt-BR');
+          const userAgent = log.userAgent?.replace(/"/g, '""') || 'N/A'; // Escape quotes
+          
+          csv += `${log.id},"${formattedDate}","${log.action}","${log.entityType}","${log.entityId || 'N/A'}","${adminName}","${adminEmail}","${log.ipAddress}","${userAgent}"\n`;
+        });
+        
+        res.send(csv);
+      } else {
+        res.status(400).json({ message: 'Formato não suportado. Use format=csv' });
+      }
     } catch (error: any) {
       console.error("Error exporting audit logs:", error);
       res.status(500).json({ message: error.message });
