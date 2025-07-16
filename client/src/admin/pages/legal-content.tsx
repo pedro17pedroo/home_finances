@@ -53,10 +53,7 @@ export default function LegalContentPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<LegalContent> }) =>
-      apiRequest(`/api/admin/legal-content/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("PATCH", `/api/admin/legal-content/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/legal-content"] });
       setEditingContent(null);
@@ -66,10 +63,7 @@ export default function LegalContentPage() {
 
   const publishMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      apiRequest(`/api/admin/legal-content/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive }),
-      }),
+      apiRequest("PATCH", `/api/admin/legal-content/${id}`, { isActive }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/legal-content"] });
       toast({ title: "Status de publicação atualizado" });

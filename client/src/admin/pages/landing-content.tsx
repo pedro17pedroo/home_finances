@@ -49,10 +49,7 @@ export default function LandingContentPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<LandingContent> }) =>
-      apiRequest(`/api/admin/landing-content/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("PATCH", `/api/admin/landing-content/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/landing-content"] });
       setEditingContent(null);
@@ -62,9 +59,7 @@ export default function LandingContentPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      apiRequest(`/api/admin/landing-content/${id}`, {
-        method: "DELETE",
-      }),
+      apiRequest("DELETE", `/api/admin/landing-content/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/landing-content"] });
       toast({ title: "Conteúdo removido com sucesso" });

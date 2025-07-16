@@ -69,12 +69,10 @@ export default function SystemSettingsPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: InsertSystemSetting) =>
-      apiRequest("/api/admin/system-settings", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("POST", "/api/admin/system-settings", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/system-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-settings/public"] });
       setIsCreateOpen(false);
       toast({ title: "Configuração criada com sucesso" });
     },
@@ -82,12 +80,10 @@ export default function SystemSettingsPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<SystemSetting> }) =>
-      apiRequest(`/api/admin/system-settings/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("PATCH", `/api/admin/system-settings/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/system-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-settings/public"] });
       setEditingSetting(null);
       toast({ title: "Configuração atualizada com sucesso" });
     },
@@ -95,11 +91,10 @@ export default function SystemSettingsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      apiRequest(`/api/admin/system-settings/${id}`, {
-        method: "DELETE",
-      }),
+      apiRequest("DELETE", `/api/admin/system-settings/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/system-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-settings/public"] });
       toast({ title: "Configuração removida com sucesso" });
     },
   });

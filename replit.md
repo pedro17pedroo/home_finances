@@ -71,6 +71,8 @@ Preferred communication style: Simple, everyday language.
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.
 
+**Sistema de Configuração Completo**: Todos os aspectos visuais e funcionais são agora configuráveis através do painel admin, incluindo moeda, textos da landing page, limites de planos, status de trial, e modo de manutenção.
+
 ## Admin Panel Status - ALL PHASES COMPLETED
 ✅ **Phase 1 - Foundation**: Database schema, admin authentication, basic dashboard
 ✅ **Phase 2 - Core Management**: User management, plan management with full CRUD operations

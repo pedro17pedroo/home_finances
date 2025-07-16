@@ -28,10 +28,7 @@ export default function CampaignsPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: InsertCampaign) =>
-      apiRequest("/api/admin/campaigns", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("POST", "/api/admin/campaigns", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/campaigns"] });
       setIsCreateOpen(false);
@@ -41,10 +38,7 @@ export default function CampaignsPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Campaign> }) =>
-      apiRequest(`/api/admin/campaigns/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("PATCH", `/api/admin/campaigns/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/campaigns"] });
       setEditingCampaign(null);
@@ -54,9 +48,7 @@ export default function CampaignsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      apiRequest(`/api/admin/campaigns/${id}`, {
-        method: "DELETE",
-      }),
+      apiRequest("DELETE", `/api/admin/campaigns/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/campaigns"] });
       toast({ title: "Campanha removida com sucesso" });
