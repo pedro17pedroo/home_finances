@@ -14,6 +14,8 @@ export const categoryEnum = pgEnum('category', [
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'canceled', 'past_due', 'trialing']);
 export const planTypeEnum = pgEnum('plan_type', ['basic', 'premium', 'enterprise']);
 export const adminRoleEnum = pgEnum('admin_role', ['super_admin', 'admin']);
+export const securityEventTypeEnum = pgEnum('security_event_type', ['failed_login', 'brute_force', 'suspicious_activity', 'ip_blocked', 'password_attempt', 'account_locked']);
+export const severityEnum = pgEnum('severity', ['low', 'medium', 'high', 'critical']);
 
 // Session storage table for authentication
 export const sessions = pgTable(
@@ -122,6 +124,34 @@ export const auditLogs = pgTable("audit_logs", {
   ipAddress: varchar("ip_address", { length: 45 }),
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Security logs table for tracking security events
+export const securityLogs = pgTable("security_logs", {
+  id: serial("id").primaryKey(),
+  eventType: securityEventTypeEnum("event_type").notNull(),
+  severity: severityEnum("severity").notNull(),
+  description: text("description").notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  location: varchar("location", { length: 255 }),
+  userAgent: text("user_agent"),
+  details: jsonb("details"), // Additional event details
+  isResolved: boolean("is_resolved").default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: integer("resolved_by").references(() => adminUsers.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Blocked IPs table
+export const blockedIPs = pgTable("blocked_ips", {
+  id: serial("id").primaryKey(),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull().unique(),
+  reason: varchar("reason", { length: 255 }).notNull(),
+  blockedBy: integer("blocked_by").references(() => adminUsers.id),
+  expiresAt: timestamp("expires_at"), // Optional auto-unblock
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Payment Methods table - for Phase 3
@@ -476,6 +506,18 @@ export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   id: true,
   createdAt: true
+});
+
+export const insertSecurityLogSchema = createInsertSchema(securityLogs).omit({
+  id: true,
+  createdAt: true,
+  resolvedAt: true
+});
+
+export const insertBlockedIPSchema = createInsertSchema(blockedIPs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
 });
 
 // Phase 3 & 4 schemas

@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
 import { loginSchema, registerSchema } from '@shared/schema';
 import { z } from 'zod';
+import { trackFailedLogin, isIPBlocked, logSecurityEvent } from './security-logger';
 
 declare module 'express-session' {
   interface SessionData {
@@ -77,14 +78,31 @@ export const requirePlan = (requiredPlan: 'basic' | 'premium' | 'enterprise') =>
 export const loginUser = async (req: Request, res: Response) => {
   try {
     const { emailOrPhone, password } = loginSchema.parse(req.body);
+    const clientIP = req.ip || req.connection.remoteAddress || '';
+    const userAgent = req.get('User-Agent') || '';
+    
+    // Check if IP is blocked
+    if (await isIPBlocked(clientIP)) {
+      await logSecurityEvent({
+        eventType: 'suspicious_activity',
+        severity: 'high',
+        description: `Tentativa de login de IP bloqueado: ${clientIP}`,
+        ipAddress: clientIP,
+        userAgent,
+        details: { email: emailOrPhone }
+      });
+      return res.status(403).json({ message: 'Acesso negado' });
+    }
     
     const user = await storage.getUserByEmailOrPhone(emailOrPhone);
     if (!user) {
+      await trackFailedLogin(clientIP, userAgent, emailOrPhone);
       return res.status(401).json({ message: 'Credenciais inválidas' });
     }
     
     const isValidPassword = await verifyPassword(password, user.password);
     if (!isValidPassword) {
+      await trackFailedLogin(clientIP, userAgent, emailOrPhone);
       return res.status(401).json({ message: 'Credenciais inválidas' });
     }
     

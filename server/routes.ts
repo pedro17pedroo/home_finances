@@ -5,8 +5,9 @@ import connectPg from "connect-pg-simple";
 import Stripe from "stripe";
 import { storage } from "./storage";
 import { db } from "./db";
-import { users } from "@shared/schema";
+import { users, securityLogs, blockedIPs } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
+import { getSecurityStats, blockIP as blockIPUtil } from "./security-logger";
 import { 
   insertAccountSchema, 
   insertTransactionSchema, 
@@ -1763,38 +1764,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/security-logs", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
     try {
       const { search = '', severity = '', eventType = '', page = '1', limit = '50' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
       
-      // Mock security events data
-      const mockEvents = [
-        {
-          id: 1,
-          severity: 'high',
-          eventType: 'failed_login',
-          description: 'Múltiplas tentativas de login falhadas',
-          ipAddress: '192.168.1.100',
-          location: 'Luanda, Angola',
-          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          timestamp: new Date(),
-          details: 'Usuário tentou fazer login 15 vezes em 5 minutos'
-        },
-        {
-          id: 2,
-          severity: 'critical',
-          eventType: 'brute_force',
-          description: 'Ataque de força bruta detectado',
-          ipAddress: '10.0.0.1',
-          location: 'Benguela, Angola',
-          userAgent: 'Python-requests/2.28.1',
-          timestamp: new Date(Date.now() - 3600000),
-          details: 'Tentativas automáticas de quebra de senha'
-        }
-      ];
+      // Build query conditions
+      let whereConditions = [];
+      if (search) {
+        // Note: In a real implementation, you'd use proper SQL search across multiple fields
+        whereConditions.push(`description ILIKE '%${search}%' OR ip_address ILIKE '%${search}%'`);
+      }
+      if (severity && severity !== 'all') {
+        whereConditions.push(`severity = '${severity}'`);
+      }
+      if (eventType && eventType !== 'all') {
+        whereConditions.push(`event_type = '${eventType}'`);
+      }
+
+      // Get security logs from database
+      const securityLogsQuery = await db.select()
+        .from(securityLogs)
+        .orderBy(sql`created_at DESC`)
+        .limit(limitNum)
+        .offset(offset);
+
+      const totalCount = await db.select({ count: sql`count(*)` }).from(securityLogs);
+
+      const events = securityLogsQuery.map(log => ({
+        id: log.id,
+        severity: log.severity,
+        eventType: log.eventType,
+        description: log.description,
+        ipAddress: log.ipAddress,
+        location: log.location,
+        userAgent: log.userAgent,
+        timestamp: log.createdAt,
+        details: log.details,
+        isResolved: log.isResolved
+      }));
 
       res.json({
-        events: mockEvents,
-        totalCount: mockEvents.length,
-        totalPages: 1,
-        currentPage: 1
+        events,
+        totalCount: Number(totalCount[0]?.count || 0),
+        totalPages: Math.ceil(Number(totalCount[0]?.count || 0) / limitNum),
+        currentPage: pageNum
       });
     } catch (error: any) {
       console.error("Error fetching security logs:", error);
@@ -1804,21 +1817,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/security-stats", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
     try {
-      const mockStats = {
-        failedLogins24h: 47,
-        blockedIPs: 12,
-        attacks24h: 3,
-        securityScore: 92,
-        criticalAlerts: [
-          { message: 'Novo IP suspeito detectado', severity: 'critical' }
-        ],
-        recentBlockedIPs: [
-          { address: '192.168.1.100', blockedAt: new Date(), reason: 'Força bruta' },
-          { address: '10.0.0.1', blockedAt: new Date(Date.now() - 3600000), reason: 'Múltiplas falhas' }
-        ]
-      };
+      const stats = await getSecurityStats();
       
-      res.json(mockStats);
+      // Get critical alerts from recent high/critical severity events
+      const criticalEvents = await db.select()
+        .from(securityLogs)
+        .where(sql`severity IN ('high', 'critical') AND created_at > NOW() - INTERVAL '24 hours'`)
+        .orderBy(sql`created_at DESC`)
+        .limit(5);
+
+      const criticalAlerts = criticalEvents.map(event => ({
+        message: event.description,
+        severity: event.severity,
+        timestamp: event.createdAt
+      }));
+      
+      res.json({
+        ...stats,
+        criticalAlerts
+      });
     } catch (error: any) {
       console.error("Error fetching security stats:", error);
       res.status(500).json({ message: error.message });
@@ -1828,8 +1845,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/security/block-ip", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
     try {
       const { ip } = req.body;
+      const adminUser = req.session.adminUser;
       
-      // In real implementation, this would add IP to firewall/blocking system
+      // Block IP using utility function
+      await blockIPUtil(ip, 'Bloqueado manualmente pelo administrador', adminUser?.id || null);
       await logAdminAction(req, 'block_ip', 'security', null, null, { ip });
       
       res.json({ message: `IP ${ip} foi bloqueado com sucesso` });
