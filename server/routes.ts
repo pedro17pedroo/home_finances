@@ -8,6 +8,7 @@ import { db } from "./db";
 import { users, securityLogs, blockedIPs } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { getSecurityStats, blockIP as blockIPUtil } from "./security-logger";
+import { hashPassword } from "./auth";
 import { 
   insertAccountSchema, 
   insertTransactionSchema, 
@@ -162,6 +163,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(filteredUsers);
     } catch (error: any) {
+      console.error("Error fetching admin users:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/users", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.CREATE), async (req, res) => {
+    try {
+      const { email, firstName, lastName, planType, password } = req.body;
+      const adminUserId = req.session.adminUserId!;
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmailOrPhone(email);
+      if (existingUser) {
+        return res.status(400).json({ message: 'Utilizador já existe com este email' });
+      }
+
+      // Hash password
+      const hashedPassword = await hashPassword(password);
+      
+      // Create user with trial period
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 14); // 14 days trial
+      
+      const newUser = await storage.createUser({
+        email,
+        firstName,
+        lastName,
+        password: hashedPassword,
+        subscriptionStatus: 'trialing',
+        planType: planType || 'basic',
+        trialEndsAt
+      });
+
+      // Log the action
+      await logAdminAction(adminUserId, 'create_user', 'user', newUser.id, null, {
+        email,
+        firstName,
+        lastName,
+        planType
+      }, req);
+      
+      res.status(201).json({
+        id: newUser.id,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        subscriptionStatus: newUser.subscriptionStatus,
+        planType: newUser.planType,
+        createdAt: newUser.createdAt
+      });
+    } catch (error: any) {
+      console.error("Error creating admin user:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/users/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.VIEW), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: 'ID de utilizador inválido' });
+      }
+      
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'Utilizador não encontrado' });
+      }
+
+      // Remove sensitive information
+      const { password, ...userInfo } = user;
+      res.json(userInfo);
+    } catch (error: any) {
+      console.error("Error fetching user details:", error);
       res.status(500).json({ message: error.message });
     }
   });
