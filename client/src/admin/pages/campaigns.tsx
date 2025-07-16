@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Calendar, Percent, DollarSign, Gift, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { Plus, Calendar, Percent, DollarSign, Gift, MoreHorizontal, Edit, Trash2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Campaign, InsertCampaign } from "@shared/schema";
+import CampaignStatistics from "@/admin/components/campaign-statistics";
 
 export default function CampaignsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -246,6 +248,125 @@ export default function CampaignsPage() {
             />
           </DialogContent>
         </Dialog>
+      </div>
+
+      <Tabs defaultValue="campaigns" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
+          <TabsTrigger value="statistics">
+            <BarChart3 className="mr-2 h-4 w-4" />
+            Estatísticas
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="campaigns" className="space-y-4">
+          <CampaignsList />
+        </TabsContent>
+        
+        <TabsContent value="statistics" className="space-y-4">
+          <CampaignStatistics />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+
+  function CampaignsList() {
+    return (
+      <div className="grid gap-4">
+        {campaigns?.map((campaign) => (
+          <Card key={campaign.id}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 rounded-lg">
+                    <Gift className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">{campaign.name}</CardTitle>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant={campaign.isActive ? "default" : "secondary"}>
+                        {campaign.isActive ? "Ativa" : "Inativa"}
+                      </Badge>
+                      {campaign.discountType === 'percentage' && (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <Percent className="h-3 w-3" />
+                          {campaign.discountValue}%
+                        </Badge>
+                      )}
+                      {campaign.discountType === 'fixed_amount' && (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          {campaign.discountValue} Kz
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setEditingCampaign(campaign)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => deleteMutation.mutate(campaign.id)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remover
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {campaign.description && (
+                <p className="text-sm text-muted-foreground">{campaign.description}</p>
+              )}
+              
+              {campaign.couponCode && (
+                <div className="flex items-center justify-between bg-muted p-2 rounded">
+                  <span className="text-sm font-mono">{campaign.couponCode}</span>
+                  <Badge variant="outline">Cupom</Badge>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {campaign.usageCount !== undefined && campaign.usageLimit && (
+                  <div>
+                    <span className="text-muted-foreground">Usos:</span>
+                    <span className="ml-1 font-medium">
+                      {campaign.usageCount}/{campaign.usageLimit}
+                    </span>
+                  </div>
+                )}
+                {campaign.validFrom && (
+                  <div>
+                    <span className="text-muted-foreground">De:</span>
+                    <span className="ml-1 font-medium">
+                      {format(new Date(campaign.validFrom), "dd/MM/yy", { locale: ptBR })}
+                    </span>
+                  </div>
+                )}
+                {campaign.validUntil && (
+                  <div>
+                    <span className="text-muted-foreground">Até:</span>
+                    <span className="ml-1 font-medium">
+                      {format(new Date(campaign.validUntil), "dd/MM/yy", { locale: ptBR })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

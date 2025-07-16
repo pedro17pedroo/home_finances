@@ -182,6 +182,19 @@ export const campaigns = pgTable("campaigns", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Campaign Usage table - tracks coupon usage by users
+export const campaignUsage = pgTable("campaign_usage", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").references(() => campaigns.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  usedAt: timestamp("used_at").defaultNow(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  finalPrice: decimal("final_price", { precision: 10, scale: 2 }),
+  planType: planTypeEnum("plan_type").notNull(),
+  stripeSessionId: varchar("stripe_session_id", { length: 255 }),
+});
+
 // Landing Content table - for Phase 4
 export const landingContent = pgTable("landing_content", {
   id: serial("id").primaryKey(),
@@ -420,6 +433,23 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   }),
 }));
 
+// Campaign Relations
+export const campaignsRelations = relations(campaigns, ({ many }) => ({
+  usage: many(campaignUsage),
+}));
+
+// Campaign Usage Relations
+export const campaignUsageRelations = relations(campaignUsage, ({ one }) => ({
+  campaign: one(campaigns, {
+    fields: [campaignUsage.campaignId],
+    references: [campaigns.id],
+  }),
+  user: one(users, {
+    fields: [campaignUsage.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertAccountSchema = createInsertSchema(accounts).omit({
   id: true,
@@ -533,6 +563,11 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   updatedAt: true,
 });
 
+export const insertCampaignUsageSchema = createInsertSchema(campaignUsage).omit({
+  id: true,
+  usedAt: true
+});
+
 export const insertLandingContentSchema = createInsertSchema(landingContent).omit({
   id: true,
   createdAt: true,
@@ -616,6 +651,9 @@ export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+
+export type CampaignUsage = typeof campaignUsage.$inferSelect;
+export type InsertCampaignUsage = z.infer<typeof insertCampaignUsageSchema>;
 
 export type LandingContent = typeof landingContent.$inferSelect;
 export type InsertLandingContent = z.infer<typeof insertLandingContentSchema>;

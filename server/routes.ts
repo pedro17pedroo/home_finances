@@ -24,6 +24,7 @@ import {
   insertSystemSettingSchema,
   paymentMethods,
   campaigns,
+  campaignUsage,
   landingContent,
   legalContent,
   systemSettings,
@@ -1514,6 +1515,298 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting campaign:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Public campaign routes for users
+  app.post("/api/campaigns/validate-coupon", async (req, res) => {
+    try {
+      const { couponCode, planType } = req.body;
+      
+      if (!couponCode) {
+        return res.status(400).json({ message: "Coupon code is required" });
+      }
+      
+      const [campaign] = await db.select()
+        .from(campaigns)
+        .where(
+          and(
+            eq(campaigns.couponCode, couponCode),
+            eq(campaigns.isActive, true)
+          )
+        );
+      
+      if (!campaign) {
+        return res.status(404).json({ message: "Cupom inválido ou expirado" });
+      }
+      
+      // Check if campaign is still valid
+      const now = new Date();
+      if (campaign.validFrom && new Date(campaign.validFrom) > now) {
+        return res.status(400).json({ message: "Cupom ainda não está válido" });
+      }
+      
+      if (campaign.validUntil && new Date(campaign.validUntil) < now) {
+        return res.status(400).json({ message: "Cupom expirado" });
+      }
+      
+      // Check usage limit
+      if (campaign.usageLimit && campaign.usageCount >= campaign.usageLimit) {
+        return res.status(400).json({ message: "Cupom atingiu o limite de uso" });
+      }
+      
+      // Calculate discount based on plan
+      const [plan] = await db.select().from(plans).where(eq(plans.type, planType));
+      if (!plan) {
+        return res.status(400).json({ message: "Plano não encontrado" });
+      }
+      
+      let discountAmount = 0;
+      let finalPrice = parseFloat(plan.price);
+      
+      if (campaign.discountType === 'percentage') {
+        discountAmount = (finalPrice * (campaign.discountValue ? parseFloat(campaign.discountValue.toString()) : 0)) / 100;
+      } else if (campaign.discountType === 'fixed_amount') {
+        discountAmount = campaign.discountValue ? parseFloat(campaign.discountValue.toString()) : 0;
+      } else if (campaign.discountType === 'free_trial') {
+        // Free trial extension logic can be handled during subscription creation
+        discountAmount = 0;
+      }
+      
+      finalPrice = Math.max(0, finalPrice - discountAmount);
+      
+      res.json({
+        valid: true,
+        campaign: {
+          id: campaign.id,
+          name: campaign.name,
+          discountType: campaign.discountType,
+          discountValue: campaign.discountValue,
+          couponCode: campaign.couponCode
+        },
+        discount: {
+          amount: discountAmount,
+          percentage: campaign.discountType === 'percentage' ? parseFloat(campaign.discountValue?.toString() || '0') : 0,
+          originalPrice: parseFloat(plan.price),
+          finalPrice: finalPrice
+        }
+      });
+    } catch (error: any) {
+      console.error("Error validating coupon:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/campaigns/apply-coupon", isAuthenticated, async (req, res) => {
+    try {
+      const { couponCode, planType } = req.body;
+      const userId = req.session.userId;
+      
+      // Validate coupon first
+      const [campaign] = await db.select()
+        .from(campaigns)
+        .where(
+          and(
+            eq(campaigns.couponCode, couponCode),
+            eq(campaigns.isActive, true)
+          )
+        );
+      
+      if (!campaign) {
+        return res.status(404).json({ message: "Cupom inválido" });
+      }
+      
+      // Check validity
+      const now = new Date();
+      if (campaign.validFrom && new Date(campaign.validFrom) > now) {
+        return res.status(400).json({ message: "Cupom ainda não está válido" });
+      }
+      
+      if (campaign.validUntil && new Date(campaign.validUntil) < now) {
+        return res.status(400).json({ message: "Cupom expirado" });
+      }
+      
+      if (campaign.usageLimit && campaign.usageCount >= campaign.usageLimit) {
+        return res.status(400).json({ message: "Cupom atingiu o limite de uso" });
+      }
+      
+      // Get the plan
+      const [plan] = await db.select().from(plans).where(eq(plans.type, planType));
+      if (!plan) {
+        return res.status(400).json({ message: "Plano não encontrado" });
+      }
+      
+      // Calculate discount
+      let discountAmount = 0;
+      let finalPrice = parseFloat(plan.price);
+      
+      if (campaign.discountType === 'percentage') {
+        discountAmount = (finalPrice * (campaign.discountValue ? parseFloat(campaign.discountValue.toString()) : 0)) / 100;
+      } else if (campaign.discountType === 'fixed_amount') {
+        discountAmount = campaign.discountValue ? parseFloat(campaign.discountValue.toString()) : 0;
+      }
+      
+      finalPrice = Math.max(0, finalPrice - discountAmount);
+      
+      // Create Stripe checkout session with discount
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'aoa',
+              product_data: {
+                name: plan.name,
+                description: campaign.name ? `Desconto aplicado: ${campaign.name}` : undefined,
+              },
+              unit_amount: Math.round(finalPrice * 100), // Convert to cents
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5000'}/dashboard?success=true`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5000'}/pricing`,
+        metadata: {
+          userId: userId.toString(),
+          planType: planType,
+          campaignId: campaign.id.toString(),
+          couponCode: couponCode,
+          discountAmount: discountAmount.toString()
+        }
+      });
+      
+      // Update campaign usage count
+      await db.update(campaigns)
+        .set({ usageCount: campaign.usageCount + 1 })
+        .where(eq(campaigns.id, campaign.id));
+      
+      // Record campaign usage
+      await db.insert(campaignUsage).values({
+        campaignId: campaign.id,
+        userId: userId,
+        discountAmount: discountAmount.toString(),
+        originalPrice: parseFloat(plan.price).toString(),
+        finalPrice: finalPrice.toString(),
+        planType: planType,
+        stripeSessionId: session.id
+      });
+      
+      res.json({
+        sessionId: session.id,
+        sessionUrl: session.url,
+        discount: {
+          amount: discountAmount,
+          originalPrice: parseFloat(plan.price),
+          finalPrice: finalPrice
+        }
+      });
+    } catch (error: any) {
+      console.error("Error applying coupon:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Campaign statistics routes
+  app.get("/api/admin/campaigns/statistics", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.VIEW), async (req, res) => {
+    try {
+      // Get campaign statistics
+      const totalCampaigns = await db.select({ count: sql<number>`count(*)` }).from(campaigns);
+      const activeCampaigns = await db.select({ count: sql<number>`count(*)` }).from(campaigns).where(eq(campaigns.isActive, true));
+      
+      // Get total usage and revenue impact
+      const usageStats = await db.select({
+        totalUsage: sql<number>`count(*)`,
+        totalDiscount: sql<number>`sum(${campaignUsage.discountAmount})`,
+        totalRevenue: sql<number>`sum(${campaignUsage.finalPrice})`
+      }).from(campaignUsage);
+      
+      // Get top performing campaigns
+      const topCampaigns = await db.select({
+        id: campaigns.id,
+        name: campaigns.name,
+        couponCode: campaigns.couponCode,
+        usageCount: campaigns.usageCount,
+        totalDiscount: sql<number>`sum(${campaignUsage.discountAmount})`,
+        totalRevenue: sql<number>`sum(${campaignUsage.finalPrice})`
+      })
+      .from(campaigns)
+      .leftJoin(campaignUsage, eq(campaigns.id, campaignUsage.campaignId))
+      .where(eq(campaigns.isActive, true))
+      .groupBy(campaigns.id, campaigns.name, campaigns.couponCode, campaigns.usageCount)
+      .orderBy(sql`sum(${campaignUsage.discountAmount}) DESC`)
+      .limit(5);
+      
+      // Get recent campaign usage
+      const recentUsage = await db.select({
+        id: campaignUsage.id,
+        campaignName: campaigns.name,
+        couponCode: campaigns.couponCode,
+        discountAmount: campaignUsage.discountAmount,
+        finalPrice: campaignUsage.finalPrice,
+        planType: campaignUsage.planType,
+        usedAt: campaignUsage.usedAt
+      })
+      .from(campaignUsage)
+      .leftJoin(campaigns, eq(campaignUsage.campaignId, campaigns.id))
+      .orderBy(sql`${campaignUsage.usedAt} DESC`)
+      .limit(10);
+      
+      res.json({
+        totalCampaigns: Number(totalCampaigns[0]?.count || 0),
+        activeCampaigns: Number(activeCampaigns[0]?.count || 0),
+        totalUsage: Number(usageStats[0]?.totalUsage || 0),
+        totalDiscount: Number(usageStats[0]?.totalDiscount || 0),
+        totalRevenue: Number(usageStats[0]?.totalRevenue || 0),
+        topCampaigns: topCampaigns.map(campaign => ({
+          ...campaign,
+          totalDiscount: Number(campaign.totalDiscount || 0),
+          totalRevenue: Number(campaign.totalRevenue || 0)
+        })),
+        recentUsage: recentUsage.map(usage => ({
+          ...usage,
+          discountAmount: Number(usage.discountAmount || 0),
+          finalPrice: Number(usage.finalPrice || 0)
+        }))
+      });
+    } catch (error: any) {
+      console.error("Error fetching campaign statistics:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get campaign usage details
+  app.get("/api/admin/campaigns/:id/usage", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.VIEW), async (req, res) => {
+    try {
+      const campaignId = parseInt(req.params.id);
+      
+      const usage = await db.select({
+        id: campaignUsage.id,
+        userId: campaignUsage.userId,
+        discountAmount: campaignUsage.discountAmount,
+        originalPrice: campaignUsage.originalPrice,
+        finalPrice: campaignUsage.finalPrice,
+        planType: campaignUsage.planType,
+        usedAt: campaignUsage.usedAt,
+        userEmail: users.email,
+        userPhone: users.phone,
+        userFirstName: users.firstName,
+        userLastName: users.lastName
+      })
+      .from(campaignUsage)
+      .leftJoin(users, eq(campaignUsage.userId, users.id))
+      .where(eq(campaignUsage.campaignId, campaignId))
+      .orderBy(sql`${campaignUsage.usedAt} DESC`);
+      
+      res.json(usage.map(item => ({
+        ...item,
+        discountAmount: Number(item.discountAmount || 0),
+        originalPrice: Number(item.originalPrice || 0),
+        finalPrice: Number(item.finalPrice || 0)
+      })));
+    } catch (error: any) {
+      console.error("Error fetching campaign usage:", error);
       res.status(500).json({ message: error.message });
     }
   });
