@@ -1680,10 +1680,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/system-settings/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertSystemSettingSchema.partial().parse(req.body);
+      
+      // Create a more flexible update schema that only validates the fields provided
+      const updateData: any = {};
+      if (req.body.value !== undefined) updateData.value = req.body.value;
+      if (req.body.description !== undefined) updateData.description = req.body.description;
+      if (req.body.category !== undefined) updateData.category = req.body.category;
+      if (req.body.key !== undefined) updateData.key = req.body.key;
       
       const [updated] = await db.update(systemSettings)
-        .set(validatedData)
+        .set(updateData)
         .where(eq(systemSettings.id, id))
         .returning();
       
@@ -1691,7 +1697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "System setting not found" });
       }
       
-      await logAdminAction(req, 'update', 'system_setting', id, validatedData);
+      await logAdminAction(req, 'update', 'system_setting', id, updateData);
       res.json(updated);
     } catch (error: any) {
       console.error("Error updating system setting:", error);
