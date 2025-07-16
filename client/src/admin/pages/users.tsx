@@ -35,10 +35,21 @@ interface CreateUserData {
   password: string;
 }
 
+interface EditUserData {
+  email: string;
+  firstName: string;
+  lastName: string;
+  planType: string;
+  subscriptionStatus: string;
+}
+
 export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -65,6 +76,16 @@ export default function AdminUsers() {
       lastName: '',
       planType: 'basic',
       password: ''
+    }
+  });
+
+  const editForm = useForm<EditUserData>({
+    defaultValues: {
+      email: '',
+      firstName: '',
+      lastName: '',
+      planType: 'basic',
+      subscriptionStatus: 'active'
     }
   });
 
@@ -95,6 +116,80 @@ export default function AdminUsers() {
       });
     }
   });
+
+  const editUserMutation = useMutation({
+    mutationFn: async ({ id, userData }: { id: number; userData: EditUserData }) => {
+      const response = await fetch(`/api/admin/users/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Erro ao editar utilizador');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: 'Utilizador editado com sucesso!' });
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: 'Erro ao editar utilizador', 
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/admin/users/${id}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Erro ao eliminar utilizador');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: 'Utilizador eliminado com sucesso!' });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: 'Erro ao eliminar utilizador', 
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const handleViewUser = (user: User) => {
+    setSelectedUser(user);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    editForm.reset({
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      planType: user.planType,
+      subscriptionStatus: user.subscriptionStatus
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteUser = (user: User) => {
+    if (confirm(`Tem certeza que deseja eliminar o utilizador ${user.firstName} ${user.lastName}?`)) {
+      deleteUserMutation.mutate(user.id);
+    }
+  };
 
   const filteredUsers = users?.filter(user => {
     const matchesSearch = !searchTerm || 
@@ -324,13 +419,27 @@ export default function AdminUsers() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleViewUser(user)}
+                          >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditUser(user)}
+                          >
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDeleteUser(user)}
+                            disabled={deleteUserMutation.isPending}
+                          >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -342,6 +451,170 @@ export default function AdminUsers() {
             )}
           </CardContent>
         </Card>
+
+        {/* View User Dialog */}
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Detalhes do Utilizador</DialogTitle>
+            </DialogHeader>
+            {selectedUser && (
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">Nome Completo</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedUser.firstName} {selectedUser.lastName}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Email</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedUser.email}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Plano</Label>
+                  <div className="mt-1">
+                    <Badge className={getPlanColor(selectedUser.planType)}>
+                      {selectedUser.planType}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Status da Subscrição</Label>
+                  <div className="mt-1">
+                    <Badge className={getStatusColor(selectedUser.subscriptionStatus)}>
+                      {selectedUser.subscriptionStatus}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Data de Registo</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {format(new Date(selectedUser.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">ID da Organização</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedUser.organizationId || 'Nenhuma'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Editar Utilizador</DialogTitle>
+            </DialogHeader>
+            {selectedUser && (
+              <Form {...editForm}>
+                <form onSubmit={editForm.handleSubmit((data) => editUserMutation.mutate({ id: selectedUser.id, userData: data }))} className="space-y-4">
+                  <FormField
+                    control={editForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Primeiro Nome</FormLabel>
+                        <FormControl>
+                          <Input placeholder="João" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Último Nome</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Silva" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="joao@exemplo.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="planType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Plano</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecionar plano" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="basic">Básico</SelectItem>
+                            <SelectItem value="premium">Premium</SelectItem>
+                            <SelectItem value="enterprise">Enterprise</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="subscriptionStatus"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status da Subscrição</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecionar status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="active">Ativo</SelectItem>
+                            <SelectItem value="trialing">Período de Teste</SelectItem>
+                            <SelectItem value="canceled">Cancelado</SelectItem>
+                            <SelectItem value="past_due">Vencido</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end space-x-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setIsEditDialogOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button type="submit" disabled={editUserMutation.isPending}>
+                      {editUserMutation.isPending ? 'Guardando...' : 'Guardar Alterações'}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

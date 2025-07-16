@@ -45,6 +45,7 @@ export interface IStorage {
   updateUserStripeInfo(id: number, stripeCustomerId: string, stripeSubscriptionId?: string): Promise<User>;
   updateUserSubscription(id: number, subscriptionStatus: string, planType: string): Promise<User>;
   cancelUserSubscription(id: number): Promise<User>;
+  deleteUser(id: number): Promise<void>;
 
   // Plans
   getPlans(): Promise<Plan[]>;
@@ -182,6 +183,18 @@ export class DatabaseStorage implements IStorage {
       updatedAt: new Date()
     }).where(eq(users.id, id)).returning();
     return user;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    // First delete all related data
+    await db.delete(transactions).where(eq(transactions.userId, id));
+    await db.delete(accounts).where(eq(accounts.userId, id));
+    await db.delete(savingsGoals).where(eq(savingsGoals.userId, id));
+    await db.delete(loans).where(eq(loans.userId, id));
+    await db.delete(debts).where(eq(debts.userId, id));
+    
+    // Finally delete the user
+    await db.delete(users).where(eq(users.id, id));
   }
 
   // Plans

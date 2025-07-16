@@ -226,7 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'ID de utilizador inválido' });
       }
       
-      const user = await storage.getUserById(userId);
+      const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: 'Utilizador não encontrado' });
       }
@@ -236,6 +236,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(userInfo);
     } catch (error: any) {
       console.error("Error fetching user details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/users/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.UPDATE), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const adminUserId = req.session.adminUserId!;
+      const { email, firstName, lastName, planType, subscriptionStatus } = req.body;
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: 'ID de utilizador inválido' });
+      }
+
+      // Get old user data for audit log
+      const oldUser = await storage.getUser(userId);
+      if (!oldUser) {
+        return res.status(404).json({ message: 'Utilizador não encontrado' });
+      }
+
+      // Check if email is being changed and if it already exists
+      if (email && email !== oldUser.email) {
+        const existingUser = await storage.getUserByEmailOrPhone(email);
+        if (existingUser && existingUser.id !== userId) {
+          return res.status(400).json({ message: 'Email já está em uso por outro utilizador' });
+        }
+      }
+
+      // Update user data
+      const updateData: any = {};
+      if (email) updateData.email = email;
+      if (firstName) updateData.firstName = firstName;
+      if (lastName) updateData.lastName = lastName;
+      if (planType) updateData.planType = planType;
+      if (subscriptionStatus) updateData.subscriptionStatus = subscriptionStatus;
+
+      const updatedUser = await storage.updateUser(userId, updateData);
+
+      // Log the action
+      await logAdminAction(adminUserId, 'update_user', 'user', userId, {
+        email: oldUser.email,
+        firstName: oldUser.firstName,
+        lastName: oldUser.lastName,
+        planType: oldUser.planType,
+        subscriptionStatus: oldUser.subscriptionStatus
+      }, updateData, req);
+
+      // Remove sensitive information
+      const { password, ...userInfo } = updatedUser;
+      res.json(userInfo);
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.DELETE), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const adminUserId = req.session.adminUserId!;
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: 'ID de utilizador inválido' });
+      }
+
+      // Get user data for audit log
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'Utilizador não encontrado' });
+      }
+
+      // Delete user (this will also cascade delete related data)
+      await storage.deleteUser(userId);
+
+      // Log the action
+      await logAdminAction(adminUserId, 'delete_user', 'user', userId, {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        planType: user.planType,
+        subscriptionStatus: user.subscriptionStatus
+      }, null, req);
+
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
       res.status(500).json({ message: error.message });
     }
   });
