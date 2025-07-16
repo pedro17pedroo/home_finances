@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import AdminLayout from '../components/layout/admin-layout';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -75,17 +75,14 @@ export default function AdminSecurityLogs() {
 
   if (isLoading) {
     return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      </AdminLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Logs de Segurança</h1>
@@ -355,7 +352,6 @@ export default function AdminSecurityLogs() {
             </CardContent>
           </Card>
         )}
-      </div>
-    </AdminLayout>
+    </div>
   );
 }
