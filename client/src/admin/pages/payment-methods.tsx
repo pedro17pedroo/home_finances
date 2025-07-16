@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import AdminLayout from "../components/layout/admin-layout";
+// AdminLayout will be handled by the wrapper
 import type { PaymentMethod, InsertPaymentMethod } from "@shared/schema";
 
 export default function PaymentMethodsPage() {
@@ -115,16 +115,11 @@ export default function PaymentMethodsPage() {
   };
 
   if (isLoading) {
-    return (
-      <AdminLayout>
-        <div className="p-6">Carregando métodos de pagamento...</div>
-      </AdminLayout>
-    );
+    return <div className="p-6">Carregando métodos de pagamento...</div>;
   }
 
   return (
-    <AdminLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Métodos de Pagamento</h1>
@@ -297,7 +292,6 @@ export default function PaymentMethodsPage() {
           </CardContent>
         </Card>
       )}
-      </div>
-    </AdminLayout>
+    </div>
   );
 }
