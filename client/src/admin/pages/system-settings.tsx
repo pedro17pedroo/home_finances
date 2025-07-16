@@ -114,16 +114,21 @@ export default function SystemSettingsPage() {
       parsedValue = valueText;
     }
 
-    const data = {
-      key: formData.get("key") as string,
-      value: parsedValue,
-      description: formData.get("description") as string,
-      category: formData.get("category") as string,
-    };
-
     if (isEdit && editingSetting) {
+      // Para edições, apenas envie os campos que podem ser alterados
+      const data = {
+        value: parsedValue,
+        description: formData.get("description") as string,
+      };
       updateMutation.mutate({ id: editingSetting.id, data });
     } else {
+      // Para criação, envie todos os campos
+      const data = {
+        key: formData.get("key") as string,
+        value: parsedValue,
+        description: formData.get("description") as string,
+        category: formData.get("category") as string,
+      };
       createMutation.mutate(data);
     }
   };
