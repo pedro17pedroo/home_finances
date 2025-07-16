@@ -270,7 +270,7 @@ export default function AdminSecurityLogs() {
                       </div>
                       {event.details && (
                         <div className="text-xs text-muted-foreground bg-gray-100 dark:bg-gray-800 p-2 rounded">
-                          <strong>Detalhes:</strong> {event.details}
+                          <strong>Detalhes:</strong> {typeof event.details === 'object' ? JSON.stringify(event.details, null, 2) : event.details}
                         </div>
                       )}
                     </div>
