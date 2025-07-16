@@ -23,15 +23,15 @@ import Categorias from "@/pages/categorias";
 import Contas from "@/pages/contas";
 import { AdminLogin, AdminDashboard, AdminUsers, AdminPlans } from "@/admin";
 
-// Lazy load admin components
+// Lazy load admin components with proper wrappers
 const PaymentMethodsWrapper = lazy(() => import('./admin/pages/payment-methods-wrapper'));
-const AdminCampaigns = lazy(() => import('./admin/pages/campaigns'));
-const AdminLandingContent = lazy(() => import('./admin/pages/landing-content'));
-const AdminLegalContent = lazy(() => import('./admin/pages/legal-content'));
-const AdminSystemSettings = lazy(() => import('./admin/pages/system-settings'));
+const CampaignsWrapper = lazy(() => import('./admin/pages/campaigns-wrapper'));
+const LandingContentWrapper = lazy(() => import('./admin/pages/landing-content-wrapper'));
+const LegalContentWrapper = lazy(() => import('./admin/pages/legal-content-wrapper'));
+const SystemSettingsWrapper = lazy(() => import('./admin/pages/system-settings-wrapper'));
 const AdminAnalytics = lazy(() => import('./admin/pages/analytics'));
-const AdminAuditLogs = lazy(() => import('./admin/pages/audit-logs'));
-const AdminSecurityLogs = lazy(() => import('./admin/pages/security-logs'));
+const AuditLogsWrapper = lazy(() => import('./admin/pages/audit-logs-wrapper'));
+const SecurityLogsWrapper = lazy(() => import('./admin/pages/security-logs-wrapper'));
 
 function Router() {
   return (
@@ -116,22 +116,22 @@ function Router() {
       </Route>
       <Route path="/admin/campaigns">
         <Suspense fallback={<div>Carregando...</div>}>
-          <AdminCampaigns />
+          <CampaignsWrapper />
         </Suspense>
       </Route>
       <Route path="/admin/landing-content">
         <Suspense fallback={<div>Carregando...</div>}>
-          <AdminLandingContent />
+          <LandingContentWrapper />
         </Suspense>
       </Route>
       <Route path="/admin/legal-content">
         <Suspense fallback={<div>Carregando...</div>}>
-          <AdminLegalContent />
+          <LegalContentWrapper />
         </Suspense>
       </Route>
       <Route path="/admin/system-settings">
         <Suspense fallback={<div>Carregando...</div>}>
-          <AdminSystemSettings />
+          <SystemSettingsWrapper />
         </Suspense>
       </Route>
       <Route path="/admin/analytics">
@@ -141,12 +141,12 @@ function Router() {
       </Route>
       <Route path="/admin/audit-logs">
         <Suspense fallback={<div>Carregando...</div>}>
-          <AdminAuditLogs />
+          <AuditLogsWrapper />
         </Suspense>
       </Route>
       <Route path="/admin/security-logs">
         <Suspense fallback={<div>Carregando...</div>}>
-          <AdminSecurityLogs />
+          <SecurityLogsWrapper />
         </Suspense>
       </Route>
       
