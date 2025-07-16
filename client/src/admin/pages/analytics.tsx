@@ -14,22 +14,26 @@ export default function AdminAnalytics() {
 
   const { data: analyticsData, isLoading } = useQuery({
     queryKey: ['/api/admin/analytics', timeRange, metric],
-    queryFn: () => fetch(`/api/admin/analytics?range=${timeRange}&metric=${metric}`).then(res => res.json())
+    queryFn: () => fetch(`/api/admin/analytics?range=${timeRange}&metric=${metric}`).then(res => res.json()),
+    throwOnError: false,
   });
 
   const { data: conversionsData } = useQuery({
     queryKey: ['/api/admin/analytics/conversions', timeRange],
-    queryFn: () => fetch(`/api/admin/analytics/conversions?range=${timeRange}`).then(res => res.json())
+    queryFn: () => fetch(`/api/admin/analytics/conversions?range=${timeRange}`).then(res => res.json()),
+    throwOnError: false,
   });
 
   const { data: churnData } = useQuery({
     queryKey: ['/api/admin/analytics/churn', timeRange],
-    queryFn: () => fetch(`/api/admin/analytics/churn?range=${timeRange}`).then(res => res.json())
+    queryFn: () => fetch(`/api/admin/analytics/churn?range=${timeRange}`).then(res => res.json()),
+    throwOnError: false,
   });
 
   const { data: cohortData } = useQuery({
     queryKey: ['/api/admin/analytics/cohort', timeRange],
-    queryFn: () => fetch(`/api/admin/analytics/cohort?range=${timeRange}`).then(res => res.json())
+    queryFn: () => fetch(`/api/admin/analytics/cohort?range=${timeRange}`).then(res => res.json()),
+    throwOnError: false,
   });
 
   const exportReport = () => {

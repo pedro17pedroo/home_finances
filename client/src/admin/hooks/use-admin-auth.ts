@@ -8,6 +8,7 @@ export function useAdminAuth() {
   const { data: user, isLoading } = useQuery<AdminUser>({
     queryKey: ['/api/admin/auth/me'],
     retry: false,
+    throwOnError: false,
     queryFn: async () => {
       const res = await fetch('/api/admin/auth/me', {
         credentials: 'include',

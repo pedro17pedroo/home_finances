@@ -31,6 +31,7 @@ export default function LandingContentPage() {
 
   const { data: contents, isLoading } = useQuery({
     queryKey: ["/api/admin/landing-content"],
+    throwOnError: false,
   });
 
   const createMutation = useMutation({

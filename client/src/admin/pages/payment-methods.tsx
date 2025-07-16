@@ -20,6 +20,8 @@ export default function PaymentMethodsPage() {
 
   const { data: paymentMethods, isLoading } = useQuery({
     queryKey: ["/api/admin/payment-methods"],
+    throwOnError: false,
+    retry: false,
   });
 
   const createMutation = useMutation({

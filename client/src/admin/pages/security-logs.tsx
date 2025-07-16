@@ -27,12 +27,14 @@ export default function AdminSecurityLogs() {
         limit: '50'
       });
       return fetch(`/api/admin/security-logs?${params}`).then(res => res.json());
-    }
+    },
+    throwOnError: false,
   });
 
   const { data: securityStats } = useQuery({
     queryKey: ['/api/admin/security-stats'],
-    queryFn: () => fetch('/api/admin/security-stats').then(res => res.json())
+    queryFn: () => fetch('/api/admin/security-stats').then(res => res.json()),
+    throwOnError: false,
   });
 
   const getSeverityColor = (severity: string) => {

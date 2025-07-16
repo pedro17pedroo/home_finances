@@ -76,6 +76,7 @@ export default function AdminPlans() {
 
   const { data: plans, isLoading } = useQuery<Plan[]>({
     queryKey: ['/api/admin/plans'],
+    throwOnError: false,
   });
 
   const form = useForm<PlanForm>({

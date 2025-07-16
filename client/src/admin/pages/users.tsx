@@ -27,6 +27,7 @@ export default function AdminUsers() {
 
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users', { search: searchTerm, status: statusFilter }],
+    throwOnError: false,
   });
 
   const filteredUsers = users?.filter(user => {

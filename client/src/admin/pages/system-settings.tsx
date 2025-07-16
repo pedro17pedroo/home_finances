@@ -64,6 +64,7 @@ export default function SystemSettingsPage() {
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["/api/admin/system-settings"],
+    throwOnError: false,
   });
 
   const createMutation = useMutation({

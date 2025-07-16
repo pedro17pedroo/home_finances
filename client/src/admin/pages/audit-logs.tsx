@@ -30,12 +30,14 @@ export default function AdminAuditLogs() {
         limit: '50'
       });
       return fetch(`/api/admin/audit-logs?${params}`).then(res => res.json());
-    }
+    },
+    throwOnError: false,
   });
 
   const { data: filtersData } = useQuery({
     queryKey: ['/api/admin/audit-logs/filters'],
-    queryFn: () => fetch('/api/admin/audit-logs/filters').then(res => res.json())
+    queryFn: () => fetch('/api/admin/audit-logs/filters').then(res => res.json()),
+    throwOnError: false,
   });
 
   const exportLogs = () => {

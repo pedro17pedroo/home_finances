@@ -7,6 +7,7 @@ import { AdminDashboardMetrics } from '../types/admin';
 export default function AdminDashboard() {
   const { data: metrics, isLoading } = useQuery<AdminDashboardMetrics>({
     queryKey: ['/api/admin/dashboard/metrics'],
+    throwOnError: false,
   });
 
   if (isLoading) {

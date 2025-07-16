@@ -35,6 +35,7 @@ export default function LegalContentPage() {
 
   const { data: contents, isLoading } = useQuery({
     queryKey: ["/api/admin/legal-content"],
+    throwOnError: false,
   });
 
   const createMutation = useMutation({

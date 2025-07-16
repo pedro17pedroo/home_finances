@@ -23,6 +23,7 @@ export default function CampaignsPage() {
 
   const { data: campaigns, isLoading } = useQuery({
     queryKey: ["/api/admin/campaigns"],
+    throwOnError: false,
   });
 
   const createMutation = useMutation({
