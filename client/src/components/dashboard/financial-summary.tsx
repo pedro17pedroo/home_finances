@@ -10,6 +10,7 @@ import {
   TrendingDown
 } from "lucide-react";
 import type { FinancialSummary } from "@/lib/types";
+import { CurrencyDisplay } from "@/components/system/currency-display";
 
 export default function FinancialSummary() {
   const { data: summary, isLoading } = useQuery<FinancialSummary>({
@@ -82,7 +83,7 @@ export default function FinancialSummary() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-600">{card.title}</p>
                 <p className="text-2xl sm:text-3xl font-bold text-slate-900 break-words">
-                  {formatCurrency(card.value)}
+                  <CurrencyDisplay amount={card.value} />
                 </p>
                 <div className="flex items-center text-sm mt-1">
                   {card.trendIcon && (

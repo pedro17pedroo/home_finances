@@ -32,15 +32,16 @@
 - landing_hero_title: "Controle Financeiro Inteligente"
 - landing_hero_subtitle: "Gerencie suas finanças pessoais com facilidade e segurança"
 - landing_cta_text: "Comece seu teste gratuito"
+- trial_duration_days: 14
 ```
 
 ## 🚧 PRÓXIMOS PASSOS PARA COMPLETAR
 
 ### 1. Atualizar Componentes Principais
-- [ ] Landing Page: Usar `SystemHeroTitle`, `SystemCtaText` 
-- [ ] Dashboard: Usar `CurrencyDisplay` para todos os valores
-- [ ] Formulários: Usar `CurrencySymbol` nos inputs de valor
-- [ ] Páginas de Receitas/Despesas: Usar formatação configurável
+- [x] Landing Page: Usar `SystemHeroTitle`, `SystemCtaText` 
+- [x] Dashboard: Usar `CurrencyDisplay` para todos os valores
+- [x] Páginas de Receitas/Despesas: Usar formatação configurável
+- [x] Formulários: Usar `CurrencySymbol` nos inputs de valor
 - [ ] Relatórios: Usar configurações de moeda e locale
 
 ### 2. Segurança e Autenticação
@@ -54,13 +55,15 @@
 - [ ] Implementar sistema de notificações configurável
 
 ### 4. Trial e Período de Teste
-- [ ] Usar `trial_duration_days` no sistema de registro
-- [ ] Calcular expiração de trial dinamicamente
-- [ ] Exibir dias restantes baseado na configuração
+- [x] Usar `trial_duration_days` no sistema de registro
+- [x] Calcular expiração de trial dinamicamente
+- [x] Exibir dias restantes baseado na configuração
+- [x] Componente TrialStatus configurável
 
 ### 5. Modo de Manutenção
-- [ ] Verificar `maintenance_mode` e exibir página de manutenção
-- [ ] Permitir apenas admins quando em modo de manutenção
+- [x] Verificar `maintenance_mode` e exibir página de manutenção
+- [x] Permitir apenas admins quando em modo de manutenção
+- [x] Componente MaintenanceMode implementado
 
 ### 6. Personalização da Landing Page
 - [ ] Usar todas as configurações de conteúdo
@@ -76,13 +79,15 @@
 - [x] Middlewares atualizados
 - [x] Sistema de configuração com fallbacks
 
-### Frontend 🚧
+### Frontend ✅
 - [x] Hook de configurações
 - [x] Componentes de sistema básicos
-- [ ] Atualização da landing page
-- [ ] Atualização do dashboard
-- [ ] Formatação de moeda global
-- [ ] Componentes de limite configuráveis
+- [x] Atualização da landing page
+- [x] Atualização do dashboard
+- [x] Formatação de moeda global
+- [x] Componentes de limite configuráveis
+- [x] Status de trial configurável
+- [x] Guards de limite do sistema
 
 ### Admin Panel ✅
 - [x] Gestão de configurações de sistema

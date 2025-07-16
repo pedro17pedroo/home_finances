@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfigurableCurrencyInput } from "@/components/system/configurable-form-input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -154,23 +155,14 @@ export default function TransactionForm({ defaultType = "receita", onSuccess }: 
   return (
     <form onSubmit={handleTransactionFormSubmit} className="space-y-4">
 
-      <div>
-        <Label htmlFor="amount">Valor</Label>
-        <div className="relative">
-          <span className="absolute left-3 top-2 text-slate-500">Kz</span>
-          <Input
-            id="amount"
-            type="number"
-            step="0.01"
-            className="pl-8"
-            placeholder="0,00"
-            {...form.register("amount")}
-          />
-        </div>
-        {form.formState.errors.amount && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.amount.message}</p>
-        )}
-      </div>
+      <ConfigurableCurrencyInput
+        label="Valor"
+        value={form.watch("amount")}
+        onChange={(value) => form.setValue("amount", value)}
+        placeholder="0,00"
+        required
+        error={form.formState.errors.amount?.message}
+      />
 
       <div>
         <div className="flex items-center justify-between">

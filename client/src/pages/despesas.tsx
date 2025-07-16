@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import TransactionForm from "@/components/forms/transaction-form";
 import TransactionLimitGuard from "@/components/auth/transaction-limit-guard";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { CurrencyDisplay } from "@/components/system/currency-display";
 
 import type { Transaction, Category } from "@shared/schema";
 
@@ -130,7 +131,7 @@ export default function Despesas() {
             </CardHeader>
             <CardContent className="pt-2">
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600 break-words">
-                {formatCurrency(totalDespesas)}
+                <CurrencyDisplay amount={totalDespesas} />
               </p>
             </CardContent>
           </Card>
@@ -140,7 +141,7 @@ export default function Despesas() {
             </CardHeader>
             <CardContent className="pt-2">
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 break-words">
-                {formatCurrency(thisMonthDespesas)}
+                <CurrencyDisplay amount={thisMonthDespesas} />
               </p>
             </CardContent>
           </Card>
@@ -150,7 +151,7 @@ export default function Despesas() {
             </CardHeader>
             <CardContent className="pt-2">
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 break-words">
-                {formatCurrency(averageMonthlyDespesas)}
+                <CurrencyDisplay amount={averageMonthlyDespesas} />
               </p>
             </CardContent>
           </Card>
@@ -290,7 +291,7 @@ export default function Despesas() {
                     </div>
                     <div className="text-right flex-shrink-0 ml-2">
                       <p className="font-semibold text-red-600 text-sm sm:text-base">
-                        -{formatCurrency(transaction.amount)}
+                        -<CurrencyDisplay amount={transaction.amount} />
                       </p>
                       <p className="text-xs sm:text-sm text-slate-500">
                         {formatDate(transaction.date)}

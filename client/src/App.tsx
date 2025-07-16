@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/auth-context";
 import ErrorBoundary from "@/components/error-boundary";
+import { MaintenanceMode } from "@/components/system/maintenance-mode";
 import Header from "@/components/layout/header";
 import Dashboard from "@/pages/dashboard";
 import Receitas from "@/pages/receitas";
@@ -161,12 +162,14 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ErrorBoundary>
           <AuthProvider>
-            <TooltipProvider>
-              <Toaster />
-              <ErrorBoundary>
-                <Router />
-              </ErrorBoundary>
-            </TooltipProvider>
+            <MaintenanceMode>
+              <TooltipProvider>
+                <Toaster />
+                <ErrorBoundary>
+                  <Router />
+                </ErrorBoundary>
+              </TooltipProvider>
+            </MaintenanceMode>
           </AuthProvider>
         </ErrorBoundary>
       </QueryClientProvider>
