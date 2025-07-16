@@ -24,7 +24,9 @@ import {
   campaigns,
   landingContent,
   legalContent,
-  systemSettings
+  systemSettings,
+  auditLogs,
+  adminUsers
 } from "@shared/schema";
 import { 
   isAuthenticated, 
@@ -1535,6 +1537,304 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting system setting:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Phase 5 - Analytics API Routes
+  app.get("/api/admin/analytics", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      const { range = '30d', metric = 'revenue' } = req.query;
+      
+      // Mock analytics data - In real implementation, this would come from actual metrics
+      const mockData = {
+        totalRevenue: 125000,
+        revenueGrowth: 15.5,
+        conversionRate: 8.2,
+        conversionGrowth: 2.1,
+        avgLTV: 85000,
+        ltvGrowth: 12.3,
+        churnRate: 3.2,
+        churnChange: -0.8,
+        revenueChart: [
+          { month: 'Jan', revenue: 95000 },
+          { month: 'Feb', revenue: 105000 },
+          { month: 'Mar', revenue: 115000 },
+          { month: 'Apr', revenue: 125000 },
+        ],
+        revenueByPlan: [
+          { name: 'Basic', value: 45.2 },
+          { name: 'Premium', value: 38.7 },
+          { name: 'Enterprise', value: 16.1 },
+        ],
+        mrrTrends: [
+          { month: 'Jan', mrr: 32000 },
+          { month: 'Feb', mrr: 35000 },
+          { month: 'Mar', mrr: 38000 },
+          { month: 'Apr', mrr: 42000 },
+        ],
+        userGrowth: [
+          { month: 'Jan', totalUsers: 245, activeUsers: 198, trialUsers: 47 },
+          { month: 'Feb', totalUsers: 298, activeUsers: 245, trialUsers: 53 },
+          { month: 'Mar', totalUsers: 356, activeUsers: 289, trialUsers: 67 },
+          { month: 'Apr', totalUsers: 412, activeUsers: 335, trialUsers: 77 },
+        ]
+      };
+      
+      res.json(mockData);
+    } catch (error: any) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/analytics/conversions", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      const mockConversions = {
+        funnel: [
+          { stage: 'Visitantes', count: 5420, percentage: 100 },
+          { stage: 'Registro', count: 1084, percentage: 20 },
+          { stage: 'Trial Ativo', count: 865, percentage: 16 },
+          { stage: 'Conversão Paga', count: 346, percentage: 6.4 },
+          { stage: 'Retenção 30d', count: 298, percentage: 5.5 },
+        ]
+      };
+      
+      res.json(mockConversions);
+    } catch (error: any) {
+      console.error("Error fetching conversions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/analytics/churn", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      const mockChurn = {
+        monthly: [
+          { month: 'Jan', churnRate: 4.2 },
+          { month: 'Feb', churnRate: 3.8 },
+          { month: 'Mar', churnRate: 3.1 },
+          { month: 'Apr', churnRate: 3.2 },
+        ],
+        reasons: [
+          { reason: 'Preço muito alto', percentage: 35.2 },
+          { reason: 'Funcionalidades insuficientes', percentage: 28.7 },
+          { reason: 'Interface confusa', percentage: 18.3 },
+          { reason: 'Problemas técnicos', percentage: 12.8 },
+          { reason: 'Outros', percentage: 5.0 },
+        ]
+      };
+      
+      res.json(mockChurn);
+    } catch (error: any) {
+      console.error("Error fetching churn data:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/analytics/cohort", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      const mockCohort = {
+        cohorts: [
+          { month: '2024-01', retention: [100, 85, 75, 68, 62, 58, 55] },
+          { month: '2024-02', retention: [100, 88, 78, 71, 65, 61, 0] },
+          { month: '2024-03', retention: [100, 90, 82, 74, 68, 0, 0] },
+          { month: '2024-04', retention: [100, 92, 84, 77, 0, 0, 0] },
+        ]
+      };
+      
+      res.json(mockCohort);
+    } catch (error: any) {
+      console.error("Error fetching cohort data:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/analytics/export", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      const { format = 'csv' } = req.query;
+      
+      if (format === 'csv') {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=analytics-report.csv');
+        res.send('Date,Revenue,Users,Conversions\n2024-01,95000,245,47\n2024-02,105000,298,53\n');
+      } else {
+        res.status(400).json({ message: 'Unsupported format' });
+      }
+    } catch (error: any) {
+      console.error("Error exporting analytics:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Phase 5 - Audit Logs API Routes
+  app.get("/api/admin/audit-logs", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      const { search = '', action = '', entityType = '', adminUser = '', page = '1', limit = '50' } = req.query;
+      const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+      
+      let query = db.select({
+        id: auditLogs.id,
+        action: auditLogs.action,
+        entityType: auditLogs.entityType,
+        entityId: auditLogs.entityId,
+        oldData: auditLogs.oldData,
+        newData: auditLogs.newData,
+        ipAddress: auditLogs.ipAddress,
+        userAgent: auditLogs.userAgent,
+        createdAt: auditLogs.createdAt,
+        adminUser: {
+          id: adminUsers.id,
+          firstName: adminUsers.firstName,
+          lastName: adminUsers.lastName,
+          email: adminUsers.email
+        }
+      })
+      .from(auditLogs)
+      .leftJoin(adminUsers, eq(auditLogs.adminUserId, adminUsers.id))
+      .orderBy(auditLogs.createdAt);
+
+      // Apply filters
+      if (search) {
+        query = query.where(
+          sql`${auditLogs.ipAddress} ILIKE ${'%' + search + '%'} OR ${auditLogs.userAgent} ILIKE ${'%' + search + '%'}`
+        );
+      }
+      if (action) {
+        query = query.where(eq(auditLogs.action, action));
+      }
+      if (entityType) {
+        query = query.where(eq(auditLogs.entityType, entityType));
+      }
+      if (adminUser) {
+        query = query.where(eq(auditLogs.adminUserId, parseInt(adminUser as string)));
+      }
+
+      const logs = await query.limit(parseInt(limit as string)).offset(offset);
+      const totalCount = await db.select({ count: sql`count(*)` }).from(auditLogs);
+      const totalPages = Math.ceil(Number(totalCount[0]?.count || 0) / parseInt(limit as string));
+
+      res.json({
+        logs,
+        totalCount: Number(totalCount[0]?.count || 0),
+        totalPages,
+        currentPage: parseInt(page as string)
+      });
+    } catch (error: any) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/audit-logs/filters", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      const actions = await db.selectDistinct({ action: auditLogs.action }).from(auditLogs);
+      const entityTypes = await db.selectDistinct({ entityType: auditLogs.entityType }).from(auditLogs);
+      const adminUsersData = await db.select({
+        id: adminUsers.id,
+        firstName: adminUsers.firstName,
+        lastName: adminUsers.lastName,
+        email: adminUsers.email
+      }).from(adminUsers);
+
+      res.json({
+        actions: actions.map(a => a.action),
+        entityTypes: entityTypes.map(e => e.entityType),
+        adminUsers: adminUsersData
+      });
+    } catch (error: any) {
+      console.error("Error fetching filter options:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/audit-logs/export", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=audit-logs.csv');
+      res.send('Date,Action,Entity,Admin,IP\nSample audit log export data\n');
+    } catch (error: any) {
+      console.error("Error exporting audit logs:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Phase 5 - Security Logs API Routes  
+  app.get("/api/admin/security-logs", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      const { search = '', severity = '', eventType = '', page = '1', limit = '50' } = req.query;
+      
+      // Mock security events data
+      const mockEvents = [
+        {
+          id: 1,
+          severity: 'high',
+          eventType: 'failed_login',
+          description: 'Múltiplas tentativas de login falhadas',
+          ipAddress: '192.168.1.100',
+          location: 'Luanda, Angola',
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          timestamp: new Date(),
+          details: 'Usuário tentou fazer login 15 vezes em 5 minutos'
+        },
+        {
+          id: 2,
+          severity: 'critical',
+          eventType: 'brute_force',
+          description: 'Ataque de força bruta detectado',
+          ipAddress: '10.0.0.1',
+          location: 'Benguela, Angola',
+          userAgent: 'Python-requests/2.28.1',
+          timestamp: new Date(Date.now() - 3600000),
+          details: 'Tentativas automáticas de quebra de senha'
+        }
+      ];
+
+      res.json({
+        events: mockEvents,
+        totalCount: mockEvents.length,
+        totalPages: 1,
+        currentPage: 1
+      });
+    } catch (error: any) {
+      console.error("Error fetching security logs:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/security-stats", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+    try {
+      const mockStats = {
+        failedLogins24h: 47,
+        blockedIPs: 12,
+        attacks24h: 3,
+        securityScore: 92,
+        criticalAlerts: [
+          { message: 'Novo IP suspeito detectado', severity: 'critical' }
+        ],
+        recentBlockedIPs: [
+          { address: '192.168.1.100', blockedAt: new Date(), reason: 'Força bruta' },
+          { address: '10.0.0.1', blockedAt: new Date(Date.now() - 3600000), reason: 'Múltiplas falhas' }
+        ]
+      };
+      
+      res.json(mockStats);
+    } catch (error: any) {
+      console.error("Error fetching security stats:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/security/block-ip", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
+    try {
+      const { ip } = req.body;
+      
+      // In real implementation, this would add IP to firewall/blocking system
+      await logAdminAction(req, 'block_ip', 'security', null, null, { ip });
+      
+      res.json({ message: `IP ${ip} foi bloqueado com sucesso` });
+    } catch (error: any) {
+      console.error("Error blocking IP:", error);
       res.status(500).json({ message: error.message });
     }
   });

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { useAdminAuth } from '../../hooks/use-admin-auth';
 import { AdminSidebar } from './admin-sidebar';
 import { AdminHeader } from './admin-header';
@@ -12,6 +12,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const { isAuthenticated, isLoading } = useAdminAuth();
   const [, setLocation] = useLocation();
 
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      setLocation('/admin/login');
+    }
+  }, [isLoading, isAuthenticated, setLocation]);
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -21,7 +27,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   if (!isAuthenticated) {
-    setLocation('/admin/login');
     return null;
   }
 

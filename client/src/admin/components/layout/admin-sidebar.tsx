@@ -71,9 +71,21 @@ export function AdminSidebar() {
       permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_SETTINGS,
     },
     {
-      name: 'Relatórios',
-      href: '/admin/reports',
+      name: 'Analytics',
+      href: '/admin/analytics',
       icon: BarChart3,
+      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS,
+    },
+    {
+      name: 'Logs de Auditoria',
+      href: '/admin/audit-logs',
+      icon: FileText,
+      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS,
+    },
+    {
+      name: 'Logs de Segurança',
+      href: '/admin/security-logs',
+      icon: Shield,
       permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS,
     },
   ];

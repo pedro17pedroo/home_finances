@@ -103,6 +103,9 @@ function Router() {
       <Route path="/admin/landing-content" component={lazy(() => import('./admin/pages/landing-content'))} />
       <Route path="/admin/legal-content" component={lazy(() => import('./admin/pages/legal-content'))} />
       <Route path="/admin/system-settings" component={lazy(() => import('./admin/pages/system-settings'))} />
+      <Route path="/admin/analytics" component={lazy(() => import('./admin/pages/analytics'))} />
+      <Route path="/admin/audit-logs" component={lazy(() => import('./admin/pages/audit-logs'))} />
+      <Route path="/admin/security-logs" component={lazy(() => import('./admin/pages/security-logs'))} />
       
       <Route component={NotFound} />
     </Switch>
