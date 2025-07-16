@@ -1,0 +1,26 @@
+[vite] connecting...
+[vite] connected.
+Warning: Cannot update a component (&#x60;AdminLogin&#x60;) while rendering a different component (&#x60;AdminLogin&#x60;). To locate the bad setState() call inside &#x60;AdminLogin&#x60;, follow the stack trace as described in https://reactjs.org/link/setstate-in-render
+    at AdminLogin (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/src/admin/pages/login.tsx:36:51)
+    at Route (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=31291beb:323:16)
+    at Switch (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=31291beb:379:17)
+    at Router
+    at Provider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=373c3316:38:15)
+    at TooltipProvider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=ef086d32:63:5)
+    at AuthProvider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/src/contexts/auth-context.tsx:21:32)
+    at QueryClientProvider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=ac305361:2805:3)
+    at App
+The above error occurred in the <Context.Provider> component:
+
+    at Route (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=31291beb:323:16)
+    at Switch (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=31291beb:379:17)
+    at Router
+    at Provider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=373c3316:38:15)
+    at TooltipProvider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=ef086d32:63:5)
+    at AuthProvider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/src/contexts/auth-context.tsx:21:32)
+    at QueryClientProvider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=ac305361:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+A component suspended while responding to synchronous input. This will cause the UI to be replaced with a loading indicator. To fix, updates that suspend should be wrapped with startTransition.
