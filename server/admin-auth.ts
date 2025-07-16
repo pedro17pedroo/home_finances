@@ -196,26 +196,45 @@ export const getCurrentAdmin = (req: Request, res: Response) => {
   }
 };
 
-// Audit logging helper
+// Audit logging helper (overloaded function)
 export const logAdminAction = async (
-  adminUserId: number,
+  reqOrAdminUserId: Request | number,
   action: string,
   entityType: string,
   entityId: number | null,
-  oldData: any,
-  newData: any,
-  req: Request
+  oldDataOrNewData?: any,
+  newDataOrReq?: any,
+  req?: Request
 ) => {
   try {
+    let adminUserId: number;
+    let actualOldData: any;
+    let actualNewData: any;
+    let actualReq: Request;
+    
+    if (typeof reqOrAdminUserId === 'number') {
+      // Old signature: adminUserId, action, entityType, entityId, oldData, newData, req
+      adminUserId = reqOrAdminUserId;
+      actualOldData = oldDataOrNewData;
+      actualNewData = newDataOrReq;
+      actualReq = req!;
+    } else {
+      // New signature: req, action, entityType, entityId, data
+      actualReq = reqOrAdminUserId;
+      adminUserId = actualReq.session?.adminUserId!;
+      actualOldData = null;
+      actualNewData = oldDataOrNewData;
+    }
+    
     await db.insert(auditLogs).values({
       adminUserId,
       action,
       entityType,
       entityId,
-      oldData,
-      newData,
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent') || null
+      oldData: actualOldData,
+      newData: actualNewData,
+      ipAddress: actualReq.ip || actualReq.connection?.remoteAddress || 'unknown',
+      userAgent: actualReq.get('User-Agent') || null
     });
   } catch (error) {
     console.error('Audit log error:', error);
