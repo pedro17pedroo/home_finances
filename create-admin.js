@@ -1,5 +1,5 @@
 import { db } from './server/db.ts';
-import { adminUsers } from './shared/schema.js';
+import { adminUsers } from './shared/schema.ts';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
