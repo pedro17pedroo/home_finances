@@ -59,6 +59,7 @@ export default function PlanGuard({ requiredPlan, fallback, children }: PlanGuar
     queryKey: ['/api/auth/me'],
     refetchOnWindowFocus: true,
     staleTime: 0, // Always refetch to ensure latest plan data
+    throwOnError: false, // Don't throw on 401 errors
   });
 
   if (!user) {

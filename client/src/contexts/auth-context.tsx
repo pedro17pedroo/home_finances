@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     queryKey: ["/api/auth/me"],
     retry: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    throwOnError: false, // Don't throw on 401 errors
   });
 
   const refreshUser = () => {

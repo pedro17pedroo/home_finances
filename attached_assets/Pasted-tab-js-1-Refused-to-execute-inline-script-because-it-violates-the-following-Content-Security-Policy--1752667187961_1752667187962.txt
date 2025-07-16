@@ -1,0 +1,27 @@
+tab.js:1 Refused to execute inline script because it violates the following Content Security Policy directive: "script-src 'self' 'wasm-unsafe-eval' 'inline-speculation-rules' chrome-extension://59cbbd47-c465-4d0c-b466-078650c6c1c0/". Either the 'unsafe-inline' keyword, a hash ('sha256-kPx0AsF0oz2kKiZ875xSvv693TBHkQ/0SkMJZnnNpnQ='), or a nonce ('nonce-...') is required to enable inline execution.
+
+tab.js:1 Refused to execute inline script because it violates the following Content Security Policy directive: "script-src 'self' 'wasm-unsafe-eval' 'inline-speculation-rules' chrome-extension://a94d6274-e4f7-45ad-9743-84df1bb9b3de/". Either the 'unsafe-inline' keyword, a hash ('sha256-kPx0AsF0oz2kKiZ875xSvv693TBHkQ/0SkMJZnnNpnQ='), or a nonce ('nonce-...') is required to enable inline execution.
+/api/auth/me:1 
+ Failed to load resource: the server responded with a status of 401 (Unauthorized)
+hook.js:608 The above error occurred in the <Context.Provider> component:
+
+    at Route (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=31291beb:323:16)
+    at Switch (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=31291beb:379:17)
+    at Router
+    at Provider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=373c3316:38:15)
+    at TooltipProvider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit…rkspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=ef086d32:63:5)
+    at AuthProvider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit.dev/src/contexts/auth-context.tsx:21:32)
+    at QueryClientProvider (https://ac6dbc64-7e30-4f76-ab6e-55f2e55cea5d-00-3bucrly3wchcm.picard.replit…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=ac305361:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+chunk-RPCDYKBN.js?v=373c3316:9129 Uncaught Error: A component suspended while responding to synchronous input. This will cause the UI to be replaced with a loading indicator. To fix, updates that suspend should be wrapped with startTransition.
+    at throwException (chunk-RPCDYKBN.js?v=373c3316:14213:43)
+    at handleError (chunk-RPCDYKBN.js?v=373c3316:19034:15)
+    at renderRootSync (chunk-RPCDYKBN.js?v=373c3316:19119:15)
+    at recoverFromConcurrentError (chunk-RPCDYKBN.js?v=373c3316:18736:28)
+    at performSyncWorkOnRoot (chunk-RPCDYKBN.js?v=373c3316:18879:28)
+    at flushSyncCallbacks (chunk-RPCDYKBN.js?v=373c3316:9119:30)
+    at chunk-RPCDYKBN.js?v=373c3316:18627:21
+﻿

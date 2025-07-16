@@ -40,10 +40,12 @@ interface UsageLimitsResponse {
 export default function TransactionLimitGuard({ children, fallback }: TransactionLimitGuardProps) {
   const { data: user } = useQuery<User>({
     queryKey: ['/api/auth/me'],
+    throwOnError: false,
   });
 
   const { data: limits } = useQuery<UsageLimitsResponse>({
     queryKey: ['/api/user/limits'],
+    throwOnError: false,
   });
 
   if (!user || !limits) {
