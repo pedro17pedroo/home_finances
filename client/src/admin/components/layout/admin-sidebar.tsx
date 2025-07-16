@@ -11,7 +11,8 @@ import {
   Wallet,
   Gift,
   Globe,
-  Scale
+  Scale,
+  CheckCircle
 } from 'lucide-react';
 import { useAdminAuth } from '../../hooks/use-admin-auth';
 import { hasPermission } from '../../lib/permissions';
@@ -45,6 +46,12 @@ export function AdminSidebar() {
       href: '/admin/payment-methods',
       icon: Wallet,
       permission: ADMIN_PERMISSIONS.PAYMENTS.VIEW,
+    },
+    {
+      name: 'Aprovar Pagamentos',
+      href: '/admin/payment-approvals',
+      icon: CheckCircle,
+      permission: ADMIN_PERMISSIONS.PAYMENTS.APPROVE,
     },
     {
       name: 'Campanhas',

@@ -259,6 +259,8 @@ export const ADMIN_PERMISSIONS = {
   },
   PAYMENTS: {
     VIEW: 'payments.view',
+    APPROVE: 'payments.approve',
+    REJECT: 'payments.reject',
     MANAGE: 'payments.manage',
     PROCESS_REFUNDS: 'payments.process_refunds'
   },

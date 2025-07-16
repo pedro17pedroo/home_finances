@@ -16,6 +16,7 @@ import Emprestimos from "@/pages/emprestimos";
 import Relatorios from "@/pages/relatorios";
 import SubscriptionPage from "@/pages/SubscriptionPage";
 import Landing from "@/pages/landing";
+import PaymentConfirmationPage from "@/pages/payment-confirmation";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
@@ -26,6 +27,7 @@ import { AdminLogin, AdminDashboard, AdminUsers, AdminPlans } from "@/admin";
 
 // Lazy load admin components with proper wrappers
 const PaymentMethodsWrapper = lazy(() => import('./admin/pages/payment-methods-wrapper'));
+const PaymentApprovalsWrapper = lazy(() => import('./admin/pages/payment-approvals-wrapper'));
 const CampaignsWrapper = lazy(() => import('./admin/pages/campaigns-wrapper'));
 const LandingContentWrapper = lazy(() => import('./admin/pages/landing-content-wrapper'));
 const LegalContentWrapper = lazy(() => import('./admin/pages/legal-content-wrapper'));
@@ -42,6 +44,12 @@ function Router() {
       <Route path="/landing" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/payment-confirmation">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <PaymentConfirmationPage />
+        </div>
+      </Route>
       
       {/* Protected routes with header */}
       <Route path="/dashboard">
@@ -113,6 +121,11 @@ function Router() {
       <Route path="/admin/payment-methods">
         <Suspense fallback={<div>Carregando...</div>}>
           <PaymentMethodsWrapper />
+        </Suspense>
+      </Route>
+      <Route path="/admin/payment-approvals">
+        <Suspense fallback={<div>Carregando...</div>}>
+          <PaymentApprovalsWrapper />
         </Suspense>
       </Route>
       <Route path="/admin/campaigns">

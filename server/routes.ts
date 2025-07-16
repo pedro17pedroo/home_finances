@@ -1726,6 +1726,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment confirmations
+  app.get("/api/payment-confirmations", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const confirmations = await db.select()
+        .from(paymentConfirmations)
+        .where(eq(paymentConfirmations.userId, userId))
+        .orderBy(desc(paymentConfirmations.createdAt));
+      
+      res.json(confirmations);
+    } catch (error: any) {
+      console.error("Error fetching payment confirmations:", error);
+      res.status(500).json({ error: "Failed to fetch payment confirmations" });
+    }
+  });
+
+  app.post("/api/payment-confirmations/upload", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { paymentId, notes } = req.body;
+      const files = req.files?.receipts;
+
+      if (!paymentId) {
+        return res.status(400).json({ error: "Payment ID is required" });
+      }
+
+      if (!files) {
+        return res.status(400).json({ error: "At least one receipt file is required" });
+      }
+
+      // Handle single file or multiple files
+      const fileArray = Array.isArray(files) ? files : [files];
+      const receiptPaths: string[] = [];
+
+      // Save uploaded files (simplified - in production, use proper file storage)
+      for (const file of fileArray) {
+        const fileName = `receipt_${paymentId}_${Date.now()}_${file.name}`;
+        const filePath = `/tmp/receipts/${fileName}`;
+        
+        // Create directory if it doesn't exist
+        const fs = require('fs');
+        const path = require('path');
+        const uploadDir = path.dirname(filePath);
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        
+        // Move file to destination
+        await file.mv(filePath);
+        receiptPaths.push(filePath);
+      }
+
+      // Update payment confirmation with receipt paths
+      await db.update(paymentConfirmations)
+        .set({
+          receiptPaths,
+          notes: notes || null,
+          status: "pending",
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(paymentConfirmations.id, parseInt(paymentId)),
+          eq(paymentConfirmations.userId, userId)
+        ));
+
+      res.json({ success: true, message: "Receipts uploaded successfully" });
+    } catch (error: any) {
+      console.error("Error uploading receipts:", error);
+      res.status(500).json({ error: "Failed to upload receipts" });
+    }
+  });
+
   // Initiate payment endpoint
   app.post("/api/payments/initiate", isAuthenticated, async (req, res) => {
     try {
@@ -1921,6 +2001,262 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error confirming payment:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin payment management routes
+  app.get("/api/admin/payments/transactions", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.VIEW), async (req, res) => {
+    try {
+      const { status, method, search } = req.query;
+      
+      let query = db.select({
+        id: paymentTransactions.id,
+        userId: paymentTransactions.userId,
+        planId: paymentTransactions.planId,
+        paymentMethodId: paymentTransactions.paymentMethodId,
+        amount: paymentTransactions.amount,
+        finalAmount: paymentTransactions.finalAmount,
+        discountAmount: paymentTransactions.discountAmount,
+        campaignId: paymentTransactions.campaignId,
+        status: paymentTransactions.status,
+        createdAt: paymentTransactions.createdAt,
+        expiresAt: paymentTransactions.expiresAt,
+        stripeSessionId: paymentTransactions.stripeSessionId,
+        metadata: paymentTransactions.metadata,
+        user: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          phone: users.phone
+        },
+        plan: {
+          id: plans.id,
+          name: plans.name,
+          type: plans.type,
+          price: plans.price
+        },
+        paymentMethod: {
+          id: paymentMethods.id,
+          name: paymentMethods.name,
+          displayName: paymentMethods.displayName
+        },
+        campaign: {
+          id: campaigns.id,
+          name: campaigns.name,
+          couponCode: campaigns.couponCode
+        },
+        confirmation: {
+          id: paymentConfirmations.id,
+          paymentProof: paymentConfirmations.paymentProof,
+          bankReference: paymentConfirmations.bankReference,
+          phoneNumber: paymentConfirmations.phoneNumber,
+          notes: paymentConfirmations.notes,
+          paymentDate: paymentConfirmations.paymentDate,
+          status: paymentConfirmations.status,
+          verifiedBy: paymentConfirmations.verifiedBy,
+          verifiedAt: paymentConfirmations.verifiedAt,
+          rejectionReason: paymentConfirmations.rejectionReason
+        }
+      })
+      .from(paymentTransactions)
+      .innerJoin(users, eq(paymentTransactions.userId, users.id))
+      .innerJoin(plans, eq(paymentTransactions.planId, plans.id))
+      .innerJoin(paymentMethods, eq(paymentTransactions.paymentMethodId, paymentMethods.id))
+      .leftJoin(campaigns, eq(paymentTransactions.campaignId, campaigns.id))
+      .leftJoin(paymentConfirmations, eq(paymentTransactions.id, paymentConfirmations.transactionId))
+      .orderBy(desc(paymentTransactions.createdAt));
+
+      const transactions = await query;
+      
+      // Apply filters
+      let filteredTransactions = transactions;
+      
+      if (status && status !== 'all') {
+        filteredTransactions = filteredTransactions.filter(t => t.status === status);
+      }
+      
+      if (method && method !== 'all') {
+        filteredTransactions = filteredTransactions.filter(t => t.paymentMethod.name === method);
+      }
+      
+      if (search) {
+        const searchTerm = search.toString().toLowerCase();
+        filteredTransactions = filteredTransactions.filter(t =>
+          t.user.email?.toLowerCase().includes(searchTerm) ||
+          t.user.firstName?.toLowerCase().includes(searchTerm) ||
+          t.user.lastName?.toLowerCase().includes(searchTerm) ||
+          t.id.toString().includes(searchTerm)
+        );
+      }
+      
+      res.json(filteredTransactions);
+    } catch (error: any) {
+      console.error("Error fetching payment transactions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Approve payment
+  app.post("/api/admin/payments/:id/approve", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.APPROVE), async (req, res) => {
+    try {
+      const transactionId = parseInt(req.params.id);
+      const adminUserId = req.session.adminUserId;
+      
+      // Get transaction with confirmation
+      const [transaction] = await db.select()
+        .from(paymentTransactions)
+        .where(eq(paymentTransactions.id, transactionId));
+      
+      if (!transaction) {
+        return res.status(404).json({ message: "Transação não encontrada" });
+      }
+      
+      if (transaction.status !== 'processing') {
+        return res.status(400).json({ message: "Transação não está em processamento" });
+      }
+      
+      // Get confirmation
+      const [confirmation] = await db.select()
+        .from(paymentConfirmations)
+        .where(eq(paymentConfirmations.transactionId, transactionId));
+      
+      if (!confirmation) {
+        return res.status(404).json({ message: "Confirmação não encontrada" });
+      }
+      
+      if (confirmation.status !== 'pending') {
+        return res.status(400).json({ message: "Confirmação não está pendente" });
+      }
+      
+      // Get user and plan
+      const [user] = await db.select().from(users).where(eq(users.id, transaction.userId));
+      const [plan] = await db.select().from(plans).where(eq(plans.id, transaction.planId));
+      
+      if (!user || !plan) {
+        return res.status(404).json({ message: "Usuário ou plano não encontrado" });
+      }
+      
+      // Update confirmation status
+      await db.update(paymentConfirmations)
+        .set({
+          status: 'approved',
+          verifiedBy: adminUserId,
+          verifiedAt: new Date()
+        })
+        .where(eq(paymentConfirmations.id, confirmation.id));
+      
+      // Update transaction status
+      await db.update(paymentTransactions)
+        .set({ status: 'completed' })
+        .where(eq(paymentTransactions.id, transactionId));
+      
+      // Update user subscription
+      const now = new Date();
+      const subscriptionEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      
+      await db.update(users)
+        .set({
+          subscriptionStatus: 'active',
+          planType: plan.type,
+          subscriptionStart: now,
+          subscriptionEnd: subscriptionEnd
+        })
+        .where(eq(users.id, transaction.userId));
+      
+      // Update campaign usage if applicable
+      if (transaction.campaignId) {
+        await db.update(campaigns)
+          .set({ usageCount: sql`${campaigns.usageCount} + 1` })
+          .where(eq(campaigns.id, transaction.campaignId));
+      }
+      
+      // Log admin action
+      await logAdminAction(
+        'payment_approved',
+        `Pagamento #${transactionId} aprovado para usuário ${user.email}`,
+        req,
+        adminUserId
+      );
+      
+      res.json({ message: "Pagamento aprovado com sucesso" });
+    } catch (error: any) {
+      console.error("Error approving payment:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Reject payment
+  app.post("/api/admin/payments/:id/reject", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.APPROVE), async (req, res) => {
+    try {
+      const transactionId = parseInt(req.params.id);
+      const { reason } = req.body;
+      const adminUserId = req.session.adminUserId;
+      
+      if (!reason || reason.trim() === '') {
+        return res.status(400).json({ message: "Motivo da rejeição é obrigatório" });
+      }
+      
+      // Get transaction with confirmation
+      const [transaction] = await db.select()
+        .from(paymentTransactions)
+        .where(eq(paymentTransactions.id, transactionId));
+      
+      if (!transaction) {
+        return res.status(404).json({ message: "Transação não encontrada" });
+      }
+      
+      if (transaction.status !== 'processing') {
+        return res.status(400).json({ message: "Transação não está em processamento" });
+      }
+      
+      // Get confirmation
+      const [confirmation] = await db.select()
+        .from(paymentConfirmations)
+        .where(eq(paymentConfirmations.transactionId, transactionId));
+      
+      if (!confirmation) {
+        return res.status(404).json({ message: "Confirmação não encontrada" });
+      }
+      
+      if (confirmation.status !== 'pending') {
+        return res.status(400).json({ message: "Confirmação não está pendente" });
+      }
+      
+      // Get user
+      const [user] = await db.select().from(users).where(eq(users.id, transaction.userId));
+      
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      // Update confirmation status
+      await db.update(paymentConfirmations)
+        .set({
+          status: 'rejected',
+          verifiedBy: adminUserId,
+          verifiedAt: new Date(),
+          rejectionReason: reason
+        })
+        .where(eq(paymentConfirmations.id, confirmation.id));
+      
+      // Update transaction status
+      await db.update(paymentTransactions)
+        .set({ status: 'failed' })
+        .where(eq(paymentTransactions.id, transactionId));
+      
+      // Log admin action
+      await logAdminAction(
+        'payment_rejected',
+        `Pagamento #${transactionId} rejeitado para usuário ${user.email}. Motivo: ${reason}`,
+        req,
+        adminUserId
+      );
+      
+      res.json({ message: "Pagamento rejeitado com sucesso" });
+    } catch (error: any) {
+      console.error("Error rejecting payment:", error);
       res.status(500).json({ message: error.message });
     }
   });
