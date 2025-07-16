@@ -187,7 +187,7 @@ export default function SystemSettingsPage() {
           required
           rows={4}
           defaultValue={setting ? formatValue(setting.value) : ""}
-          placeholder="14 ou {\"enabled\": true, \"limit\": 100}"
+          placeholder={'14 ou {"enabled": true, "limit": 100}'}
         />
       </div>
       <div>
