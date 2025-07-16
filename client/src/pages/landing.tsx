@@ -6,10 +6,13 @@ import { CheckCircle, TrendingUp, Shield, Target, CreditCard, PieChart, DollarSi
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { useQuery } from "@tanstack/react-query";
+import { SystemHeroTitle, SystemHeroSubtitle, SystemCtaText, useTrialDuration } from "@/components/system/system-text";
+import { CurrencySymbol } from "@/components/system/currency-display";
 
 export default function Landing() {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const trialDuration = useTrialDuration();
 
   // Fetch plans from database
   const { data: plansData, isLoading: plansLoading } = useQuery({
@@ -84,7 +87,7 @@ export default function Landing() {
     
     const formattedPlan = {
       name: plan.name,
-      price: `${parseFloat(plan.price).toLocaleString('pt-AO')} Kz`,
+      price: `${parseFloat(plan.price).toLocaleString('pt-AO')}`,
       period: '/mês',
       description: descriptions[plan.type as keyof typeof descriptions] || plan.description,
       features: featuresArray,
@@ -127,17 +130,12 @@ export default function Landing() {
           <Badge className="mb-4 bg-blue-100 text-blue-800 hover:bg-blue-100">
             🚀 Novo: Integração com bancos angolanos
           </Badge>
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            Controle suas <span className="text-blue-600">finanças</span> como nunca antes
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            A plataforma completa para gerenciar receitas, despesas, poupanças e investimentos. 
-            Simplifique sua vida financeira com relatórios inteligentes e insights personalizados.
-          </p>
+          <SystemHeroTitle className="text-5xl md:text-6xl font-bold text-gray-900 mb-6" />
+          <SystemHeroSubtitle className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto" />
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Link href="/register?plan=premium">
               <Button size="lg" className="text-lg px-8 py-3">
-                Começar Grátis por 14 dias
+                <SystemCtaText /> por {trialDuration} dias
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
@@ -154,7 +152,7 @@ export default function Landing() {
               <div className="text-gray-600">Usuários ativos</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">500B+ Kz</div>
+              <div className="text-3xl font-bold text-blue-600">500B+ <CurrencySymbol /></div>
               <div className="text-gray-600">Gerenciados</div>
             </div>
             <div className="text-center">
@@ -247,7 +245,7 @@ export default function Landing() {
                 <CardHeader className="text-center">
                   <CardTitle className="text-2xl">{plan.name}</CardTitle>
                   <div className="flex items-baseline justify-center">
-                    <span className="text-4xl font-bold">{plan.price}</span>
+                    <span className="text-4xl font-bold">{plan.price} <CurrencySymbol /></span>
                     <span className="text-gray-600">{plan.period}</span>
                   </div>
                   <CardDescription>{plan.description}</CardDescription>

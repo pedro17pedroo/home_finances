@@ -721,6 +721,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public system settings endpoint for frontend configuration
+  app.get("/api/system-settings/public", async (req, res) => {
+    try {
+      // Only return public-safe settings (no sensitive data)
+      const publicSettings = await db.select().from(systemSettings).where(
+        // Only include settings that are safe for public consumption
+        sql`category IN ('features', 'trial', 'system') OR key IN ('default_currency', 'default_locale', 'currency_symbol', 'trial_duration_days', 'max_accounts_basic', 'max_transactions_basic', 'max_accounts_premium', 'max_transactions_premium', 'max_accounts_enterprise', 'max_transactions_enterprise', 'support_email', 'company_name', 'landing_hero_title', 'landing_hero_subtitle', 'landing_cta_text')`
+      );
+      
+      res.json(publicSettings);
+    } catch (error: any) {
+      console.error("Error fetching public system settings:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get user limits status
   app.get("/api/user/limits", isAuthenticated, async (req, res) => {
     try {

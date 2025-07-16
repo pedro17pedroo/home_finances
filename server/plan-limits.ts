@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
+import { SystemConfig } from './system-config';
 
-// Define os limites para cada plano
+// Dynamic plan limits from database settings
+export async function getPlanLimits() {
+  return await SystemConfig.getPlanLimits();
+}
+
+// Legacy constant for backward compatibility - will be removed
 export const PLAN_LIMITS = {
   basic: {
     maxAccounts: 5,
@@ -27,10 +33,11 @@ export const validateAccountLimit = async (req: Request, res: Response, next: Ne
       return res.status(400).json({ message: 'Plano do usuário não encontrado' });
     }
 
-    const planLimits = PLAN_LIMITS[user.planType as keyof typeof PLAN_LIMITS];
+    const allPlanLimits = await getPlanLimits();
+    const planLimits = allPlanLimits[user.planType as keyof typeof allPlanLimits];
     
-    // Se o plano tem contas ilimitadas, permitir
-    if (planLimits.maxAccounts === Infinity) {
+    // Se o plano tem contas ilimitadas (valor -1), permitir
+    if (planLimits.maxAccounts === -1) {
       return next();
     }
 
@@ -63,10 +70,11 @@ export const validateTransactionLimit = async (req: Request, res: Response, next
       return res.status(400).json({ message: 'Plano do usuário não encontrado' });
     }
 
-    const planLimits = PLAN_LIMITS[user.planType as keyof typeof PLAN_LIMITS];
+    const allPlanLimits = await getPlanLimits();
+    const planLimits = allPlanLimits[user.planType as keyof typeof allPlanLimits];
     
-    // Se o plano tem transações ilimitadas, permitir
-    if (planLimits.maxTransactionsPerMonth === Infinity) {
+    // Se o plano tem transações ilimitadas (valor -1), permitir
+    if (planLimits.maxTransactionsPerMonth === -1) {
       return next();
     }
 
@@ -97,7 +105,8 @@ export const validateTransactionLimit = async (req: Request, res: Response, next
 // Função para obter o status atual dos limites do usuário
 export const getUserLimitsStatus = async (userId: number, planType: string) => {
   try {
-    const planLimits = PLAN_LIMITS[planType as keyof typeof PLAN_LIMITS];
+    const allPlanLimits = await getPlanLimits();
+    const planLimits = allPlanLimits[planType as keyof typeof allPlanLimits];
     
     // Contar contas existentes
     const accounts = await storage.getAccounts(userId);
@@ -110,21 +119,25 @@ export const getUserLimitsStatus = async (userId: number, planType: string) => {
     const monthlyTransactions = await storage.getTransactionsByDateRange(userId, startOfMonth, endOfMonth);
     const transactionsCount = monthlyTransactions.length;
     
+    // -1 means unlimited
+    const isAccountsUnlimited = planLimits.maxAccounts === -1;
+    const isTransactionsUnlimited = planLimits.maxTransactionsPerMonth === -1;
+    
     return {
       accounts: {
         current: accountsCount,
         limit: planLimits.maxAccounts,
-        percentage: planLimits.maxAccounts === Infinity ? 0 : (accountsCount / planLimits.maxAccounts) * 100,
-        canCreate: planLimits.maxAccounts === Infinity || accountsCount < planLimits.maxAccounts
+        percentage: isAccountsUnlimited ? 0 : (accountsCount / planLimits.maxAccounts) * 100,
+        canCreate: isAccountsUnlimited || accountsCount < planLimits.maxAccounts
       },
       transactions: {
         current: transactionsCount,
         limit: planLimits.maxTransactionsPerMonth,
-        percentage: planLimits.maxTransactionsPerMonth === Infinity ? 0 : (transactionsCount / planLimits.maxTransactionsPerMonth) * 100,
-        canCreate: planLimits.maxTransactionsPerMonth === Infinity || transactionsCount < planLimits.maxTransactionsPerMonth
+        percentage: isTransactionsUnlimited ? 0 : (transactionsCount / planLimits.maxTransactionsPerMonth) * 100,
+        canCreate: isTransactionsUnlimited || transactionsCount < planLimits.maxTransactionsPerMonth
       },
       planType,
-      isUnlimited: planLimits.maxAccounts === Infinity && planLimits.maxTransactionsPerMonth === Infinity
+      isUnlimited: isAccountsUnlimited && isTransactionsUnlimited
     };
   } catch (error) {
     console.error('Error getting user limits status:', error);

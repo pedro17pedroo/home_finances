@@ -5,12 +5,32 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(value: string | number): string {
+export function formatCurrency(value: string | number, currency?: string, locale?: string): string {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  return new Intl.NumberFormat('pt-AO', {
+  
+  // Use provided values or defaults
+  const currencyCode = currency || 'AOA';
+  const localeCode = locale || 'pt-AO';
+  
+  return new Intl.NumberFormat(localeCode, {
     style: 'currency',
-    currency: 'AOA',
+    currency: currencyCode,
   }).format(numValue);
+}
+
+// Hook-based currency formatter that uses system settings
+export function useFormatCurrency() {
+  const { useSystemSetting } = require('./system-config');
+  const defaultCurrency = useSystemSetting('default_currency', 'AOA');
+  const defaultLocale = useSystemSetting('default_locale', 'pt-AO');
+  
+  return (value: string | number, currency?: string, locale?: string) => {
+    return formatCurrency(
+      value, 
+      currency || defaultCurrency, 
+      locale || defaultLocale
+    );
+  };
 }
 
 export function formatDate(date: string | Date): string {
