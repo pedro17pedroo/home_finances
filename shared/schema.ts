@@ -157,10 +157,54 @@ export const blockedIPs = pgTable("blocked_ips", {
 // Payment Methods table - for Phase 3
 export const paymentMethods = pgTable("payment_methods", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 100 }).notNull(), // 'stripe', 'paypal', 'bank_transfer'
+  name: varchar("name", { length: 100 }).notNull(), // 'stripe', 'multicaixa', 'unitel_money', 'afrimoney', 'bank_transfer'
   displayName: varchar("display_name", { length: 100 }).notNull(),
   isActive: boolean("is_active").default(true),
   config: jsonb("config"), // Method-specific configurations
+  instructions: text("instructions"), // Payment instructions for manual methods
+  processingTime: varchar("processing_time", { length: 100 }), // "Imediato", "1-3 dias úteis", etc.
+  fees: varchar("fees", { length: 100 }), // Fee information
+  icon: varchar("icon", { length: 100 }), // Icon identifier
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payment Transactions table - track all payments regardless of method
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  planId: integer("plan_id").notNull().references(() => plans.id),
+  paymentMethodId: integer("payment_method_id").notNull().references(() => paymentMethods.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default('AOA'),
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // pending, completed, failed, cancelled, processing
+  paymentReference: varchar("payment_reference", { length: 255 }), // External payment reference
+  stripeSessionId: varchar("stripe_session_id", { length: 255 }), // For Stripe payments
+  campaignId: integer("campaign_id").references(() => campaigns.id),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default('0'),
+  finalAmount: decimal("final_amount", { precision: 10, scale: 2 }).notNull(),
+  metadata: jsonb("metadata"), // Additional payment data
+  processedAt: timestamp("processed_at"),
+  expiresAt: timestamp("expires_at"), // For pending payments
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payment Confirmations table - for manual verification
+export const paymentConfirmations = pgTable("payment_confirmations", {
+  id: serial("id").primaryKey(),
+  transactionId: integer("transaction_id").notNull().references(() => paymentTransactions.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  paymentProof: text("payment_proof"), // Base64 encoded image or file path
+  bankReference: varchar("bank_reference", { length: 255 }),
+  phoneNumber: varchar("phone_number", { length: 20 }), // For mobile money
+  paymentDate: timestamp("payment_date"),
+  notes: text("notes"),
+  adminNotes: text("admin_notes"), // Admin verification notes
+  status: varchar("status", { length: 20 }).default('pending'), // pending, approved, rejected
+  verifiedBy: integer("verified_by").references(() => adminUsers.id),
+  verifiedAt: timestamp("verified_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -660,3 +704,9 @@ export type InsertLandingContent = z.infer<typeof insertLandingContentSchema>;
 
 export type LegalContent = typeof legalContent.$inferSelect;
 export type InsertLegalContent = z.infer<typeof insertLegalContentSchema>;
+
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
+
+export type PaymentConfirmation = typeof paymentConfirmations.$inferSelect;
+export type InsertPaymentConfirmation = z.infer<typeof insertPaymentConfirmationSchema>;

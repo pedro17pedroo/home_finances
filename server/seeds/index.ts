@@ -1,10 +1,12 @@
 import { seedPlans } from './plans';
+import { seedPaymentMethods } from './payment-methods';
 
 export const runSeeds = async () => {
   console.log('🌱 Running database seeds...');
   
   try {
     await seedPlans();
+    await seedPaymentMethods();
     console.log('✅ All seeds completed successfully');
   } catch (error) {
     console.error('❌ Error running seeds:', error);
