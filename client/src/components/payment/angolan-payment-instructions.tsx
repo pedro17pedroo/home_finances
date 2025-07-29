@@ -110,7 +110,7 @@ export default function AngolanPaymentInstructions({
 
   const getPaymentReference = () => {
     // Generate a unique reference for this transaction
-    return `FC${transaction.id.toString().padStart(6, '0')}`;
+    return `FC${(transaction?.id || Date.now()).toString().padStart(6, '0')}`;
   };
 
   const Icon = getMethodIcon();

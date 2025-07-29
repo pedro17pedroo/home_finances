@@ -19,9 +19,14 @@ export default function StripePaymentForm({ transaction, onSuccess, onCancel }: 
 
   const createStripeSessionMutation = useMutation({
     mutationFn: async () => {
+      console.log("Stripe session request data:", { 
+        transactionId: transaction?.id, 
+        planId: transaction?.planId,
+        fullTransaction: transaction 
+      });
       const response = await apiRequest("POST", "/api/payment/stripe/create-session", {
-        transactionId: transaction.id,
-        planId: transaction.planId,
+        transactionId: transaction?.id,
+        planId: transaction?.planId,
       });
       return response;
     },
