@@ -658,25 +658,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Creating Stripe session:", { transactionId, planId, userId });
       
+      // Fetch user
       const user = await storage.getUser(userId);
-      const plan = await storage.getPlan(planId);
-      const transaction = await storage.getPaymentTransaction(transactionId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Fetch transaction with plan info
+      const [transactionWithPlan] = await db.select({
+        transaction: paymentTransactions,
+        plan: plans
+      })
+      .from(paymentTransactions)
+      .innerJoin(plans, eq(paymentTransactions.planId, plans.id))
+      .where(eq(paymentTransactions.id, transactionId));
+      
+      if (!transactionWithPlan) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+      
+      const { transaction, plan } = transactionWithPlan;
       
       console.log("Fetched data:", { 
         user: !!user, 
         plan: !!plan, 
         transaction: !!transaction,
-        userDetails: user ? { id: user.id, email: user.email } : null,
-        planDetails: plan ? { id: plan.id, name: plan.name } : null,
-        transactionDetails: transaction ? { id: transaction.id, status: transaction.status } : null
+        userDetails: { id: user.id, email: user.email },
+        planDetails: { id: plan.id, name: plan.name },
+        transactionDetails: { id: transaction.id, status: transaction.status }
       });
-      
-      if (!user || !plan || !transaction) {
-        return res.status(404).json({ 
-          message: "User, plan, or transaction not found",
-          details: { hasUser: !!user, hasPlan: !!plan, hasTransaction: !!transaction }
+
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          metadata: { userId: userId.toString() },
         });
+        customerId = customer.id;
+        await storage.updateUserStripeInfo(userId, customerId);
       }
+
+      // Create Stripe checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'aoa',
+            product_data: {
+              name: plan.name,
+            },
+            unit_amount: Math.round(parseFloat(transaction.finalAmount) * 100), // Convert to cents
+          },
+          quantity: 1,
+        }],
+        mode: 'subscription',
+        success_url: `${req.protocol}://${req.get('host')}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.protocol}://${req.get('host')}/payment?plan=${plan.type}`,
+        metadata: {
+          transactionId: transactionId.toString(),
+          planId: plan.id.toString(),
+          userId: userId.toString(),
+        },
+      });
+
+      // Update transaction with Stripe session ID
+      await db.update(paymentTransactions)
+        .set({ stripeSessionId: session.id })
+        .where(eq(paymentTransactions.id, transactionId));
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Error creating Stripe session:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
 
       // Create or get Stripe customer
       let customerId = user.stripeCustomerId;
