@@ -617,6 +617,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment transaction creation
+  app.post("/api/payment/create-transaction", isAuthenticated, async (req, res) => {
+    try {
+      const { planId, paymentMethodId } = req.body;
+      const userId = req.session!.userId;
+      
+      const plan = await storage.getPlan(planId);
+      const paymentMethod = await storage.getPaymentMethod(paymentMethodId);
+      
+      if (!plan || !paymentMethod) {
+        return res.status(404).json({ message: "Plan or payment method not found" });
+      }
+
+      const transaction = await storage.createPaymentTransaction({
+        userId,
+        planId,
+        paymentMethodId,
+        amount: plan.price,
+        finalAmount: plan.price,
+        status: 'pending',
+        paymentReference: `FC${Date.now()}`,
+      });
+
+      res.json({
+        ...transaction,
+        plan,
+        paymentMethod,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Stripe session creation
+  app.post("/api/payment/stripe/create-session", isAuthenticated, async (req, res) => {
+    try {
+      const { transactionId, planId } = req.body;
+      const userId = req.session!.userId;
+      
+      const user = await storage.getUser(userId);
+      const plan = await storage.getPlan(planId);
+      const transaction = await storage.getPaymentTransaction(transactionId);
+      
+      if (!user || !plan || !transaction) {
+        return res.status(404).json({ message: "User, plan, or transaction not found" });
+      }
+
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          metadata: { userId: userId.toString() },
+        });
+        customerId = customer.id;
+        await db.update(users).set({ stripeCustomerId: customerId }).where(eq(users.id, userId));
+      }
+
+      // Create Stripe checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{
+          price: plan.stripePriceId,
+          quantity: 1,
+        }],
+        mode: 'subscription',
+        success_url: `${req.protocol}://${req.get('host')}/payment?success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.protocol}://${req.get('host')}/payment?plan=${plan.type}`,
+        metadata: {
+          transactionId: transactionId.toString(),
+          planId: planId.toString(),
+          userId: userId.toString(),
+        },
+      });
+
+      // Update transaction with Stripe session ID
+      await db.update(paymentTransactions)
+        .set({ stripeSessionId: session.id })
+        .where(eq(paymentTransactions.id, transactionId));
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Error creating Stripe session:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Submit payment proof (for Angolan methods)
+  app.post("/api/payment/submit-proof", isAuthenticated, async (req, res) => {
+    try {
+      const { transactionId, paymentProof, bankReference, phoneNumber } = req.body;
+      const userId = req.session!.userId;
+      
+      const transaction = await storage.getPaymentTransaction(transactionId);
+      if (!transaction || transaction.userId !== userId) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      await storage.createPaymentConfirmation({
+        transactionId,
+        userId,
+        paymentProof,
+        bankReference,
+        phoneNumber,
+        status: 'pending',
+      });
+
+      res.json({ message: "Payment proof submitted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/subscription/billing-portal", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;

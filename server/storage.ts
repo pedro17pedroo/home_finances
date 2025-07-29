@@ -10,6 +10,9 @@ import {
   plans,
   organizations,
   teamInvitations,
+  paymentMethods,
+  paymentTransactions,
+  paymentConfirmations,
   type Account, 
   type InsertAccount,
   type Transaction, 
@@ -31,7 +34,13 @@ import {
   type Organization,
   type InsertOrganization,
   type TeamInvitation,
-  type InsertTeamInvitation
+  type InsertTeamInvitation,
+  type PaymentMethod,
+  type InsertPaymentMethod,
+  type PaymentTransaction,
+  type InsertPaymentTransaction,
+  type PaymentConfirmation,
+  type InsertPaymentConfirmation
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql, sum, count } from "drizzle-orm";
@@ -115,6 +124,22 @@ export interface IStorage {
   getTeamInvitationByToken(token: string): Promise<TeamInvitation | undefined>;
   acceptTeamInvitation(token: string, userId: number): Promise<void>;
   deleteTeamInvitation(id: number): Promise<void>;
+
+  // Payment Methods
+  getPaymentMethods(): Promise<PaymentMethod[]>;
+  getPaymentMethod(id: number): Promise<PaymentMethod | undefined>;
+  createPaymentMethod(method: InsertPaymentMethod): Promise<PaymentMethod>;
+  updatePaymentMethod(id: number, method: Partial<InsertPaymentMethod>): Promise<PaymentMethod>;
+  deletePaymentMethod(id: number): Promise<void>;
+
+  // Payment Transactions
+  getPaymentTransaction(id: number): Promise<PaymentTransaction | undefined>;
+  createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction>;
+  updatePaymentTransaction(id: number, transaction: Partial<InsertPaymentTransaction>): Promise<PaymentTransaction>;
+
+  // Payment Confirmations
+  createPaymentConfirmation(confirmation: InsertPaymentConfirmation): Promise<PaymentConfirmation>;
+  getPaymentConfirmations(transactionId: number): Promise<PaymentConfirmation[]>;
 
   // Dashboard data
   getFinancialSummary(userId: number): Promise<{
@@ -656,6 +681,64 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTeamInvitation(id: number): Promise<void> {
     await db.delete(teamInvitations).where(eq(teamInvitations.id, id));
+  }
+
+  // Payment Methods
+  async getPaymentMethods(): Promise<PaymentMethod[]> {
+    return await db.select().from(paymentMethods).orderBy(paymentMethods.displayName);
+  }
+
+  async getPaymentMethod(id: number): Promise<PaymentMethod | undefined> {
+    const [method] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, id));
+    return method;
+  }
+
+  async createPaymentMethod(insertMethod: InsertPaymentMethod): Promise<PaymentMethod> {
+    const [method] = await db.insert(paymentMethods).values(insertMethod).returning();
+    return method;
+  }
+
+  async updatePaymentMethod(id: number, insertMethod: Partial<InsertPaymentMethod>): Promise<PaymentMethod> {
+    const [method] = await db
+      .update(paymentMethods)
+      .set({ ...insertMethod, updatedAt: new Date() })
+      .where(eq(paymentMethods.id, id))
+      .returning();
+    return method;
+  }
+
+  async deletePaymentMethod(id: number): Promise<void> {
+    await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
+  }
+
+  // Payment Transactions
+  async getPaymentTransaction(id: number): Promise<PaymentTransaction | undefined> {
+    const [transaction] = await db.select().from(paymentTransactions).where(eq(paymentTransactions.id, id));
+    return transaction;
+  }
+
+  async createPaymentTransaction(insertTransaction: InsertPaymentTransaction): Promise<PaymentTransaction> {
+    const [transaction] = await db.insert(paymentTransactions).values(insertTransaction).returning();
+    return transaction;
+  }
+
+  async updatePaymentTransaction(id: number, insertTransaction: Partial<InsertPaymentTransaction>): Promise<PaymentTransaction> {
+    const [transaction] = await db
+      .update(paymentTransactions)
+      .set({ ...insertTransaction, updatedAt: new Date() })
+      .where(eq(paymentTransactions.id, id))
+      .returning();
+    return transaction;
+  }
+
+  // Payment Confirmations
+  async createPaymentConfirmation(insertConfirmation: InsertPaymentConfirmation): Promise<PaymentConfirmation> {
+    const [confirmation] = await db.insert(paymentConfirmations).values(insertConfirmation).returning();
+    return confirmation;
+  }
+
+  async getPaymentConfirmations(transactionId: number): Promise<PaymentConfirmation[]> {
+    return await db.select().from(paymentConfirmations).where(eq(paymentConfirmations.transactionId, transactionId));
   }
 
   // Dashboard data

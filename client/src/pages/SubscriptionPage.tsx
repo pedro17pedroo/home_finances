@@ -319,13 +319,11 @@ export default function SubscriptionPage() {
                         ))}
                       </ul>
                       {subscription?.planType !== plan.type && (
-                        <Button
-                          className="w-full mt-4"
-                          onClick={() => changePlanMutation.mutate(plan.type)}
-                          disabled={changePlanMutation.isPending}
-                        >
-                          {changePlanMutation.isPending ? "Alterando..." : "Alterar para este plano"}
-                        </Button>
+                        <Link href={`/payment?plan=${plan.type}&source=subscription`}>
+                          <Button className="w-full mt-4">
+                            Alterar para este plano
+                          </Button>
+                        </Link>
                       )}
                     </CardContent>
                   </Card>

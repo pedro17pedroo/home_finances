@@ -15,6 +15,7 @@ import Poupanca from "@/pages/poupanca";
 import Emprestimos from "@/pages/emprestimos";
 import Relatorios from "@/pages/relatorios";
 import SubscriptionPage from "@/pages/SubscriptionPage";
+import PaymentPage from "@/pages/PaymentPage";
 import Landing from "@/pages/landing";
 import PaymentConfirmationPage from "@/pages/payment-confirmation";
 import Login from "@/pages/login";
@@ -92,6 +93,12 @@ function Router() {
         <div className="min-h-screen bg-slate-50">
           <Header />
           <SubscriptionPage />
+        </div>
+      </Route>
+      <Route path="/payment">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <PaymentPage />
         </div>
       </Route>
       <Route path="/categorias">
