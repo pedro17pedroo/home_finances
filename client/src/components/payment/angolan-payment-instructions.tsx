@@ -103,7 +103,8 @@ export default function AngolanPaymentInstructions({
     try {
       const config = typeof method.config === 'string' ? JSON.parse(method.config) : method.config;
       return config?.banks || [];
-    } catch {
+    } catch (error) {
+      console.error('Error parsing bank config:', error);
       return [];
     }
   };
@@ -130,7 +131,9 @@ export default function AngolanPaymentInstructions({
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>Valor:</span>
-                <span className="font-medium">{transaction.amount?.toLocaleString()} Kz</span>
+                <span className="font-medium">
+                  {transaction.amount ? `${transaction.amount.toLocaleString()} Kz` : 'Valor não disponível'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Tempo de processamento:</span>
@@ -152,11 +155,11 @@ export default function AngolanPaymentInstructions({
                       <div className="flex justify-between">
                         <span>Titular:</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{bank.accountHolder}</span>
+                          <span className="font-medium">{bank.account_holder || bank.accountHolder}</span>
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => copyToClipboard(bank.accountHolder, 'Titular')}
+                            onClick={() => copyToClipboard(bank.account_holder || bank.accountHolder, 'Titular')}
                           >
                             {copied === 'Titular' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                           </Button>
@@ -165,11 +168,11 @@ export default function AngolanPaymentInstructions({
                       <div className="flex justify-between">
                         <span>Conta:</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium font-mono">{bank.accountNumber}</span>
+                          <span className="font-medium font-mono">{bank.account_number || bank.accountNumber}</span>
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => copyToClipboard(bank.accountNumber, 'Conta')}
+                            onClick={() => copyToClipboard(bank.account_number || bank.accountNumber, 'Conta')}
                           >
                             {copied === 'Conta' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                           </Button>
@@ -193,51 +196,6 @@ export default function AngolanPaymentInstructions({
                     </div>
                   </div>
                 ))}
-              </div>
-            ) : method.name === 'bank_transfer' ? (
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-semibold mb-3">Instruções de Pagamento:</h4>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span>Titular:</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Finance Control Ltd</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard('Finance Control Ltd', 'Titular')}
-                      >
-                        {copied === 'Titular' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Conta:</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium font-mono">123456789</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard('123456789', 'Conta')}
-                      >
-                        {copied === 'Conta' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>IBAN:</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium font-mono">AO06 0040 0000 0012 3456 7891 0</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard('AO06 0040 0000 0012 3456 7891 0', 'IBAN')}
-                      >
-                        {copied === 'IBAN' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
               </div>
             ) : (
               <div className="p-4 border rounded-lg">
