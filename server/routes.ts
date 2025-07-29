@@ -736,48 +736,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-      // Create or get Stripe customer
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-          metadata: { userId: userId.toString() },
-        });
-        customerId = customer.id;
-        await db.update(users).set({ stripeCustomerId: customerId }).where(eq(users.id, userId));
-      }
-
-      // Create Stripe checkout session
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: [{
-          price: plan.stripePriceId,
-          quantity: 1,
-        }],
-        mode: 'subscription',
-        success_url: `${req.protocol}://${req.get('host')}/payment?success=true&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${req.protocol}://${req.get('host')}/payment?plan=${plan.type}`,
-        metadata: {
-          transactionId: transactionId.toString(),
-          planId: planId.toString(),
-          userId: userId.toString(),
-        },
-      });
-
-      // Update transaction with Stripe session ID
-      await db.update(paymentTransactions)
-        .set({ stripeSessionId: session.id })
-        .where(eq(paymentTransactions.id, transactionId));
-
-      res.json({ url: session.url });
-    } catch (error: any) {
-      console.error("Error creating Stripe session:", error);
-      res.status(500).json({ message: error.message });
-    }
-  });
-
   // Submit payment proof (for Angolan methods)
   app.post("/api/payment/submit-proof", isAuthenticated, async (req, res) => {
     try {
@@ -1639,19 +1597,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/admin/payment-methods/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.MANAGE), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
       
-      const [deleted] = await db.delete(paymentMethods)
-        .where(eq(paymentMethods.id, id))
-        .returning();
-      
-      if (!deleted) {
-        return res.status(404).json({ message: "Payment method not found" });
-      }
-      
-      await logAdminAction(req, 'delete', 'payment_method', id);
-      res.status(204).send();
+      await logAdminAction(req, 'delete', 'payment_method', id, { deleted: true });
+      res.json({ message: "Payment method deleted successfully" });
     } catch (error: any) {
       console.error("Error deleting payment method:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin Plans Management Routes
+  app.get("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.VIEW), async (req, res) => {
+    try {
+      const allPlans = await db.select().from(plans).orderBy(plans.id);
+      res.json(allPlans);
+    } catch (error: any) {
+      console.error("Error fetching admin plans:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.CREATE), async (req, res) => {
+    try {
+      const validatedData = insertPlanSchema.parse(req.body);
+      const [plan] = await db.insert(plans).values(validatedData).returning();
+      
+      await logAdminAction(req, 'create', 'plan', plan.id, validatedData);
+      res.status(201).json(plan);
+    } catch (error: any) {
+      console.error("Error creating plan:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.UPDATE), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updateData = req.body;
+      
+      const [updatedPlan] = await db.update(plans)
+        .set(updateData)
+        .where(eq(plans.id, id))
+        .returning();
+      
+      if (!updatedPlan) {
+        return res.status(404).json({ message: "Plan not found" });
+      }
+      
+      await logAdminAction(req, 'update', 'plan', id, updateData);
+      res.json(updatedPlan);
+    } catch (error: any) {
+      console.error("Error updating plan:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.DELETE), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Check if plan is in use by any users
+      const [usersWithPlan] = await db.select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.planType, sql`(SELECT type FROM plans WHERE id = ${id})`));
+      
+      if (Number(usersWithPlan.count) > 0) {
+        return res.status(400).json({ 
+          message: "Cannot delete plan that is currently assigned to users" 
+        });
+      }
+      
+      await db.delete(plans).where(eq(plans.id, id));
+      
+      await logAdminAction(req, 'delete', 'plan', id, { deleted: true });
+      res.json({ message: "Plan deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting plan:", error);
       res.status(500).json({ message: error.message });
     }
   });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Settings, Toggle, Check, X } from "lucide-react";
+import { Plus, Settings, Edit, Trash2, CreditCard, Smartphone, Building2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,14 +9,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-// AdminLayout will be handled by the wrapper
 import type { PaymentMethod, InsertPaymentMethod } from "@shared/schema";
 
 export default function PaymentMethodsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
+  const [viewingMethod, setViewingMethod] = useState<PaymentMethod | null>(null);
   const { toast } = useToast();
 
   const { data: paymentMethods, isLoading } = useQuery({
@@ -26,39 +27,82 @@ export default function PaymentMethodsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: InsertPaymentMethod) =>
-      apiRequest("/api/admin/payment-methods", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: InsertPaymentMethod) => {
+      const response = await apiRequest("POST", "/api/admin/payment-methods", data);
+      return response;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/payment-methods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] }); // Public endpoint
       setIsCreateOpen(false);
       toast({ title: "Método de pagamento criado com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao criar método", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<PaymentMethod> }) =>
-      apiRequest(`/api/admin/payment-methods/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: number; data: Partial<PaymentMethod> }) => {
+      const response = await apiRequest("PATCH", `/api/admin/payment-methods/${id}`, data);
+      return response;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/payment-methods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] }); // Public endpoint
       setEditingMethod(null);
       toast({ title: "Método de pagamento atualizado com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao atualizar método", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
   const toggleActiveMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      apiRequest(`/api/admin/payment-methods/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive }),
-      }),
+    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/admin/payment-methods/${id}`, { isActive });
+      return response;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/payment-methods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] }); // Public endpoint
+      toast({ 
+        title: `Método ${arguments[0].isActive ? 'ativado' : 'desativado'} com sucesso` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao alterar status", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("DELETE", `/api/admin/payment-methods/${id}`);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/payment-methods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] }); // Public endpoint
+      toast({ title: "Método de pagamento removido com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao remover método", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
@@ -66,23 +110,49 @@ export default function PaymentMethodsPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    const config = formData.get("config") as string;
-    let parsedConfig = {};
+    // Build config object from individual fields
+    const configData: any = {};
     
-    if (config.trim()) {
+    // Handle different method types
+    const methodType = formData.get("name") as string;
+    
+    if (methodType === 'bank_transfer') {
+      const bankName = formData.get("bankName") as string;
+      const accountNumber = formData.get("accountNumber") as string;
+      const accountHolder = formData.get("accountHolder") as string;
+      const iban = formData.get("iban") as string;
+      
+      if (bankName && accountNumber) {
+        configData.banks = [{
+          name: bankName,
+          accountNumber,
+          accountHolder,
+          iban
+        }];
+      }
+    }
+    
+    // Add custom config if provided
+    const customConfig = formData.get("customConfig") as string;
+    if (customConfig && customConfig.trim()) {
       try {
-        parsedConfig = JSON.parse(config);
+        const parsed = JSON.parse(customConfig);
+        Object.assign(configData, parsed);
       } catch (error) {
-        toast({ title: "Configuração JSON inválida", variant: "destructive" });
+        toast({ title: "Configuração JSON personalizada inválida", variant: "destructive" });
         return;
       }
     }
 
     createMutation.mutate({
-      name: formData.get("name") as string,
+      name: methodType,
       displayName: formData.get("displayName") as string,
       isActive: formData.get("isActive") === "on",
-      config: parsedConfig,
+      config: Object.keys(configData).length > 0 ? configData : null,
+      instructions: formData.get("instructions") as string || null,
+      processingTime: formData.get("processingTime") as string || null,
+      fees: formData.get("fees") as string || null,
+      displayOrder: parseInt(formData.get("displayOrder") as string) || 0,
     });
   };
 
@@ -91,14 +161,37 @@ export default function PaymentMethodsPage() {
     if (!editingMethod) return;
     
     const formData = new FormData(e.currentTarget);
-    const config = formData.get("config") as string;
-    let parsedConfig = {};
     
-    if (config.trim()) {
+    // Build config object from individual fields
+    const configData: any = {};
+    
+    // Handle different method types
+    const methodType = formData.get("name") as string;
+    
+    if (methodType === 'bank_transfer') {
+      const bankName = formData.get("bankName") as string;
+      const accountNumber = formData.get("accountNumber") as string;
+      const accountHolder = formData.get("accountHolder") as string;
+      const iban = formData.get("iban") as string;
+      
+      if (bankName && accountNumber) {
+        configData.banks = [{
+          name: bankName,
+          accountNumber,
+          accountHolder,
+          iban
+        }];
+      }
+    }
+    
+    // Add custom config if provided
+    const customConfig = formData.get("customConfig") as string;
+    if (customConfig && customConfig.trim()) {
       try {
-        parsedConfig = JSON.parse(config);
+        const parsed = JSON.parse(customConfig);
+        Object.assign(configData, parsed);
       } catch (error) {
-        toast({ title: "Configuração JSON inválida", variant: "destructive" });
+        toast({ title: "Configuração JSON personalizada inválida", variant: "destructive" });
         return;
       }
     }
@@ -106,10 +199,14 @@ export default function PaymentMethodsPage() {
     updateMutation.mutate({
       id: editingMethod.id,
       data: {
-        name: formData.get("name") as string,
+        name: methodType,
         displayName: formData.get("displayName") as string,
         isActive: formData.get("isActive") === "on",
-        config: parsedConfig,
+        config: Object.keys(configData).length > 0 ? configData : null,
+        instructions: formData.get("instructions") as string || null,
+        processingTime: formData.get("processingTime") as string || null,
+        fees: formData.get("fees") as string || null,
+        displayOrder: parseInt(formData.get("displayOrder") as string) || 0,
       },
     });
   };
@@ -142,40 +239,138 @@ export default function PaymentMethodsPage() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Tipo de Método</Label>
+                  <Select name="name" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="stripe">Stripe (Cartão)</SelectItem>
+                      <SelectItem value="bank_transfer">Transferência Bancária</SelectItem>
+                      <SelectItem value="multicaixa">Multicaixa Express</SelectItem>
+                      <SelectItem value="unitel_money">Unitel Money</SelectItem>
+                      <SelectItem value="afrimoney">AfriMoney</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="displayName">Nome de Exibição</Label>
+                  <Input 
+                    id="displayName" 
+                    name="displayName" 
+                    placeholder="Cartão de Crédito/Débito"
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="displayOrder">Ordem de Exibição</Label>
+                  <Input 
+                    id="displayOrder" 
+                    name="displayOrder" 
+                    type="number"
+                    defaultValue="0"
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="processingTime">Tempo de Processamento</Label>
+                  <Input 
+                    id="processingTime" 
+                    name="processingTime" 
+                    placeholder="Instantâneo, 1-3 dias úteis"
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label htmlFor="name">Nome do Sistema</Label>
+                <Label htmlFor="fees">Taxas</Label>
                 <Input 
-                  id="name" 
-                  name="name" 
-                  required 
-                  placeholder="stripe, paypal, bank_transfer"
+                  id="fees" 
+                  name="fees" 
+                  placeholder="Gratuito, 2.9% + 0.30 USD"
                 />
               </div>
+
               <div>
-                <Label htmlFor="displayName">Nome de Exibição</Label>
-                <Input 
-                  id="displayName" 
-                  name="displayName" 
-                  required 
-                  placeholder="Cartão de Crédito/Débito"
-                />
-              </div>
-              <div>
-                <Label htmlFor="config">Configuração (JSON)</Label>
+                <Label htmlFor="instructions">Instruções de Pagamento</Label>
                 <Textarea 
-                  id="config" 
-                  name="config" 
-                  placeholder='{"apiKey": "sk_...", "webhookSecret": "whsec_..."}'
-                  rows={4}
+                  id="instructions" 
+                  name="instructions" 
+                  placeholder="Instruções detalhadas para o usuário sobre como pagar"
+                  rows={3}
                 />
               </div>
+
+              {/* Bank Transfer Specific Fields */}
+              <div className="space-y-3">
+                <Label>Configuração de Transferência Bancária (se aplicável)</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="bankName">Nome do Banco</Label>
+                    <Input 
+                      id="bankName" 
+                      name="bankName" 
+                      placeholder="Banco Angolano de Investimentos"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="accountNumber">Número da Conta</Label>
+                    <Input 
+                      id="accountNumber" 
+                      name="accountNumber" 
+                      placeholder="123456789"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="accountHolder">Titular da Conta</Label>
+                    <Input 
+                      id="accountHolder" 
+                      name="accountHolder" 
+                      placeholder="Finance Control Ltd"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="iban">IBAN (se aplicável)</Label>
+                    <Input 
+                      id="iban" 
+                      name="iban" 
+                      placeholder="AO06000000001234567891234"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="customConfig">Configuração Personalizada (JSON)</Label>
+                <Textarea 
+                  id="customConfig" 
+                  name="customConfig" 
+                  placeholder='{"api_key": "value", "webhook_url": "https://..."}'
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Configurações avançadas em formato JSON (opcional)
+                </p>
+              </div>
+
               <div className="flex items-center space-x-2">
                 <input type="checkbox" id="isActive" name="isActive" defaultChecked />
-                <Label htmlFor="isActive">Ativo</Label>
+                <Label htmlFor="isActive">Método ativo</Label>
               </div>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Criando..." : "Criar Método"}
-              </Button>
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Criando..." : "Criar Método"}
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>

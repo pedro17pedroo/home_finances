@@ -27,6 +27,7 @@ import Contas from "@/pages/contas";
 import { AdminLogin, AdminDashboard, AdminUsers, AdminPlans } from "@/admin";
 
 // Lazy load admin components with proper wrappers
+const PlansWrapper = lazy(() => import('./admin/pages/plans-wrapper'));
 const PaymentMethodsWrapper = lazy(() => import('./admin/pages/payment-methods-wrapper'));
 const PaymentApprovalsWrapper = lazy(() => import('./admin/pages/payment-approvals-wrapper'));
 const CampaignsWrapper = lazy(() => import('./admin/pages/campaigns-wrapper'));
@@ -124,7 +125,11 @@ function Router() {
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route path="/admin/users" component={AdminUsers} />
-      <Route path="/admin/plans" component={AdminPlans} />
+      <Route path="/admin/plans">
+        <Suspense fallback={<div>Carregando...</div>}>
+          <PlansWrapper />
+        </Suspense>
+      </Route>
       <Route path="/admin/payment-methods">
         <Suspense fallback={<div>Carregando...</div>}>
           <PaymentMethodsWrapper />

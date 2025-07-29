@@ -1,632 +1,562 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '../components/layout/admin-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Plus, Edit, Trash2, DollarSign, Settings, Check, X } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Plus, Edit, Trash2, DollarSign, Package, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Plan, InsertPlan } from "@shared/schema";
 
-interface Plan {
-  id: number;
-  name: string;
-  type: string;
-  price: string;
-  stripePriceId: string;
-  features: any;
-  maxAccounts: number;
-  maxTransactions: number;
-  isActive: boolean;
-  createdAt: string;
-}
-
-// Available features for plans
-const AVAILABLE_FEATURES = {
-  dashboard: 'Dashboard Completo',
-  transactions: 'Gestão de Transações',
-  accounts: 'Múltiplas Contas',
-  savingsGoals: 'Objetivos de Poupança',
-  loans: 'Gestão de Empréstimos',
-  debts: 'Gestão de Dívidas',
-  reports: 'Relatórios Detalhados',
-  analytics: 'Análise Avançada',
-  teamManagement: 'Gestão de Equipe',
-  apiAccess: 'Acesso à API',
-  prioritySupport: 'Suporte Prioritário',
-  customization: 'Personalização Avançada',
-  backup: 'Backup Automático',
-  sso: 'Single Sign-On',
-  whiteLabel: 'Marca Branca'
-};
-
-const planSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório'),
-  type: z.enum(['basic', 'premium', 'enterprise']),
-  price: z.string().min(1, 'Preço é obrigatório'),
-  stripePriceId: z.string().optional(),
-  description: z.string().optional(),
-  maxAccounts: z.number().min(1, 'Máximo de contas deve ser maior que 0'),
-  maxTransactions: z.number().min(1, 'Máximo de transações deve ser maior que 0'),
-  isActive: z.boolean().default(true),
-  features: z.array(z.string()).default([]),
-  customFeatures: z.array(z.string()).default([]),
-});
-
-type PlanForm = z.infer<typeof planSchema>;
-
-export default function AdminPlans() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+export default function PlansPage() {
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
-  const [customFeatureInput, setCustomFeatureInput] = useState('');
-  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: plans, isLoading } = useQuery<Plan[]>({
-    queryKey: ['/api/admin/plans'],
+  const { data: plans, isLoading } = useQuery({
+    queryKey: ["/api/admin/plans"],
     throwOnError: false,
+    retry: false,
   });
 
-  const form = useForm<PlanForm>({
-    resolver: zodResolver(planSchema),
-    defaultValues: {
-      name: '',
-      type: 'basic',
-      price: '',
-      stripePriceId: '',
-      description: '',
-      maxAccounts: 5,
-      maxTransactions: 1000,
-      isActive: true,
-      features: [],
-      customFeatures: [],
-    },
-  });
-
-  const createPlanMutation = useMutation({
-    mutationFn: (data: PlanForm) => {
-      // Convert features array to the expected format
-      const featuresObject = [...data.features, ...data.customFeatures].reduce((acc, feature) => {
-        acc[feature] = true;
-        return acc;
-      }, {} as Record<string, boolean>);
-
-      return apiRequest('POST', '/api/admin/plans', {
-        ...data,
-        features: featuresObject,
-      });
+  const createMutation = useMutation({
+    mutationFn: async (data: InsertPlan) => {
+      const response = await apiRequest("POST", "/api/admin/plans", data);
+      return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/plans'] });
-      toast({ title: 'Plano criado com sucesso' });
-      setIsDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/plans"] }); // Public endpoint
+      setIsCreateOpen(false);
+      toast({ title: "Plano criado com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao criar plano", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<Plan> }) => {
+      const response = await apiRequest("PATCH", `/api/admin/plans/${id}`, data);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/plans"] }); // Public endpoint
       setEditingPlan(null);
-      form.reset();
+      toast({ title: "Plano atualizado com sucesso" });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Erro ao criar plano',
+      toast({ 
+        title: "Erro ao atualizar plano", 
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive" 
       });
     },
   });
 
-  const updatePlanMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: PlanForm }) => {
-      // Convert features array to the expected format
-      const featuresObject = [...data.features, ...data.customFeatures].reduce((acc, feature) => {
-        acc[feature] = true;
-        return acc;
-      }, {} as Record<string, boolean>);
-
-      return apiRequest('PUT', `/api/admin/plans/${id}`, {
-        ...data,
-        features: featuresObject,
-      });
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/admin/plans/${id}`, { isActive });
+      return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/plans'] });
-      toast({ title: 'Plano atualizado com sucesso' });
-      setIsDialogOpen(false);
-      setEditingPlan(null);
-      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/plans"] }); // Public endpoint
+      toast({ 
+        title: `Plano ${arguments[0].isActive ? 'ativado' : 'desativado'} com sucesso` 
+      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Erro ao atualizar plano',
+      toast({ 
+        title: "Erro ao alterar status", 
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive" 
       });
     },
   });
 
-  const deletePlanMutation = useMutation({
-    mutationFn: (id: number) => apiRequest('DELETE', `/api/admin/plans/${id}`),
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("DELETE", `/api/admin/plans/${id}`);
+      return response;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/plans'] });
-      toast({ title: 'Plano excluído com sucesso' });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/plans"] }); // Public endpoint
+      toast({ title: "Plano removido com sucesso" });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Erro ao excluir plano',
+      toast({ 
+        title: "Erro ao remover plano", 
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive" 
       });
     },
   });
 
-  const onSubmit = (data: PlanForm) => {
-    if (editingPlan) {
-      updatePlanMutation.mutate({ id: editingPlan.id, data });
-    } else {
-      createPlanMutation.mutate(data);
-    }
-  };
-
-  const handleEdit = (plan: Plan) => {
-    setEditingPlan(plan);
+  const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     
-    // Extract features from the plan's features object
-    const planFeatures = plan.features || {};
-    const selectedFeatures = Object.keys(planFeatures).filter(key => planFeatures[key]);
-    const predefinedFeatures = selectedFeatures.filter(feature => Object.keys(AVAILABLE_FEATURES).includes(feature));
-    const customFeatures = selectedFeatures.filter(feature => !Object.keys(AVAILABLE_FEATURES).includes(feature));
+    // Build features object
+    const features = {
+      maxAccounts: parseInt(formData.get("maxAccounts") as string) || 5,
+      maxTransactions: parseInt(formData.get("maxTransactions") as string) || 1000,
+      hasReports: formData.get("hasReports") === "on",
+      hasExport: formData.get("hasExport") === "on",
+      hasGoals: formData.get("hasGoals") === "on",
+      hasLoans: formData.get("hasLoans") === "on",
+      hasDebts: formData.get("hasDebts") === "on",
+      hasPriority: formData.get("hasPriority") === "on",
+    };
+
+    createMutation.mutate({
+      name: formData.get("name") as string,
+      type: formData.get("type") as "basic" | "premium" | "enterprise",
+      price: formData.get("price") as string,
+      stripePriceId: formData.get("stripePriceId") as string || null,
+      features,
+      maxAccounts: features.maxAccounts,
+      maxTransactions: features.maxTransactions,
+      isActive: formData.get("isActive") === "on",
+    });
+  };
+
+  const handleUpdateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingPlan) return;
     
-    form.setValue('name', plan.name);
-    form.setValue('type', plan.type as 'basic' | 'premium' | 'enterprise');
-    form.setValue('price', plan.price);
-    form.setValue('stripePriceId', plan.stripePriceId || '');
-    form.setValue('description', '');
-    form.setValue('maxAccounts', plan.maxAccounts);
-    form.setValue('maxTransactions', plan.maxTransactions);
-    form.setValue('isActive', plan.isActive);
-    form.setValue('features', predefinedFeatures);
-    form.setValue('customFeatures', customFeatures);
+    const formData = new FormData(e.currentTarget);
     
-    setIsDialogOpen(true);
+    // Build features object
+    const features = {
+      maxAccounts: parseInt(formData.get("maxAccounts") as string) || 5,
+      maxTransactions: parseInt(formData.get("maxTransactions") as string) || 1000,
+      hasReports: formData.get("hasReports") === "on",
+      hasExport: formData.get("hasExport") === "on",
+      hasGoals: formData.get("hasGoals") === "on",
+      hasLoans: formData.get("hasLoans") === "on",
+      hasDebts: formData.get("hasDebts") === "on",
+      hasPriority: formData.get("hasPriority") === "on",
+    };
+
+    updateMutation.mutate({
+      id: editingPlan.id,
+      data: {
+        name: formData.get("name") as string,
+        type: formData.get("type") as "basic" | "premium" | "enterprise",
+        price: formData.get("price") as string,
+        stripePriceId: formData.get("stripePriceId") as string || null,
+        features,
+        maxAccounts: features.maxAccounts,
+        maxTransactions: features.maxTransactions,
+        isActive: formData.get("isActive") === "on",
+      },
+    });
   };
 
-  const handleCreateNew = () => {
-    setEditingPlan(null);
-    form.reset();
-    setIsDialogOpen(true);
+  const formatPrice = (price: string) => {
+    return parseFloat(price).toLocaleString() + " Kz";
   };
 
-  const addCustomFeature = () => {
-    if (customFeatureInput.trim()) {
-      const currentFeatures = form.getValues('customFeatures');
-      form.setValue('customFeatures', [...currentFeatures, customFeatureInput.trim()]);
-      setCustomFeatureInput('');
-    }
+  const getFeaturesList = (features: any) => {
+    if (!features) return [];
+    
+    const featureNames = [];
+    if (features.hasReports) featureNames.push("Relatórios");
+    if (features.hasExport) featureNames.push("Exportação");
+    if (features.hasGoals) featureNames.push("Metas de Poupança");
+    if (features.hasLoans) featureNames.push("Empréstimos");
+    if (features.hasDebts) featureNames.push("Dívidas");
+    if (features.hasPriority) featureNames.push("Suporte Prioritário");
+    
+    return featureNames;
   };
 
-  const removeCustomFeature = (index: number) => {
-    const currentFeatures = form.getValues('customFeatures');
-    form.setValue('customFeatures', currentFeatures.filter((_, i) => i !== index));
-  };
-
-  const handleDelete = (id: number) => {
-    if (confirm('Tem certeza que deseja excluir este plano?')) {
-      deletePlanMutation.mutate(id);
-    }
-  };
-
-  const getPlanTypeColor = (type: string) => {
-    switch (type) {
-      case 'basic':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'premium':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-      case 'enterprise':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
-  };
+  if (isLoading) {
+    return <div className="p-6">Carregando planos...</div>;
+  }
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Gestão de Planos
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Gerir planos de subscrição e preços - Planos ilimitados disponíveis
-            </p>
-          </div>
-          <Button onClick={handleCreateNew}>
-            <Plus className="w-4 h-4 mr-2" />
-            Criar Plano
-          </Button>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Gestão de Planos</h1>
+          <p className="text-muted-foreground">
+            Configure planos, preços e integração com Stripe
+          </p>
         </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Plano
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>
-                {editingPlan ? 'Editar Plano' : 'Criar Novo Plano'}
-              </DialogTitle>
+              <DialogTitle>Criar Plano</DialogTitle>
+              <DialogDescription>
+                Configure um novo plano de assinatura
+              </DialogDescription>
             </DialogHeader>
-            
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* Basic Information */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome do Plano</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Ex: Plano Premium" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Plano</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o tipo" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="basic">Básico</SelectItem>
-                            <SelectItem value="premium">Premium</SelectItem>
-                            <SelectItem value="enterprise">Enterprise</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Nome do Plano</Label>
+                  <Input 
+                    id="name" 
+                    name="name" 
+                    placeholder="Plano Básico"
+                    required 
                   />
                 </div>
+                <div>
+                  <Label htmlFor="type">Tipo</Label>
+                  <Select name="type" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="basic">Básico</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-                {/* Pricing */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Preço Mensal (Kz)</FormLabel>
-                        <FormControl>
-                          <Input {...field} type="number" step="0.01" placeholder="0.00" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="stripePriceId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Stripe Price ID</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="price_1234567890" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="price">Preço (Kz)</Label>
+                  <Input 
+                    id="price" 
+                    name="price" 
+                    type="number"
+                    step="0.01"
+                    placeholder="14500.00"
+                    required 
                   />
                 </div>
-
-                {/* Description */}
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Descrição do plano..." rows={3} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Limits */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="maxAccounts"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Máximo de Contas</FormLabel>
-                        <div className="space-y-3">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="unlimited-accounts"
-                              checked={field.value === null}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  field.onChange(null); // null means unlimited
-                                } else {
-                                  field.onChange(5); // default to 5 when unchecked
-                                }
-                              }}
-                            />
-                            <label htmlFor="unlimited-accounts" className="text-sm font-medium">
-                              Contas Ilimitadas
-                            </label>
-                          </div>
-                          {field.value !== null && (
-                            <FormControl>
-                              <Input 
-                                value={field.value || ''} 
-                                type="number" 
-                                placeholder="Número máximo de contas"
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} 
-                              />
-                            </FormControl>
-                          )}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                <div>
+                  <Label htmlFor="stripePriceId">Stripe Price ID</Label>
+                  <Input 
+                    id="stripePriceId" 
+                    name="stripePriceId" 
+                    placeholder="price_xxxxxxxxxx"
                   />
-                  <FormField
-                    control={form.control}
-                    name="maxTransactions"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Máximo de Transações/Mês</FormLabel>
-                        <div className="space-y-3">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="unlimited-transactions"
-                              checked={field.value === null}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  field.onChange(null); // null means unlimited
-                                } else {
-                                  field.onChange(1000); // default to 1000 when unchecked
-                                }
-                              }}
-                            />
-                            <label htmlFor="unlimited-transactions" className="text-sm font-medium">
-                              Transações Ilimitadas
-                            </label>
-                          </div>
-                          {field.value !== null && (
-                            <FormControl>
-                              <Input 
-                                value={field.value || ''} 
-                                type="number" 
-                                placeholder="Número máximo de transações por mês"
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} 
-                              />
-                            </FormControl>
-                          )}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ID do preço no Stripe para integração de pagamentos
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="maxAccounts">Máx. Contas</Label>
+                  <Input 
+                    id="maxAccounts" 
+                    name="maxAccounts" 
+                    type="number"
+                    defaultValue="5"
                   />
                 </div>
-
-                <Separator />
-
-                {/* Features Selection */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Funcionalidades</h3>
-                  <FormField
-                    control={form.control}
-                    name="features"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Selecione as funcionalidades incluídas</FormLabel>
-                        <div className="grid grid-cols-2 gap-3">
-                          {Object.entries(AVAILABLE_FEATURES).map(([key, label]) => (
-                            <div key={key} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={key}
-                                checked={field.value.includes(key)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    field.onChange([...field.value, key]);
-                                  } else {
-                                    field.onChange(field.value.filter((item) => item !== key));
-                                  }
-                                }}
-                              />
-                              <label htmlFor={key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                {label}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                <div>
+                  <Label htmlFor="maxTransactions">Máx. Transações/Mês</Label>
+                  <Input 
+                    id="maxTransactions" 
+                    name="maxTransactions" 
+                    type="number"
+                    defaultValue="1000"
                   />
                 </div>
+              </div>
 
-                {/* Custom Features */}
-                <FormField
-                  control={form.control}
-                  name="customFeatures"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Funcionalidades Personalizadas</FormLabel>
-                      <div className="space-y-3">
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Digite uma funcionalidade personalizada"
-                            value={customFeatureInput}
-                            onChange={(e) => setCustomFeatureInput(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomFeature())}
-                          />
-                          <Button type="button" variant="outline" onClick={addCustomFeature}>
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {field.value.map((feature, index) => (
-                            <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                              {feature}
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-auto p-0 text-xs"
-                                onClick={() => removeCustomFeature(index)}
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Active Status */}
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <FormLabel>Plano Ativo</FormLabel>
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setIsDialogOpen(false);
-                      setEditingPlan(null);
-                      form.reset();
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={createPlanMutation.isPending || updatePlanMutation.isPending}>
-                    {editingPlan ? 'Atualizar' : 'Criar'}
-                  </Button>
+              <div className="space-y-3">
+                <Label>Funcionalidades</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center space-x-2">
+                    <input type="checkbox" id="hasReports" name="hasReports" />
+                    <Label htmlFor="hasReports">Relatórios</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input type="checkbox" id="hasExport" name="hasExport" />
+                    <Label htmlFor="hasExport">Exportação</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input type="checkbox" id="hasGoals" name="hasGoals" />
+                    <Label htmlFor="hasGoals">Metas de Poupança</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input type="checkbox" id="hasLoans" name="hasLoans" />
+                    <Label htmlFor="hasLoans">Empréstimos</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input type="checkbox" id="hasDebts" name="hasDebts" />
+                    <Label htmlFor="hasDebts">Dívidas</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input type="checkbox" id="hasPriority" name="hasPriority" />
+                    <Label htmlFor="hasPriority">Suporte Prioritário</Label>
+                  </div>
                 </div>
-              </form>
-            </Form>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input type="checkbox" id="isActive" name="isActive" defaultChecked />
+                <Label htmlFor="isActive">Plano ativo</Label>
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Criando..." : "Criar Plano"}
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Planos ({plans?.length || 0})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {plans?.map((plan: Plan) => (
+          <Card key={plan.id} className="relative">
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  <CardDescription className="text-2xl font-bold text-blue-600">
+                    {formatPrice(plan.price)}
+                    <span className="text-sm font-normal text-gray-500">/mês</span>
+                  </CardDescription>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <Badge variant={plan.isActive ? "default" : "secondary"}>
+                    {plan.isActive ? "Ativo" : "Inativo"}
+                  </Badge>
+                  <Badge variant="outline">{plan.type}</Badge>
+                </div>
               </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Preço</TableHead>
-                    <TableHead>Contas</TableHead>
-                    <TableHead>Transações</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {plans?.map((plan) => (
-                    <TableRow key={plan.id}>
-                      <TableCell className="font-medium">{plan.name}</TableCell>
-                      <TableCell>
-                        <Badge className={getPlanTypeColor(plan.type)}>
-                          {plan.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="flex items-center">
-                        <DollarSign className="w-4 h-4 mr-1" />
-                        {plan.price} Kz
-                      </TableCell>
-                      <TableCell>
-                        {plan.maxAccounts === null ? (
-                          <Badge variant="outline" className="text-green-600 border-green-600">
-                            Ilimitada
-                          </Badge>
-                        ) : (
-                          plan.maxAccounts
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {plan.maxTransactions === null ? (
-                          <Badge variant="outline" className="text-green-600 border-green-600">
-                            Ilimitada
-                          </Badge>
-                        ) : (
-                          plan.maxTransactions
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={plan.isActive ? 'default' : 'secondary'}>
-                          {plan.isActive ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor={`toggle-${plan.id}`}>Status</Label>
+                <Switch
+                  id={`toggle-${plan.id}`}
+                  checked={plan.isActive}
+                  onCheckedChange={(checked) =>
+                    toggleActiveMutation.mutate({ id: plan.id, isActive: checked })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Limites</Label>
+                <div className="text-sm space-y-1">
+                  <div>Contas: {plan.maxAccounts}</div>
+                  <div>Transações: {plan.maxTransactions}/mês</div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Funcionalidades</Label>
+                <div className="flex flex-wrap gap-1">
+                  {getFeaturesList(plan.features).map((feature) => (
+                    <Badge key={feature} variant="outline" className="text-xs">
+                      {feature}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {plan.stripePriceId && (
+                <div className="space-y-2">
+                  <Label>Stripe Integration</Label>
+                  <div className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded">
+                    {plan.stripePriceId}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex space-x-2">
+                <Dialog open={editingPlan?.id === plan.id} onOpenChange={(open) => !open && setEditingPlan(null)}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setEditingPlan(plan)}
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      Editar
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Editar Plano</DialogTitle>
+                      <DialogDescription>
+                        Modifique as configurações do plano
+                      </DialogDescription>
+                    </DialogHeader>
+                    {editingPlan && (
+                      <form onSubmit={handleUpdateSubmit} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="edit-name">Nome do Plano</Label>
+                            <Input 
+                              id="edit-name" 
+                              name="name" 
+                              defaultValue={editingPlan.name}
+                              required 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-type">Tipo</Label>
+                            <Select name="type" defaultValue={editingPlan.type} required>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="basic">Básico</SelectItem>
+                                <SelectItem value="premium">Premium</SelectItem>
+                                <SelectItem value="enterprise">Enterprise</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="edit-price">Preço (Kz)</Label>
+                            <Input 
+                              id="edit-price" 
+                              name="price" 
+                              type="number"
+                              step="0.01"
+                              defaultValue={editingPlan.price}
+                              required 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-stripePriceId">Stripe Price ID</Label>
+                            <Input 
+                              id="edit-stripePriceId" 
+                              name="stripePriceId" 
+                              defaultValue={editingPlan.stripePriceId || ""}
+                              placeholder="price_xxxxxxxxxx"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              ID do preço no Stripe para integração de pagamentos
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="edit-maxAccounts">Máx. Contas</Label>
+                            <Input 
+                              id="edit-maxAccounts" 
+                              name="maxAccounts" 
+                              type="number"
+                              defaultValue={editingPlan.maxAccounts}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-maxTransactions">Máx. Transações/Mês</Label>
+                            <Input 
+                              id="edit-maxTransactions" 
+                              name="maxTransactions" 
+                              type="number"
+                              defaultValue={editingPlan.maxTransactions}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label>Funcionalidades</Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="flex items-center space-x-2">
+                              <input type="checkbox" id="edit-hasReports" name="hasReports" 
+                                defaultChecked={editingPlan.features?.hasReports} />
+                              <Label htmlFor="edit-hasReports">Relatórios</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input type="checkbox" id="edit-hasExport" name="hasExport" 
+                                defaultChecked={editingPlan.features?.hasExport} />
+                              <Label htmlFor="edit-hasExport">Exportação</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input type="checkbox" id="edit-hasGoals" name="hasGoals" 
+                                defaultChecked={editingPlan.features?.hasGoals} />
+                              <Label htmlFor="edit-hasGoals">Metas de Poupança</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input type="checkbox" id="edit-hasLoans" name="hasLoans" 
+                                defaultChecked={editingPlan.features?.hasLoans} />
+                              <Label htmlFor="edit-hasLoans">Empréstimos</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input type="checkbox" id="edit-hasDebts" name="hasDebts" 
+                                defaultChecked={editingPlan.features?.hasDebts} />
+                              <Label htmlFor="edit-hasDebts">Dívidas</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input type="checkbox" id="edit-hasPriority" name="hasPriority" 
+                                defaultChecked={editingPlan.features?.hasPriority} />
+                              <Label htmlFor="edit-hasPriority">Suporte Prioritário</Label>
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="flex items-center space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEdit(plan)}
-                          >
-                            <Edit className="w-4 h-4" />
+                          <input type="checkbox" id="edit-isActive" name="isActive" 
+                            defaultChecked={editingPlan.isActive} />
+                          <Label htmlFor="edit-isActive">Plano ativo</Label>
+                        </div>
+
+                        <div className="flex justify-end space-x-2">
+                          <Button type="button" variant="outline" onClick={() => setEditingPlan(null)}>
+                            Cancelar
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-red-600 hover:text-red-700"
-                            onClick={() => handleDelete(plan.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
+                          <Button type="submit" disabled={updateMutation.isPending}>
+                            {updateMutation.isPending ? "Salvando..." : "Salvar Alterações"}
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                      </form>
+                    )}
+                  </DialogContent>
+                </Dialog>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                  onClick={() => {
+                    if (confirm("Tem certeza que deseja remover este plano?")) {
+                      deleteMutation.mutate(plan.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
-    </AdminLayout>
+    </div>
   );
 }
