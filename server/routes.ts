@@ -622,17 +622,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.session!.userId;
       const user = await storage.getUser(userId);
       
-      if (!user || !user.stripeCustomerId) {
-        return res.status(404).json({ message: "User or customer not found" });
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // If user doesn't have a Stripe customer ID, create one
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          metadata: {
+            userId: userId.toString(),
+          },
+        });
+        
+        customerId = customer.id;
+        
+        // Update user with the new customer ID
+        await db.update(users)
+          .set({ stripeCustomerId: customerId })
+          .where(eq(users.id, userId));
       }
 
       const session = await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId,
+        customer: customerId,
         return_url: `${req.protocol}://${req.get('host')}/subscription`,
       });
 
       res.json({ url: session.url });
     } catch (error: any) {
+      console.error("Error creating billing portal session:", error);
       res.status(500).json({ message: error.message });
     }
   });
