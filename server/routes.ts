@@ -656,12 +656,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { transactionId, planId } = req.body;
       const userId = req.session!.userId;
       
+      console.log("Creating Stripe session:", { transactionId, planId, userId });
+      
       const user = await storage.getUser(userId);
       const plan = await storage.getPlan(planId);
       const transaction = await storage.getPaymentTransaction(transactionId);
       
+      console.log("Fetched data:", { 
+        user: !!user, 
+        plan: !!plan, 
+        transaction: !!transaction,
+        userDetails: user ? { id: user.id, email: user.email } : null,
+        planDetails: plan ? { id: plan.id, name: plan.name } : null,
+        transactionDetails: transaction ? { id: transaction.id, status: transaction.status } : null
+      });
+      
       if (!user || !plan || !transaction) {
-        return res.status(404).json({ message: "User, plan, or transaction not found" });
+        return res.status(404).json({ 
+          message: "User, plan, or transaction not found",
+          details: { hasUser: !!user, hasPlan: !!plan, hasTransaction: !!transaction }
+        });
       }
 
       // Create or get Stripe customer

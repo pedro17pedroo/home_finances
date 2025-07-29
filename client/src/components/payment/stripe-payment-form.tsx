@@ -61,11 +61,11 @@ export default function StripePaymentForm({ transaction, onSuccess, onCancel }: 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span>Plano:</span>
-              <span className="font-medium">{transaction.plan?.name}</span>
+              <span className="font-medium">{transaction.plan?.name || 'Plano Básico'}</span>
             </div>
             <div className="flex justify-between">
               <span>Valor:</span>
-              <span className="font-medium">{transaction.amount?.toLocaleString()} Kz</span>
+              <span className="font-medium">{transaction.finalAmount?.toLocaleString() || transaction.amount?.toLocaleString() || '14500'} Kz</span>
             </div>
             <div className="flex justify-between">
               <span>Método:</span>
