@@ -108,14 +108,8 @@ export default function AngolanPaymentInstructions({
     }
   };
 
-  const getPaymentReference = () => {
-    // Generate a unique reference for this transaction
-    return `FC${(transaction?.id || Date.now()).toString().padStart(6, '0')}`;
-  };
-
   const Icon = getMethodIcon();
   const banks = getBankDetails();
-  const paymentReference = getPaymentReference();
 
   return (
     <div className="space-y-6">
@@ -139,35 +133,22 @@ export default function AngolanPaymentInstructions({
                 <span className="font-medium">{transaction.amount?.toLocaleString()} Kz</span>
               </div>
               <div className="flex justify-between">
-                <span>Referência:</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium font-mono">{paymentReference}</span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => copyToClipboard(paymentReference, 'Referência')}
-                  >
-                    {copied === 'Referência' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  </Button>
-                </div>
-              </div>
-              <div className="flex justify-between">
                 <span>Tempo de processamento:</span>
-                <span className="font-medium">{method.processingTime}</span>
+                <span className="font-medium">{method.processingTime || '1-3 dias úteis'}</span>
               </div>
             </div>
           </div>
 
           {/* Payment Instructions */}
           <div className="space-y-4">
-            <h4 className="font-semibold">Instruções de Pagamento:</h4>
             
             {method.name === 'bank_transfer' && banks.length > 0 ? (
               <div className="space-y-4">
+                <h4 className="font-semibold">Instruções de Pagamento:</h4>
                 {banks.map((bank: any, index: number) => (
                   <div key={index} className="p-4 border rounded-lg">
-                    <h5 className="font-semibold mb-2">{bank.name}</h5>
-                    <div className="space-y-2 text-sm">
+                    <h5 className="font-semibold mb-3">{bank.name}</h5>
+                    <div className="space-y-3 text-sm">
                       <div className="flex justify-between">
                         <span>Titular:</span>
                         <div className="flex items-center gap-2">
@@ -212,6 +193,51 @@ export default function AngolanPaymentInstructions({
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : method.name === 'bank_transfer' ? (
+              <div className="p-4 border rounded-lg">
+                <h4 className="font-semibold mb-3">Instruções de Pagamento:</h4>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span>Titular:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Finance Control Ltd</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard('Finance Control Ltd', 'Titular')}
+                      >
+                        {copied === 'Titular' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Conta:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium font-mono">123456789</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard('123456789', 'Conta')}
+                      >
+                        {copied === 'Conta' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>IBAN:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium font-mono">AO06 0040 0000 0012 3456 7891 0</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard('AO06 0040 0000 0012 3456 7891 0', 'IBAN')}
+                      >
+                        {copied === 'IBAN' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="p-4 border rounded-lg">

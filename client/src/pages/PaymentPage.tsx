@@ -53,7 +53,7 @@ export default function PaymentPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const planParam = urlParams.get('plan');
     
-    if (plans && planParam) {
+    if (plans && Array.isArray(plans) && planParam) {
       const plan = plans.find((p: any) => p.type === planParam);
       if (plan) {
         setSelectedPlan(plan);
