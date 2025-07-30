@@ -8,6 +8,7 @@ import authRoutes from './authRoutes';
 import accountRoutes from './accountRoutes';
 import transactionRoutes from './transactionRoutes';
 import adminRoutes from './adminRoutes';
+import paymentRoutes from './paymentRoutes';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session configuration
@@ -37,6 +38,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/accounts', accountRoutes);
   app.use('/api/transactions', transactionRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/payments', paymentRoutes);
 
   return createServer(app);
 }
