@@ -6,7 +6,7 @@ import Stripe from "stripe";
 import { storage } from "./storage";
 import { db } from "./db";
 import { users, securityLogs, blockedIPs } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, desc, asc, like, or } from "drizzle-orm";
 import { getSecurityStats, blockIP as blockIPUtil } from "./security-logger";
 import { hashPassword } from "./auth";
 import { 
