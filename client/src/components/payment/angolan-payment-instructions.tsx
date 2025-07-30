@@ -46,11 +46,13 @@ export default function AngolanPaymentInstructions({
         throw new Error("Comprovante de pagamento é obrigatório");
       }
 
+      console.log('Transaction object:', transaction);
+
       const formData = new FormData();
-      formData.append('transactionId', transaction.id.toString());
+      formData.append('transactionId', String(transaction.id || ''));
       formData.append('paymentProof', paymentProof);
-      formData.append('bankReference', bankReference);
-      formData.append('phoneNumber', phoneNumber);
+      formData.append('bankReference', bankReference || '');
+      formData.append('phoneNumber', phoneNumber || '');
 
       const response = await fetch("/api/payment/submit-proof", {
         method: "POST",

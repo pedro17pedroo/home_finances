@@ -747,11 +747,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.session!.userId;
       const paymentProofFile = (req as any).files?.paymentProof;
       
+      console.log('Received data:', { transactionId, bankReference, phoneNumber, filePresent: !!paymentProofFile });
+      
+      if (!transactionId) {
+        return res.status(400).json({ message: "ID da transação é obrigatório" });
+      }
+      
       if (!paymentProofFile) {
         return res.status(400).json({ message: "Comprovante de pagamento é obrigatório" });
       }
       
-      const transaction = await storage.getPaymentTransaction(transactionId);
+      const transaction = await storage.getPaymentTransaction(parseInt(transactionId));
       if (!transaction || transaction.userId !== userId) {
         return res.status(404).json({ message: "Transaction not found" });
       }
@@ -769,13 +775,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate unique filename
       const fileExtension = paymentProofFile.name.split('.').pop();
       const fileName = `payment_proof_${transactionId}_${Date.now()}.${fileExtension}`;
-      const filePath = `/tmp/payment_proofs/${fileName}`;
+      const uploadDir = './uploads/payment_proofs';
+      const fs = require('fs');
+      
+      // Create upload directory if it doesn't exist
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      
+      const filePath = `${uploadDir}/${fileName}`;
 
       // Move file to permanent location (in production, use cloud storage)
       await paymentProofFile.mv(filePath);
 
       await storage.createPaymentConfirmation({
-        transactionId,
+        transactionId: parseInt(transactionId),
         userId,
         paymentProof: fileName, // Store filename instead of file content
         bankReference,
@@ -794,7 +808,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/payment-proofs/:filename", isAdminAuthenticated, async (req, res) => {
     try {
       const filename = req.params.filename;
-      const filePath = `/tmp/payment_proofs/${filename}`;
+      const path = require('path');
+      const filePath = path.join(process.cwd(), 'uploads', 'payment_proofs', filename);
       
       // Check if file exists
       const fs = require('fs');
