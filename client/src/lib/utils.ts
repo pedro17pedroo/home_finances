@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(value: string | number, currency?: string, locale?: string): string {
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  const numValue = typeof value === 'string' ? parseFloat(value) || 0 : value || 0;
   
   // Use provided values or defaults
   const currencyCode = currency || 'AOA';
