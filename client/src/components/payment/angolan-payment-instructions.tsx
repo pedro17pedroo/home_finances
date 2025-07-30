@@ -33,7 +33,7 @@ export default function AngolanPaymentInstructions({
   onSuccess, 
   onCancel 
 }: AngolanPaymentInstructionsProps) {
-  const [paymentProof, setPaymentProof] = useState('');
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [bankReference, setBankReference] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
@@ -42,13 +42,27 @@ export default function AngolanPaymentInstructions({
 
   const submitProofMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/payment/submit-proof", {
-        transactionId: transaction.id,
-        paymentProof,
-        bankReference,
-        phoneNumber,
+      if (!paymentProof) {
+        throw new Error("Comprovante de pagamento é obrigatório");
+      }
+
+      const formData = new FormData();
+      formData.append('transactionId', transaction.id.toString());
+      formData.append('paymentProof', paymentProof);
+      formData.append('bankReference', bankReference);
+      formData.append('phoneNumber', phoneNumber);
+
+      const response = await fetch("/api/payment/submit-proof", {
+        method: "POST",
+        body: formData,
       });
-      return response;
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Erro ao enviar comprovante");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -65,6 +79,33 @@ export default function AngolanPaymentInstructions({
       });
     },
   });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type and size
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Arquivo inválido",
+          description: "Por favor, selecione uma imagem (JPG, PNG) ou PDF",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (file.size > 10 * 1024 * 1024) { // 10MB
+        toast({
+          title: "Arquivo muito grande",
+          description: "O arquivo deve ter no máximo 10MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setPaymentProof(file);
+    }
+  };
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -220,13 +261,24 @@ export default function AngolanPaymentInstructions({
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="payment-proof">Comprovante de Pagamento *</Label>
-            <Textarea
+            <Input
               id="payment-proof"
-              placeholder="Cole aqui o texto do comprovante ou descreva os detalhes do pagamento..."
-              value={paymentProof}
-              onChange={(e) => setPaymentProof(e.target.value)}
-              rows={4}
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              onChange={handleFileUpload}
+              className="mt-1"
+              required
             />
+            {paymentProof && (
+              <div className="mt-2 flex items-center space-x-2 text-sm text-green-600">
+                <CheckCircle className="h-4 w-4" />
+                <span>{paymentProof.name}</span>
+                <span className="text-gray-500">({(paymentProof.size / 1024 / 1024).toFixed(2)} MB)</span>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Formatos aceitos: JPG, PNG, PDF. Máximo 10MB.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -267,7 +319,7 @@ export default function AngolanPaymentInstructions({
           <div className="space-y-3">
             <Button
               onClick={() => submitProofMutation.mutate()}
-              disabled={!paymentProof.trim() || submitProofMutation.isPending}
+              disabled={!paymentProof || submitProofMutation.isPending}
               className="w-full"
               size="lg"
             >

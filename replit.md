@@ -74,6 +74,7 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Sistema de Múltiplos Métodos de Pagamento**: Criado sistema flexível para suportar Stripe, Multicaixa Express, Unitel Money, AfriMoney e transferências bancárias - com interface unificada, instruções detalhadas e verificação manual para métodos angolanos
 - ✅ **Database Schema Expandido**: Adicionadas tabelas payment_transactions e payment_confirmations para rastrear todos os pagamentos e permitir verificação manual com upload de comprovantes
 - ✅ **Métodos de Pagamento Angolanos**: Configurados 5 métodos de pagamento com instruções detalhadas, incluindo dados bancários reais do BAI, BFA e BIC para transferências
+- ✅ **Sistema de Upload de Comprovantes**: Implementado upload de ficheiros para transferências bancárias com validação de tipo e tamanho, armazenamento seguro e visualização no painel admin
 
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.

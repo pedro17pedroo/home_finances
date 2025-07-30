@@ -743,25 +743,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Submit payment proof (for Angolan methods)
   app.post("/api/payment/submit-proof", isAuthenticated, async (req, res) => {
     try {
-      const { transactionId, paymentProof, bankReference, phoneNumber } = req.body;
+      const { transactionId, bankReference, phoneNumber } = req.body;
       const userId = req.session!.userId;
+      const paymentProofFile = (req as any).files?.paymentProof;
+      
+      if (!paymentProofFile) {
+        return res.status(400).json({ message: "Comprovante de pagamento é obrigatório" });
+      }
       
       const transaction = await storage.getPaymentTransaction(transactionId);
       if (!transaction || transaction.userId !== userId) {
         return res.status(404).json({ message: "Transaction not found" });
       }
 
+      // Validate file type and size
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+      if (!allowedTypes.includes(paymentProofFile.mimetype)) {
+        return res.status(400).json({ message: "Tipo de arquivo inválido. Use JPG, PNG ou PDF" });
+      }
+
+      if (paymentProofFile.size > 10 * 1024 * 1024) { // 10MB
+        return res.status(400).json({ message: "Arquivo muito grande. Máximo 10MB" });
+      }
+
+      // Generate unique filename
+      const fileExtension = paymentProofFile.name.split('.').pop();
+      const fileName = `payment_proof_${transactionId}_${Date.now()}.${fileExtension}`;
+      const filePath = `/tmp/payment_proofs/${fileName}`;
+
+      // Move file to permanent location (in production, use cloud storage)
+      await paymentProofFile.mv(filePath);
+
       await storage.createPaymentConfirmation({
         transactionId,
         userId,
-        paymentProof,
+        paymentProof: fileName, // Store filename instead of file content
         bankReference,
         phoneNumber,
         status: 'pending',
       });
 
-      res.json({ message: "Payment proof submitted successfully" });
+      res.json({ message: "Comprovante enviado com sucesso", fileName });
     } catch (error: any) {
+      console.error("Error submitting payment proof:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Serve payment proof files (admin only)
+  app.get("/api/admin/payment-proofs/:filename", isAdminAuthenticated, async (req, res) => {
+    try {
+      const filename = req.params.filename;
+      const filePath = `/tmp/payment_proofs/${filename}`;
+      
+      // Check if file exists
+      const fs = require('fs');
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "Arquivo não encontrado" });
+      }
+      
+      // Send file with appropriate headers
+      res.sendFile(filePath);
+    } catch (error: any) {
+      console.error("Error serving payment proof:", error);
       res.status(500).json({ message: error.message });
     }
   });
