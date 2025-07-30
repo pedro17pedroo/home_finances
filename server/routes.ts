@@ -644,11 +644,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentReference: `FC${Date.now()}`,
       });
 
-      res.json({
+      const response = {
         ...transaction,
         plan,
         paymentMethod,
-      });
+      };
+
+      console.log('Payment transaction response:', JSON.stringify(response, null, 2));
+      res.json(response);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
