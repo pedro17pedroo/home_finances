@@ -749,22 +749,22 @@ export class DatabaseStorage implements IStorage {
     totalLoans: string;
   }> {
     const accountBalance = await db
-      .select({ total: sum(accounts.balance) })
+      .select({ total: sql<string>`COALESCE(SUM(${accounts.balance}), 0)` })
       .from(accounts)
       .where(eq(accounts.userId, userId));
 
     const savingsTotal = await db
-      .select({ total: sum(savingsGoals.currentAmount) })
+      .select({ total: sql<string>`COALESCE(SUM(${savingsGoals.currentAmount}), 0)` })
       .from(savingsGoals)
       .where(eq(savingsGoals.userId, userId));
 
     const debtsTotal = await db
-      .select({ total: sum(debts.amount) })
+      .select({ total: sql<string>`COALESCE(SUM(${debts.amount}), 0)` })
       .from(debts)
       .where(and(eq(debts.userId, userId), eq(debts.status, 'pendente')));
 
     const loansTotal = await db
-      .select({ total: sum(loans.amount) })
+      .select({ total: sql<string>`COALESCE(SUM(${loans.amount}), 0)` })
       .from(loans)
       .where(and(eq(loans.userId, userId), eq(loans.status, 'pendente')));
 
