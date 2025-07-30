@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import { db } from '../db';
-import { paymentTransactions, paymentConfirmations, plans } from '@shared/schema';
+import { paymentTransactions, paymentConfirmations, plans, paymentMethods } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { SubscriptionService } from '../services/subscriptionService';
 import { nanoid } from 'nanoid';
+import type { UploadedFile } from 'express-fileupload';
 
 export class PaymentController {
   /**
@@ -12,7 +13,11 @@ export class PaymentController {
   static async initiatePayment(req: Request, res: Response) {
     try {
       const { planId, paymentMethodId } = req.body;
-      const userId = req.user.id;
+      const userId = (req as any).session?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
       // Get plan details
       const [plan] = await db.select().from(plans).where(eq(plans.id, planId));
@@ -20,18 +25,22 @@ export class PaymentController {
         return res.status(404).json({ message: "Plan not found" });
       }
 
-      // Generate unique reference
-      const reference = `PAY-${nanoid(10).toUpperCase()}`;
+      // Get payment method details
+      const [paymentMethod] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, paymentMethodId));
+      if (!paymentMethod) {
+        return res.status(404).json({ message: "Payment method not found" });
+      }
 
-      // Create payment transaction
+      // Create payment transaction  
       const [transaction] = await db.insert(paymentTransactions).values({
-        userId,
-        planId,
-        paymentMethodId,
+        userId: userId,
+        planId: planId,
+        paymentMethodId: paymentMethodId,
         amount: plan.price,
-        currency: 'AOA',
-        reference,
+        finalAmount: plan.price,
+        discountAmount: "0",
         status: 'pending',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
         metadata: {
           planName: plan.name,
           planType: plan.type
@@ -39,16 +48,18 @@ export class PaymentController {
       }).returning();
 
       res.json({
+        id: transaction.id,
         transactionId: transaction.id,
-        reference: transaction.reference,
-        amount: transaction.amount,
+        amount: parseFloat(transaction.amount),
+        finalAmount: parseFloat(transaction.finalAmount),
         plan: {
           id: plan.id,
           name: plan.name,
           type: plan.type
         },
+        paymentMethod: paymentMethod,
         paymentMethodId,
-        instructions: await this.getPaymentInstructions(paymentMethodId, transaction.amount, reference)
+        status: transaction.status
       });
     } catch (error) {
       console.error('Initiate payment error:', error);
@@ -62,8 +73,13 @@ export class PaymentController {
   static async uploadConfirmation(req: Request, res: Response) {
     try {
       const { transactionId } = req.params;
-      const { notes } = req.body;
-      const file = req.files?.receipt;
+      const { notes, bankReference, phoneNumber } = req.body;
+      const userId = (req as any).session?.userId;
+      const file = req.files?.receipt as UploadedFile;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
       if (!file) {
         return res.status(400).json({ message: "Receipt file is required" });
@@ -74,7 +90,7 @@ export class PaymentController {
         .from(paymentTransactions)
         .where(and(
           eq(paymentTransactions.id, parseInt(transactionId)),
-          eq(paymentTransactions.userId, req.user.id)
+          eq(paymentTransactions.userId, userId)
         ));
 
       if (!transaction) {
@@ -93,22 +109,24 @@ export class PaymentController {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
 
-      await (file as any).mv(filePath);
+      await file.mv(filePath);
 
       // Create confirmation record
       const [confirmation] = await db.insert(paymentConfirmations).values({
-        transactionId: parseInt(transactionId),
-        userId: req.user.id,
-        receiptPath: filePath,
-        receiptOriginalName: file.name as string,
-        notes,
-        status: 'pending_verification'
+        paymentTransactionId: parseInt(transactionId),
+        userId: userId,
+        paymentProof: filePath,
+        bankReference: bankReference || null,
+        phoneNumber: phoneNumber || null,
+        notes: notes || null,
+        status: 'pending',
+        paymentDate: new Date()
       }).returning();
 
       // Update transaction status
       await db.update(paymentTransactions)
         .set({ 
-          status: 'pending_verification',
+          status: 'processing',
           updatedAt: new Date()
         })
         .where(eq(paymentTransactions.id, parseInt(transactionId)));
@@ -116,7 +134,7 @@ export class PaymentController {
       res.json({
         message: "Receipt uploaded successfully",
         confirmationId: confirmation.id,
-        status: "pending_verification",
+        status: "processing",
         estimatedProcessingTime: "1-3 business days"
       });
     } catch (error) {
@@ -131,12 +149,17 @@ export class PaymentController {
   static async getPaymentStatus(req: Request, res: Response) {
     try {
       const { transactionId } = req.params;
+      const userId = (req as any).session?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
       const [transaction] = await db.select()
         .from(paymentTransactions)
         .where(and(
           eq(paymentTransactions.id, parseInt(transactionId)),
-          eq(paymentTransactions.userId, req.user.id)
+          eq(paymentTransactions.userId, userId)
         ));
 
       if (!transaction) {
@@ -146,7 +169,7 @@ export class PaymentController {
       // Get confirmation if exists
       const [confirmation] = await db.select()
         .from(paymentConfirmations)
-        .where(eq(paymentConfirmations.transactionId, parseInt(transactionId)));
+        .where(eq(paymentConfirmations.paymentTransactionId, parseInt(transactionId)));
 
       res.json({
         transaction,
@@ -164,20 +187,15 @@ export class PaymentController {
    */
   static async getPaymentHistory(req: Request, res: Response) {
     try {
-      const transactions = await db.select({
-        id: paymentTransactions.id,
-        amount: paymentTransactions.amount,
-        currency: paymentTransactions.currency,
-        reference: paymentTransactions.reference,
-        status: paymentTransactions.status,
-        paymentMethodId: paymentTransactions.paymentMethodId,
-        metadata: paymentTransactions.metadata,
-        createdAt: paymentTransactions.createdAt,
-        confirmedAt: paymentTransactions.confirmedAt
-      })
-      .from(paymentTransactions)
-      .where(eq(paymentTransactions.userId, req.user.id))
-      .orderBy(paymentTransactions.createdAt);
+      const userId = (req as any).session?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const transactions = await db.select()
+        .from(paymentTransactions)
+        .where(eq(paymentTransactions.userId, userId));
 
       res.json(transactions);
     } catch (error) {
@@ -191,26 +209,11 @@ export class PaymentController {
    */
   static async getPendingPayments(req: Request, res: Response) {
     try {
-      const pendingPayments = await db.select({
-        transactionId: paymentTransactions.id,
-        userId: paymentTransactions.userId,
-        amount: paymentTransactions.amount,
-        reference: paymentTransactions.reference,
-        paymentMethodId: paymentTransactions.paymentMethodId,
-        metadata: paymentTransactions.metadata,
-        createdAt: paymentTransactions.createdAt,
-        confirmationId: paymentConfirmations.id,
-        receiptPath: paymentConfirmations.receiptPath,
-        receiptOriginalName: paymentConfirmations.receiptOriginalName,
-        notes: paymentConfirmations.notes,
-        confirmationStatus: paymentConfirmations.status
-      })
-      .from(paymentTransactions)
-      .leftJoin(paymentConfirmations, eq(paymentConfirmations.transactionId, paymentTransactions.id))
-      .where(eq(paymentTransactions.status, 'pending_verification'))
-      .orderBy(paymentTransactions.createdAt);
+      const transactions = await db.select()
+        .from(paymentTransactions)
+        .where(eq(paymentTransactions.status, 'processing'));
 
-      res.json(pendingPayments);
+      res.json(transactions);
     } catch (error) {
       console.error('Get pending payments error:', error);
       res.status(500).json({ message: "Internal server error" });
@@ -223,53 +226,39 @@ export class PaymentController {
   static async processPayment(req: Request, res: Response) {
     try {
       const { transactionId } = req.params;
-      const { action, adminNotes } = req.body; // action: 'approve' | 'reject'
+      const { action, rejectionReason } = req.body; // action: 'approve' | 'reject'
 
-      if (!['approve', 'reject'].includes(action)) {
-        return res.status(400).json({ message: "Invalid action" });
-      }
-
-      const [transaction] = await db.select()
-        .from(paymentTransactions)
+      await db.update(paymentTransactions)
+        .set({ 
+          status: action === 'approve' ? 'completed' : 'failed',
+          processedAt: new Date()
+        })
         .where(eq(paymentTransactions.id, parseInt(transactionId)));
 
-      if (!transaction) {
-        return res.status(404).json({ message: "Transaction not found" });
-      }
+      res.json({
+        message: `Payment ${action === 'approve' ? 'approved' : 'rejected'} successfully`
+      });
+    } catch (error) {
+      console.error('Process payment error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  }
 
-      if (action === 'approve') {
-        // Update transaction status
-        await db.update(paymentTransactions)
-          .set({ 
-            status: 'completed',
-            confirmedAt: new Date(),
-            updatedAt: new Date()
-          })
-          .where(eq(paymentTransactions.id, parseInt(transactionId)));
-
-        // Update confirmation
-        await db.update(paymentConfirmations)
-          .set({ 
-            status: 'approved',
-            adminNotes,
-            verifiedAt: new Date(),
-            verifiedBy: req.admin.id
-          })
-          .where(eq(paymentConfirmations.transactionId, parseInt(transactionId)));
-
-        // Activate subscription
-        const [plan] = await db.select().from(plans).where(eq(plans.id, transaction.planId));
-        if (plan) {
-          await SubscriptionService.activateSubscription(
-            transaction.userId, 
-            plan.type as any, 
-            1 // 1 month
-          );
-        }
-
-        res.json({ 
-          message: "Payment approved and subscription activated",
-          transactionId: parseInt(transactionId)
+  /**
+   * Get status description
+   */
+  private static getStatusDescription(status: string) {
+    const descriptions = {
+      pending: "Payment awaiting confirmation",
+      processing: "Payment being verified", 
+      completed: "Payment completed successfully",
+      failed: "Payment failed or rejected",
+      cancelled: "Payment cancelled"
+    };
+    
+    return descriptions[status as keyof typeof descriptions] || "Unknown status";
+  }
+}
         });
       } else {
         // Reject payment

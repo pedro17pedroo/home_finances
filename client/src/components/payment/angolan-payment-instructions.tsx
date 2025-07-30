@@ -49,14 +49,19 @@ export default function AngolanPaymentInstructions({
       }
 
       console.log('Transaction object:', transaction);
+      console.log('Transaction ID check:', transaction?.id);
+
+      if (!transaction?.id) {
+        throw new Error("ID da transação não está disponível. Tente novamente.");
+      }
 
       const formData = new FormData();
-      formData.append('transactionId', String(transaction.id || ''));
-      formData.append('paymentProof', paymentProof);
+      formData.append('receipt', paymentProof);
       formData.append('bankReference', bankReference || '');
       formData.append('phoneNumber', phoneNumber || '');
+      formData.append('notes', 'Upload via sistema de pagamento angolano');
 
-      const response = await fetch("/api/payment/submit-proof", {
+      const response = await fetch("/api/payments/transactions/" + transaction.id + "/upload", {
         method: "POST",
         body: formData,
       });
