@@ -33,6 +33,8 @@ export default function AngolanPaymentInstructions({
   onSuccess, 
   onCancel 
 }: AngolanPaymentInstructionsProps) {
+  console.log('AngolanPaymentInstructions - transaction prop:', transaction);
+  
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [bankReference, setBankReference] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');

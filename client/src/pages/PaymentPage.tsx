@@ -70,6 +70,7 @@ export default function PaymentPage() {
       return response;
     },
     onSuccess: (data) => {
+      console.log('Payment transaction created:', data);
       setPaymentTransaction(data);
       setStep('payment');
     },
