@@ -41,7 +41,7 @@ export const users = pgTable("users", {
   subscriptionStatus: subscriptionStatusEnum("subscription_status").default('trialing'),
   planType: planTypeEnum("plan_type").default('basic'),
   trialEndsAt: timestamp("trial_ends_at"),
-  organizationId: integer("organization_id").references(() => organizations.id),
+  organizationId: integer("organization_id"),
   role: varchar("role", { length: 50 }).default('member'), // 'owner', 'admin', 'member'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -51,7 +51,7 @@ export const users = pgTable("users", {
 export const organizations = pgTable("organizations", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
-  ownerId: integer("owner_id").references(() => users.id).notNull(),
+  ownerId: integer("owner_id").notNull(),
   planType: planTypeEnum("plan_type").default('basic'),
   subscriptionStatus: subscriptionStatusEnum("subscription_status").default('trialing'),
   maxUsers: integer("max_users").default(1),
@@ -508,8 +508,6 @@ export const insertTransferSchema = createInsertSchema(transfers).omit({
 });
 
 // Types
-export type Account = typeof accounts.$inferSelect;
-export type InsertAccount = z.infer<typeof insertAccountSchema>;
 export type Transfer = typeof transfers.$inferSelect;
 export type InsertTransfer = z.infer<typeof insertTransferSchema>;
 
@@ -622,6 +620,17 @@ export const insertLegalContentSchema = createInsertSchema(legalContent).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPaymentConfirmationSchema = createInsertSchema(paymentConfirmations).omit({
+  id: true,
+  createdAt: true,
 });
 
 // Admin authentication schemas

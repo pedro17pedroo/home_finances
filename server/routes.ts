@@ -57,13 +57,17 @@ import {
   ADMIN_PERMISSIONS
 } from "./admin-auth";
 
-if (!process.env.STRIPE_SECRET_KEY) {
+// Initialize Stripe only if key is provided (required in production)
+let stripe: Stripe | null = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2024-11-20.acacia",
+  });
+} else if (process.env.NODE_ENV === 'production') {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+} else {
+  console.warn('⚠️  Running in development mode without Stripe. Payment features will be disabled.');
 }
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2024-11-20.acacia",
-});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session configuration
