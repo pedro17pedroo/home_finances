@@ -25,17 +25,22 @@ export class PaymentController {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      // Get plan details
-      console.log('Searching for plan with ID:', planId);
-      const [plan] = await db.select().from(plans).where(eq(plans.id, planId));
-      console.log('Found plan:', plan);
+      // Get plan details - ensure planId is an integer
+      const planIdInt = parseInt(planId);
+      console.log('Converted planId to int:', planIdInt);
       
+      const planResult = await db.select().from(plans).where(eq(plans.id, planIdInt));
+      console.log('Plan query result:', planResult);
+      
+      const [plan] = planResult;
       if (!plan) {
-        // Let's see what plans exist
+        console.log('Plan not found! Available plans:');
         const allPlans = await db.select().from(plans);
         console.log('Available plans:', allPlans.map(p => ({ id: p.id, name: p.name, type: p.type })));
         return res.status(404).json({ message: "Plano não encontrado" });
       }
+      
+      console.log('Found plan:', { id: plan.id, name: plan.name, price: plan.price });
 
       // Get payment method details
       const [paymentMethod] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, paymentMethodId));

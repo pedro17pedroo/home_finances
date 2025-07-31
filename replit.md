@@ -78,6 +78,7 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Métodos de Pagamento Angolanos**: Configurados 5 métodos de pagamento com instruções detalhadas, incluindo dados bancários reais do BAI, BFA e BIC para transferências
 - ✅ **Sistema de Upload de Comprovantes**: Implementado upload de ficheiros para transferências bancárias com validação de tipo e tamanho, armazenamento seguro e visualização no painel admin
 - ✅ **Migração Replit Agent → Replit (July 31, 2025)**: Completada migração final do Replit Agent para ambiente Replit padrão, base de dados PostgreSQL criada e populada, todos os sistemas funcionais - corrigindo política de planos para fonte única de verdade
+- ✅ **Payment Plan Lookup Fix (July 31, 2025)**: Corrigido problema crítico na busca de planos no PaymentController - identificado e resolvido conversão de tipo planId para garantir fonte única de verdade na tabela plans
 
 ## Current Status
 The system is a **complete, production-ready SaaS platform** with all MVP and core features implemented. All pages are functional and the user journey from landing to subscription is complete.
