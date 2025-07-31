@@ -97,9 +97,16 @@ export function AdminSidebar() {
     },
   ];
 
-  const filteredNavigation = navigation.filter(item => 
-    !item.permission || hasPermission(user?.permissions || [], item.permission)
-  );
+  // Debug permissions
+  console.log('Admin user:', user);
+  console.log('User permissions:', user?.permissions);
+  
+  const filteredNavigation = navigation.filter(item => {
+    if (!item.permission) return true;
+    const hasAccess = hasPermission(user?.permissions || [], item.permission);
+    console.log(`${item.name}: permission ${item.permission}, has access: ${hasAccess}`);
+    return hasAccess;
+  });
 
   const handleLogout = async () => {
     try {
