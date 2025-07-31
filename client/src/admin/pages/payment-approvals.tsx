@@ -89,6 +89,25 @@ export default function PaymentApprovals() {
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ["/api/admin/payments/transactions", filterStatus, filterMethod, searchTerm],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterStatus !== "all") params.append("status", filterStatus);
+      if (filterMethod !== "all") params.append("method", filterMethod);
+      if (searchTerm) params.append("search", searchTerm);
+      
+      const response = await fetch(`/api/admin/payments/transactions?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao carregar transações');
+      }
+      
+      return response.json();
+    },
     throwOnError: false,
   });
 
