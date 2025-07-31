@@ -68,8 +68,9 @@ export default function PaymentPage() {
         planId,
         paymentMethodId,
       });
-      console.log('Payment transaction response:', response);
-      return response;
+      const data = await response.json();
+      console.log('Payment transaction response:', data);
+      return data;
     },
     onSuccess: (data) => {
       console.log('Payment transaction created:', data);
