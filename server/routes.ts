@@ -2207,68 +2207,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { status, method, search } = req.query;
       
-      let query = db.select({
-        id: paymentTransactions.id,
-        userId: paymentTransactions.userId,
-        planId: paymentTransactions.planId,
-        paymentMethodId: paymentTransactions.paymentMethodId,
-        amount: paymentTransactions.amount,
-        finalAmount: paymentTransactions.finalAmount,
-        discountAmount: paymentTransactions.discountAmount,
-        campaignId: paymentTransactions.campaignId,
-        status: paymentTransactions.status,
-        createdAt: paymentTransactions.createdAt,
-        expiresAt: paymentTransactions.expiresAt,
-        stripeSessionId: paymentTransactions.stripeSessionId,
-        metadata: paymentTransactions.metadata,
-        user: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email,
-          phone: users.phone
-        },
-        plan: {
-          id: plans.id,
-          name: plans.name,
-          type: plans.type,
-          price: plans.price
-        },
-        paymentMethod: {
-          id: paymentMethods.id,
-          name: paymentMethods.name,
-          displayName: paymentMethods.displayName
-        },
-        campaign: {
-          id: campaigns.id,
-          name: campaigns.name,
-          couponCode: campaigns.couponCode
-        },
-        confirmation: {
-          id: paymentConfirmations.id,
-          paymentProof: paymentConfirmations.paymentProof,
-          bankReference: paymentConfirmations.bankReference,
-          phoneNumber: paymentConfirmations.phoneNumber,
-          notes: paymentConfirmations.notes,
-          paymentDate: paymentConfirmations.paymentDate,
-          status: paymentConfirmations.status,
-          verifiedBy: paymentConfirmations.verifiedBy,
-          verifiedAt: paymentConfirmations.verifiedAt,
-          rejectionReason: paymentConfirmations.rejectionReason
-        }
-      })
-      .from(paymentTransactions)
-      .innerJoin(users, eq(paymentTransactions.userId, users.id))
-      .innerJoin(plans, eq(paymentTransactions.planId, plans.id))
-      .innerJoin(paymentMethods, eq(paymentTransactions.paymentMethodId, paymentMethods.id))
-      .leftJoin(campaigns, eq(paymentTransactions.campaignId, campaigns.id))
-      .leftJoin(paymentConfirmations, eq(paymentTransactions.id, paymentConfirmations.transactionId))
-      .orderBy(desc(paymentTransactions.createdAt));
+      // Get transactions with basic info - return empty array if none exist
+      const transactions = await db.select()
+        .from(paymentTransactions)
+        .orderBy(desc(paymentTransactions.createdAt));
 
-      const transactions = await query;
+      if (transactions.length === 0) {
+        return res.json([]);
+      }
+
+      // Enrich with related data
+      const enrichedTransactions = [];
+      for (const transaction of transactions) {
+        try {
+          // Get user
+          const [user] = await db.select().from(users).where(eq(users.id, transaction.userId));
+          
+          // Get plan
+          const [plan] = await db.select().from(plans).where(eq(plans.id, transaction.planId));
+          
+          // Get payment method
+          const [paymentMethod] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, transaction.paymentMethodId));
+          
+          // Get campaign if exists
+          let campaign = null;
+          if (transaction.campaignId) {
+            const [campaignResult] = await db.select().from(campaigns).where(eq(campaigns.id, transaction.campaignId));
+            campaign = campaignResult;
+          }
+          
+          // Get confirmation if exists
+          const [confirmation] = await db.select().from(paymentConfirmations).where(eq(paymentConfirmations.transactionId, transaction.id));
+          
+          enrichedTransactions.push({
+            ...transaction,
+            user: user || null,
+            plan: plan || null,
+            paymentMethod: paymentMethod || null,
+            campaign: campaign,
+            confirmation: confirmation || null
+          });
+        } catch (error) {
+          console.error(`Error enriching transaction ${transaction.id}:`, error);
+          // Skip this transaction if there's an error
+          continue;
+        }
+      }
       
       // Apply filters
-      let filteredTransactions = transactions;
+      let filteredTransactions = enrichedTransactions;
       
       if (status && status !== 'all') {
         filteredTransactions = filteredTransactions.filter(t => t.status === status);

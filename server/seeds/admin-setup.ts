@@ -29,12 +29,15 @@ async function createAdminUser() {
       lastName: 'User',
       role: 'super_admin',
       permissions: [
-        'plans.view', 'plans.create', 'plans.update', 'plans.delete', 'plans.manage_pricing',
-        'users.view', 'users.create', 'users.update', 'users.delete', 'users.manage_subscriptions',
-        'payments.view', 'payments.manage_methods', 'payments.process_refunds',
-        'campaigns.view', 'campaigns.create', 'campaigns.update', 'campaigns.delete',
-        'content.view', 'content.manage_landing', 'content.manage_legal',
-        'system.view_settings', 'system.manage_settings', 'system.view_logs'
+        'users:read', 'users:write',
+        'plans:read', 'plans:write',
+        'payments:read', 'payments:write', 'payments:manage',
+        'campaigns:read', 'campaigns:write',
+        'content:read', 'content:write',
+        'settings:read', 'settings:write',
+        'analytics:read',
+        'audit_logs:read',
+        'security:read', 'security:write'
       ],
       isActive: true
     });

@@ -34,22 +34,22 @@ export const ADMIN_PERMISSIONS = {
     VIEW_LOGS: 'system.view_logs'
   },
   // New simplified format used by backend
-  USERS_READ: 'users.view',
-  USERS_WRITE: 'users.create',
-  PLANS_READ: 'plans.view',
-  PLANS_WRITE: 'plans.create',
-  PAYMENTS_READ: 'payments.view',
-  PAYMENTS_WRITE: 'payments.manage',
-  CAMPAIGNS_READ: 'campaigns.view',
-  CAMPAIGNS_WRITE: 'campaigns.manage',
-  CONTENT_READ: 'content.view',
-  CONTENT_WRITE: 'content.manage_landing',
-  SETTINGS_READ: 'system.view_settings',
-  SETTINGS_WRITE: 'system.manage_settings',
-  ANALYTICS_READ: 'system.view_logs',
-  AUDIT_LOGS_READ: 'system.view_logs',
-  SECURITY_READ: 'system.view_logs',
-  SECURITY_WRITE: 'system.manage_settings'
+  USERS_READ: 'users:read',
+  USERS_WRITE: 'users:write',
+  PLANS_READ: 'plans:read',
+  PLANS_WRITE: 'plans:write',
+  PAYMENTS_READ: 'payments:read',
+  PAYMENTS_WRITE: 'payments:write',
+  CAMPAIGNS_READ: 'campaigns:read',
+  CAMPAIGNS_WRITE: 'campaigns:write',
+  CONTENT_READ: 'content:read',
+  CONTENT_WRITE: 'content:write',
+  SETTINGS_READ: 'settings:read',
+  SETTINGS_WRITE: 'settings:write',
+  ANALYTICS_READ: 'analytics:read',
+  AUDIT_LOGS_READ: 'audit_logs:read',
+  SECURITY_READ: 'security:read',
+  SECURITY_WRITE: 'security:write'
 };
 
 export const ROLE_PERMISSIONS = {
