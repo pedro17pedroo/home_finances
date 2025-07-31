@@ -71,24 +71,23 @@ export default function TransactionDetailsPage() {
     if (!transaction) return;
     
     try {
-      // Fetch the HTML receipt for download
-      const response = await fetch(`/api/payment/receipt/${transaction.id}?download=true`, {
+      // Fetch the PDF receipt
+      const response = await fetch(`/api/payment/receipt/${transaction.id}/pdf`, {
         method: 'GET',
         credentials: 'include',
       });
       
       if (!response.ok) {
-        throw new Error('Erro ao gerar recibo');
+        throw new Error('Erro ao gerar recibo PDF');
       }
       
-      const htmlContent = await response.text();
+      const pdfBlob = await response.blob();
       
-      // Create a blob with HTML content
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = window.URL.createObjectURL(blob);
+      // Create a blob URL and trigger download
+      const url = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `recibo-${transaction.paymentReference}.html`;
+      link.download = `recibo-${transaction.paymentReference}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -153,7 +152,7 @@ export default function TransactionDetailsPage() {
           <div className="flex gap-2">
             <Button onClick={downloadReceipt} className="flex items-center gap-2">
               <Download className="w-4 h-4" />
-              Baixar Recibo (HTML)
+              Baixar Recibo (PDF)
             </Button>
             <Button 
               variant="outline" 

@@ -57,6 +57,7 @@ import {
   ADMIN_PERMISSIONS
 } from "./middleware/adminAuth";
 import paymentRoutes from "./routes/paymentRoutes";
+import puppeteer from 'puppeteer';
 
 // Initialize Stripe only if key is provided (required in production)
 let stripe: Stripe | null = null;
@@ -708,7 +709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate and download receipt HTML
+  // Generate and view receipt HTML
   app.get("/api/payment/receipt/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;
@@ -754,7 +755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const txn = transaction[0];
 
-      // Generate HTML receipt (simple version - in production you'd use a PDF library)
+      // Generate HTML receipt
       const receiptHtml = `
         <!DOCTYPE html>
         <html>
@@ -855,22 +856,242 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </html>
       `;
 
-      // Check if this is a download request
-      const isDownload = req.query.download === 'true';
-      
-      if (isDownload) {
-        // Set headers for HTML download
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="recibo-${txn.paymentReference}.html"`);
-      } else {
-        // Display in browser
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      }
-      
+      // Display HTML in browser
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(receiptHtml);
 
     } catch (error: any) {
       console.error('Error generating receipt:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Generate and download receipt PDF
+  app.get("/api/payment/receipt/:id/pdf", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const transactionId = parseInt(req.params.id);
+      
+      if (isNaN(transactionId)) {
+        return res.status(400).json({ message: "Invalid transaction ID" });
+      }
+
+      // Get transaction details
+      const transaction = await db.select({
+        id: paymentTransactions.id,
+        amount: paymentTransactions.amount,
+        finalAmount: paymentTransactions.finalAmount,
+        discountAmount: paymentTransactions.discountAmount,
+        status: paymentTransactions.status,
+        paymentReference: paymentTransactions.paymentReference,
+        processedAt: paymentTransactions.processedAt,
+        createdAt: paymentTransactions.createdAt,
+        planName: plans.name,
+        planType: plans.type,
+        paymentMethodName: paymentMethods.displayName,
+        currency: paymentTransactions.currency
+      })
+      .from(paymentTransactions)
+      .innerJoin(plans, eq(paymentTransactions.planId, plans.id))
+      .innerJoin(paymentMethods, eq(paymentTransactions.paymentMethodId, paymentMethods.id))
+      .where(and(
+        eq(paymentTransactions.id, transactionId),
+        eq(paymentTransactions.userId, userId),
+        eq(paymentTransactions.status, 'completed')
+      ))
+      .limit(1);
+
+      if (transaction.length === 0) {
+        return res.status(404).json({ message: "Transaction not found or not completed" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const txn = transaction[0];
+
+      // Generate HTML receipt
+      const receiptHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Recibo de Pagamento - ${txn.paymentReference}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              line-height: 1.6; 
+              color: #333; 
+              max-width: 600px; 
+              margin: 0 auto; 
+              padding: 20px; 
+              background: white; 
+            }
+            .header { 
+              text-align: center; 
+              border-bottom: 2px solid #0066cc; 
+              padding-bottom: 20px; 
+              margin-bottom: 30px; 
+            }
+            .company-name { 
+              font-size: 24px; 
+              font-weight: bold; 
+              color: #0066cc; 
+              margin-bottom: 5px; 
+            }
+            .receipt-title { 
+              font-size: 18px; 
+              color: #666; 
+            }
+            .info-section { 
+              margin-bottom: 20px; 
+            }
+            .info-row { 
+              display: flex; 
+              justify-content: space-between; 
+              margin-bottom: 8px; 
+              align-items: flex-start; 
+            }
+            .label { 
+              font-weight: bold; 
+              flex: 1; 
+            }
+            .value { 
+              text-align: right; 
+              flex: 1; 
+            }
+            .total-section { 
+              border-top: 2px solid #0066cc; 
+              padding-top: 15px; 
+              margin-top: 20px; 
+            }
+            .total-row { 
+              font-size: 18px; 
+              font-weight: bold; 
+            }
+            .footer { 
+              text-align: center; 
+              margin-top: 40px; 
+              padding-top: 20px; 
+              border-top: 1px solid #ccc; 
+              color: #666; 
+              font-size: 12px; 
+            }
+            h3 { 
+              color: #0066cc; 
+              border-bottom: 1px solid #eee; 
+              padding-bottom: 5px; 
+              margin-top: 25px; 
+              margin-bottom: 15px; 
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">FinanceControl</div>
+            <div class="receipt-title">Recibo de Pagamento</div>
+          </div>
+          
+          <div class="info-section">
+            <div class="info-row">
+              <span class="label">Número do Recibo:</span>
+              <span class="value">${txn.paymentReference}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Data de Emissão:</span>
+              <span class="value">${new Date(txn.createdAt).toLocaleDateString('pt-BR')}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Data de Processamento:</span>
+              <span class="value">${txn.processedAt ? new Date(txn.processedAt).toLocaleDateString('pt-BR') : 'N/A'}</span>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <h3>Dados do Cliente</h3>
+            <div class="info-row">
+              <span class="label">Nome:</span>
+              <span class="value">${user.firstName || ''} ${user.lastName || ''}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">E-mail:</span>
+              <span class="value">${user.email || ''}</span>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <h3>Detalhes do Serviço</h3>
+            <div class="info-row">
+              <span class="label">Plano:</span>
+              <span class="value">${txn.planName}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Método de Pagamento:</span>
+              <span class="value">${txn.paymentMethodName}</span>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <h3>Valores</h3>
+            <div class="info-row">
+              <span class="label">Valor do Plano:</span>
+              <span class="value">${parseFloat(txn.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'AOA' })}</span>
+            </div>
+            ${txn.discountAmount && parseFloat(txn.discountAmount) > 0 ? `
+            <div class="info-row">
+              <span class="label">Desconto:</span>
+              <span class="value">-${parseFloat(txn.discountAmount).toLocaleString('pt-BR', { style: 'currency', currency: 'AOA' })}</span>
+            </div>
+            ` : ''}
+          </div>
+
+          <div class="total-section">
+            <div class="info-row total-row">
+              <span class="label">Valor Total Pago:</span>
+              <span class="value">${parseFloat(txn.finalAmount).toLocaleString('pt-BR', { style: 'currency', currency: 'AOA' })}</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>Este é um recibo válido de pagamento.</p>
+            <p>FinanceControl - Sistema de Controle Financeiro Doméstico</p>
+            <p>Para dúvidas, entre em contato: suporte@financecontrol.com</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Launch Puppeteer and generate PDF
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      
+      const page = await browser.newPage();
+      await page.setContent(receiptHtml, { waitUntil: 'networkidle0' });
+      
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      });
+      
+      await browser.close();
+
+      // Set headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="recibo-${txn.paymentReference}.pdf"`);
+      res.send(pdfBuffer);
+
+    } catch (error: any) {
+      console.error('Error generating PDF receipt:', error);
       res.status(500).json({ message: error.message });
     }
   });
