@@ -24,6 +24,7 @@ import NotFound from "@/pages/not-found";
 import Perfil from "@/pages/perfil";
 import Categorias from "@/pages/categorias";
 import Contas from "@/pages/contas";
+import TransactionDetailsPage from "@/pages/transaction-details";
 import { AdminLogin, AdminDashboard, AdminUsers, AdminPlans } from "@/admin";
 
 // Lazy load admin components with proper wrappers
@@ -118,6 +119,12 @@ function Router() {
         <div className="min-h-screen bg-slate-50">
           <Header />
           <Perfil />
+        </div>
+      </Route>
+      <Route path="/transaction-details/:id">
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <TransactionDetailsPage />
         </div>
       </Route>
       

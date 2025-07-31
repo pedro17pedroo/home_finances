@@ -20,7 +20,8 @@ import {
   Users,
   Receipt,
   Clock,
-  Download
+  Download,
+  Eye
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TeamManagement from "@/components/team/team-management";
@@ -418,6 +419,12 @@ export default function SubscriptionPage() {
                               Expira em {format(new Date(transaction.expiresAt), "dd/MM/yyyy", { locale: ptBR })}
                             </div>
                           )}
+                          <Link href={`/transaction-details/${transaction.id}`}>
+                            <Button variant="outline" size="sm" className="flex items-center gap-2">
+                              <Eye className="w-3 h-3" />
+                              Detalhes
+                            </Button>
+                          </Link>
                         </div>
                       </div>
                     </div>
