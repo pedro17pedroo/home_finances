@@ -15,14 +15,26 @@ export class PaymentController {
       const { planId, paymentMethodId } = req.body;
       const userId = (req as any).session?.userId;
 
+      console.log('=== Payment Initiation Debug ===');
+      console.log('Request body:', req.body);
+      console.log('planId:', planId, 'type:', typeof planId);
+      console.log('paymentMethodId:', paymentMethodId, 'type:', typeof paymentMethodId);
+      console.log('userId:', userId);
+
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
       // Get plan details
+      console.log('Searching for plan with ID:', planId);
       const [plan] = await db.select().from(plans).where(eq(plans.id, planId));
+      console.log('Found plan:', plan);
+      
       if (!plan) {
-        return res.status(404).json({ message: "Plan not found" });
+        // Let's see what plans exist
+        const allPlans = await db.select().from(plans);
+        console.log('Available plans:', allPlans.map(p => ({ id: p.id, name: p.name, type: p.type })));
+        return res.status(404).json({ message: "Plano não encontrado" });
       }
 
       // Get payment method details
@@ -238,51 +250,6 @@ export class PaymentController {
       res.json({
         message: `Payment ${action === 'approve' ? 'approved' : 'rejected'} successfully`
       });
-    } catch (error) {
-      console.error('Process payment error:', error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  }
-
-  /**
-   * Get status description
-   */
-  private static getStatusDescription(status: string) {
-    const descriptions = {
-      pending: "Payment awaiting confirmation",
-      processing: "Payment being verified", 
-      completed: "Payment completed successfully",
-      failed: "Payment failed or rejected",
-      cancelled: "Payment cancelled"
-    };
-    
-    return descriptions[status as keyof typeof descriptions] || "Unknown status";
-  }
-}
-        });
-      } else {
-        // Reject payment
-        await db.update(paymentTransactions)
-          .set({ 
-            status: 'failed',
-            updatedAt: new Date()
-          })
-          .where(eq(paymentTransactions.id, parseInt(transactionId)));
-
-        await db.update(paymentConfirmations)
-          .set({ 
-            status: 'rejected',
-            adminNotes,
-            verifiedAt: new Date(),
-            verifiedBy: req.admin.id
-          })
-          .where(eq(paymentConfirmations.transactionId, parseInt(transactionId)));
-
-        res.json({ 
-          message: "Payment rejected",
-          transactionId: parseInt(transactionId)
-        });
-      }
     } catch (error) {
       console.error('Process payment error:', error);
       res.status(500).json({ message: "Internal server error" });

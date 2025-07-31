@@ -63,6 +63,7 @@ export default function PaymentPage() {
 
   const createPaymentMutation = useMutation({
     mutationFn: async ({ planId, paymentMethodId }: { planId: number; paymentMethodId: number }) => {
+      console.log('Creating payment with planId:', planId, 'paymentMethodId:', paymentMethodId);
       const response = await apiRequest("POST", "/api/payments/initiate", {
         planId,
         paymentMethodId,
