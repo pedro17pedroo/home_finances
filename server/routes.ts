@@ -708,7 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate and download receipt PDF
+  // Generate and download receipt HTML
   app.get("/api/payment/receipt/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;
@@ -762,17 +762,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <meta charset="UTF-8">
           <title>Recibo de Pagamento - ${txn.paymentReference}</title>
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background: white; }
             .header { text-align: center; border-bottom: 2px solid #0066cc; padding-bottom: 20px; margin-bottom: 30px; }
             .company-name { font-size: 24px; font-weight: bold; color: #0066cc; margin-bottom: 5px; }
             .receipt-title { font-size: 18px; color: #666; }
             .info-section { margin-bottom: 20px; }
-            .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-            .label { font-weight: bold; }
-            .value { text-align: right; }
+            .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: flex-start; }
+            .label { font-weight: bold; flex: 1; }
+            .value { text-align: right; flex: 1; }
             .total-section { border-top: 2px solid #0066cc; padding-top: 15px; margin-top: 20px; }
             .total-row { font-size: 18px; font-weight: bold; }
             .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; color: #666; font-size: 12px; }
+            h3 { color: #0066cc; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 25px; margin-bottom: 15px; }
+            @media print {
+              body { margin: 0; padding: 15px; }
+              .footer { page-break-inside: avoid; }
+            }
           </style>
         </head>
         <body>
@@ -850,9 +855,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </html>
       `;
 
-      // Set headers for PDF download
-      res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Content-Disposition', `attachment; filename="recibo-${txn.paymentReference}.html"`);
+      // Check if this is a download request
+      const isDownload = req.query.download === 'true';
+      
+      if (isDownload) {
+        // Set headers for HTML download
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="recibo-${txn.paymentReference}.html"`);
+      } else {
+        // Display in browser
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      }
+      
       res.send(receiptHtml);
 
     } catch (error: any) {

@@ -71,16 +71,24 @@ export default function TransactionDetailsPage() {
     if (!transaction) return;
     
     try {
-      const response = await apiRequest("GET", `/api/payment/receipt/${transaction.id}`, undefined, {
-        responseType: 'blob'
+      // Fetch the HTML receipt for download
+      const response = await fetch(`/api/payment/receipt/${transaction.id}?download=true`, {
+        method: 'GET',
+        credentials: 'include',
       });
       
-      // Create a blob URL and trigger download
-      const blob = new Blob([response], { type: 'application/pdf' });
+      if (!response.ok) {
+        throw new Error('Erro ao gerar recibo');
+      }
+      
+      const htmlContent = await response.text();
+      
+      // Create a blob with HTML content
+      const blob = new Blob([htmlContent], { type: 'text/html' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `recibo-${transaction.paymentReference}.pdf`;
+      link.download = `recibo-${transaction.paymentReference}.html`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -142,10 +150,20 @@ export default function TransactionDetailsPage() {
         </div>
         
         {transaction.status === 'completed' && (
-          <Button onClick={downloadReceipt} className="flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            Baixar Recibo
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={downloadReceipt} className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              Baixar Recibo (HTML)
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => window.open(`/api/payment/receipt/${transaction.id}`, '_blank')}
+              className="flex items-center gap-2"
+            >
+              <Receipt className="w-4 h-4" />
+              Ver Recibo
+            </Button>
+          </div>
         )}
       </div>
 
