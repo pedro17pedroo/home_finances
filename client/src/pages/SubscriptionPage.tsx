@@ -17,7 +17,10 @@ import {
   Zap,
   Shield,
   Star,
-  Users
+  Users,
+  Receipt,
+  Clock,
+  Download
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TeamManagement from "@/components/team/team-management";
@@ -48,6 +51,10 @@ export default function SubscriptionPage() {
 
   const { data: user } = useQuery({
     queryKey: ["/api/auth/me"],
+  });
+
+  const { data: paymentHistory } = useQuery({
+    queryKey: ["/api/subscription/payment-history"],
   });
 
   const cancelMutation = useMutation({
@@ -176,7 +183,7 @@ export default function SubscriptionPage() {
 
       {/* Tabs para diferentes seções */}
       <Tabs defaultValue="subscription" className="w-full">
-        <TabsList className={`grid w-full ${isEnterprisePlan ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full ${isEnterprisePlan ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <TabsTrigger value="subscription" className="flex items-center gap-2">
             <CreditCard className="w-4 h-4" />
             Assinatura
@@ -184,6 +191,10 @@ export default function SubscriptionPage() {
           <TabsTrigger value="plans" className="flex items-center gap-2">
             <Star className="w-4 h-4" />
             Planos
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="flex items-center gap-2">
+            <Receipt className="w-4 h-4" />
+            Transações
           </TabsTrigger>
           {isEnterprisePlan && (
             <TabsTrigger value="team" className="flex items-center gap-2">
@@ -330,6 +341,97 @@ export default function SubscriptionPage() {
                   </Card>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Aba de Transações */}
+        <TabsContent value="payments" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="w-5 h-5" />
+                Histórico de Transações
+              </CardTitle>
+              <CardDescription>
+                Visualize todas as transações de compra de planos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {paymentHistory && paymentHistory.length > 0 ? (
+                <div className="space-y-4">
+                  {paymentHistory.map((transaction: any) => (
+                    <div key={transaction.id} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-medium">{transaction.planName}</h4>
+                            {transaction.status === 'completed' && (
+                              <Badge variant="default" className="bg-green-500">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Pago
+                              </Badge>
+                            )}
+                            {transaction.status === 'pending' && (
+                              <Badge variant="secondary">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Pendente
+                              </Badge>
+                            )}
+                            {transaction.status === 'failed' && (
+                              <Badge variant="destructive">
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Falhado
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                            <div>
+                              <span className="font-medium">Valor:</span> {formatCurrency(transaction.finalAmount)}
+                            </div>
+                            <div>
+                              <span className="font-medium">Método:</span> {transaction.paymentMethodName}
+                            </div>
+                            <div>
+                              <span className="font-medium">Data:</span> {format(new Date(transaction.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                            </div>
+                          </div>
+                          {transaction.discountAmount && parseFloat(transaction.discountAmount) > 0 && (
+                            <div className="text-sm text-green-600 mt-2">
+                              Desconto aplicado: {formatCurrency(transaction.discountAmount)}
+                            </div>
+                          )}
+                          {transaction.paymentReference && (
+                            <div className="text-sm text-gray-500 mt-2">
+                              Referência: {transaction.paymentReference}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          {transaction.status === 'completed' && transaction.processedAt && (
+                            <div className="text-xs text-gray-500">
+                              Processado em {format(new Date(transaction.processedAt), "dd/MM/yyyy", { locale: ptBR })}
+                            </div>
+                          )}
+                          {transaction.expiresAt && transaction.status === 'pending' && (
+                            <div className="text-xs text-orange-600">
+                              Expira em {format(new Date(transaction.expiresAt), "dd/MM/yyyy", { locale: ptBR })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Receipt className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">Nenhuma transação encontrada</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Suas transações de pagamento aparecerão aqui
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

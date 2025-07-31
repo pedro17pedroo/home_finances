@@ -563,6 +563,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get payment history for user subscription
+  app.get("/api/subscription/payment-history", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      
+      // Get payment transactions with plan and payment method info
+      const transactions = await db.select({
+        id: paymentTransactions.id,
+        amount: paymentTransactions.amount,
+        finalAmount: paymentTransactions.finalAmount,
+        discountAmount: paymentTransactions.discountAmount,
+        status: paymentTransactions.status,
+        paymentReference: paymentTransactions.paymentReference,
+        processedAt: paymentTransactions.processedAt,
+        expiresAt: paymentTransactions.expiresAt,
+        createdAt: paymentTransactions.createdAt,
+        planName: plans.name,
+        planType: plans.type,
+        paymentMethodName: paymentMethods.displayName,
+        currency: paymentTransactions.currency
+      })
+      .from(paymentTransactions)
+      .innerJoin(plans, eq(paymentTransactions.planId, plans.id))
+      .innerJoin(paymentMethods, eq(paymentTransactions.paymentMethodId, paymentMethods.id))
+      .where(eq(paymentTransactions.userId, userId))
+      .orderBy(desc(paymentTransactions.createdAt))
+      .limit(50);
+
+      res.json(transactions);
+    } catch (error: any) {
+      console.error('Error fetching payment history:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/subscription/cancel", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;
