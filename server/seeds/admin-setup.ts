@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { adminUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import { hashAdminPassword } from '../admin-auth';
+import bcryptjs from 'bcryptjs';
 
 async function createAdminUser() {
   try {
@@ -19,7 +19,7 @@ async function createAdminUser() {
     }
     
     // Hash the password
-    const hashedPassword = await hashAdminPassword(password);
+    const hashedPassword = await bcryptjs.hash(password, 12);
     
     // Create the admin user
     await db.insert(adminUsers).values({
@@ -50,14 +50,12 @@ async function createAdminUser() {
 }
 
 // Run if called directly
-if (require.main === module) {
-  createAdminUser().then(() => {
-    console.log('Admin setup completed');
-    process.exit(0);
-  }).catch((error) => {
-    console.error('Admin setup failed:', error);
-    process.exit(1);
-  });
-}
+createAdminUser().then(() => {
+  console.log('Admin setup completed');
+  process.exit(0);
+}).catch((error) => {
+  console.error('Admin setup failed:', error);
+  process.exit(1);
+});
 
 export { createAdminUser };
