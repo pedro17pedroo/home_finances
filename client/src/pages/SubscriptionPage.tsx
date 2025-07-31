@@ -379,6 +379,12 @@ export default function SubscriptionPage() {
                                 Pendente
                               </Badge>
                             )}
+                            {transaction.status === 'processing' && (
+                              <Badge variant="default" className="bg-blue-500">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Em Análise
+                              </Badge>
+                            )}
                             {transaction.status === 'failed' && (
                               <Badge variant="destructive">
                                 <XCircle className="w-3 h-3 mr-1" />
@@ -414,9 +420,14 @@ export default function SubscriptionPage() {
                               Processado em {format(new Date(transaction.processedAt), "dd/MM/yyyy", { locale: ptBR })}
                             </div>
                           )}
-                          {transaction.expiresAt && transaction.status === 'pending' && (
+                          {transaction.expiresAt && (transaction.status === 'pending' || transaction.status === 'processing') && (
                             <div className="text-xs text-orange-600">
                               Expira em {format(new Date(transaction.expiresAt), "dd/MM/yyyy", { locale: ptBR })}
+                            </div>
+                          )}
+                          {transaction.status === 'processing' && (
+                            <div className="text-xs text-blue-600">
+                              Comprovativo enviado, aguardando aprovação
                             </div>
                           )}
                           <Link href={`/transaction-details/${transaction.id}`}>

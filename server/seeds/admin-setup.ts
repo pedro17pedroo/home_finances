@@ -37,7 +37,14 @@ async function createAdminUser() {
         'settings:read', 'settings:write',
         'analytics:read',
         'audit_logs:read',
-        'security:read', 'security:write'
+        'security:read', 'security:write',
+        'users.view', 'users.edit', 'users.delete',
+        'plans.view', 'plans.edit', 'plans.delete',
+        'payments.view', 'payments.manage_methods', 'payments.approve',
+        'campaigns.view', 'campaigns.edit', 'campaigns.delete',
+        'content.manage_landing', 'content.manage_legal',
+        'system.view_settings', 'system.edit_settings',
+        'system.view_logs', 'system.view_analytics'
       ],
       isActive: true
     });
