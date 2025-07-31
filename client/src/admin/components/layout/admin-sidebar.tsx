@@ -33,67 +33,67 @@ export function AdminSidebar() {
       name: 'Utilizadores',
       href: '/admin/users',
       icon: Users,
-      permission: ADMIN_PERMISSIONS.USERS.VIEW,
+      permission: ADMIN_PERMISSIONS.USERS_READ,
     },
     {
       name: 'Planos',
       href: '/admin/plans',
       icon: CreditCard,
-      permission: ADMIN_PERMISSIONS.PLANS.VIEW,
+      permission: ADMIN_PERMISSIONS.PLANS_READ,
     },
     {
       name: 'Métodos de Pagamento',
       href: '/admin/payment-methods',
       icon: Wallet,
-      permission: ADMIN_PERMISSIONS.PAYMENTS.VIEW,
+      permission: ADMIN_PERMISSIONS.PAYMENTS_READ,
     },
     {
       name: 'Aprovar Pagamentos',
       href: '/admin/payment-approvals',
       icon: CheckCircle,
-      permission: ADMIN_PERMISSIONS.PAYMENTS.APPROVE,
+      permission: ADMIN_PERMISSIONS.PAYMENTS_WRITE,
     },
     {
       name: 'Campanhas',
       href: '/admin/campaigns',
       icon: Gift,
-      permission: ADMIN_PERMISSIONS.CAMPAIGNS.VIEW,
+      permission: ADMIN_PERMISSIONS.CAMPAIGNS_READ,
     },
     {
       name: 'Conteúdo Landing',
       href: '/admin/landing-content',
       icon: Globe,
-      permission: ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING,
+      permission: ADMIN_PERMISSIONS.CONTENT_WRITE,
     },
     {
       name: 'Conteúdo Legal',
       href: '/admin/legal-content',
       icon: Scale,
-      permission: ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL,
+      permission: ADMIN_PERMISSIONS.CONTENT_WRITE,
     },
     {
       name: 'Configurações',
       href: '/admin/system-settings',
       icon: Settings,
-      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_SETTINGS,
+      permission: ADMIN_PERMISSIONS.SETTINGS_READ,
     },
     {
       name: 'Analytics',
       href: '/admin/analytics',
       icon: BarChart3,
-      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS,
+      permission: ADMIN_PERMISSIONS.ANALYTICS_READ,
     },
     {
       name: 'Logs de Auditoria',
       href: '/admin/audit-logs',
       icon: FileText,
-      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS,
+      permission: ADMIN_PERMISSIONS.AUDIT_LOGS_READ,
     },
     {
       name: 'Logs de Segurança',
       href: '/admin/security-logs',
       icon: Shield,
-      permission: ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS,
+      permission: ADMIN_PERMISSIONS.SECURITY_READ,
     },
   ];
 
@@ -127,7 +127,7 @@ export function AdminSidebar() {
         {filteredNavigation.map((item) => {
           const Icon = item.icon;
           const isActive = location.startsWith(item.href);
-
+          
           return (
             <Link key={item.name} href={item.href}>
               <div className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
