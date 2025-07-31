@@ -71,7 +71,7 @@ export default function UsageLimits({ showTitle = true, compact = false }: Usage
     }
   };
 
-  const shouldShowAlert = (percentage: number) => percentage >= 80;
+  const shouldShowAlert = (percentage: number) => percentage && percentage >= 80;
 
   if (compact) {
     return (
@@ -94,8 +94,8 @@ export default function UsageLimits({ showTitle = true, compact = false }: Usage
             <div className="text-xs text-muted-foreground">
               {limits.accounts.current} / {formatLimit(limits.accounts.limit)}
             </div>
-            {limits.accounts.limit !== Infinity && (
-              <Progress value={limits.accounts.percentage} className="h-1" />
+            {limits.accounts.limit !== Infinity && limits.accounts.limit !== -1 && (
+              <Progress value={limits.accounts.percentage || 0} className="h-1" />
             )}
           </div>
           
@@ -107,8 +107,8 @@ export default function UsageLimits({ showTitle = true, compact = false }: Usage
             <div className="text-xs text-muted-foreground">
               {limits.transactions.current} / {formatLimit(limits.transactions.limit)}
             </div>
-            {limits.transactions.limit !== Infinity && (
-              <Progress value={limits.transactions.percentage} className="h-1" />
+            {limits.transactions.limit !== Infinity && limits.transactions.limit !== -1 && (
+              <Progress value={limits.transactions.percentage || 0} className="h-1" />
             )}
           </div>
         </div>
@@ -158,9 +158,9 @@ export default function UsageLimits({ showTitle = true, compact = false }: Usage
           
           {limits.accounts.limit !== Infinity && (
             <div className="space-y-2">
-              <Progress value={limits.accounts.percentage} />
+              <Progress value={limits.accounts.percentage || 0} />
               <div className="text-xs text-muted-foreground">
-                {limits.accounts.percentage.toFixed(1)}% utilizado
+                {(limits.accounts.percentage || 0).toFixed(1)}% utilizado
               </div>
             </div>
           )}
@@ -189,9 +189,9 @@ export default function UsageLimits({ showTitle = true, compact = false }: Usage
           
           {limits.transactions.limit !== Infinity && (
             <div className="space-y-2">
-              <Progress value={limits.transactions.percentage} />
+              <Progress value={limits.transactions.percentage || 0} />
               <div className="text-xs text-muted-foreground">
-                {limits.transactions.percentage.toFixed(1)}% utilizado
+                {(limits.transactions.percentage || 0).toFixed(1)}% utilizado
               </div>
             </div>
           )}

@@ -987,7 +987,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Plano do usuário não encontrado' });
       }
 
-      const limitsStatus = { accounts: { current: 0, max: -1 }, transactions: { current: 0, max: -1 } };
+      // Get current counts
+      const accounts = await storage.getAccounts(userId);
+      const currentAccountsCount = accounts.length;
+      
+      // Get current month transactions count
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      const transactions = await storage.getTransactionsByDateRange(userId, startOfMonth, endOfMonth);
+      const currentTransactionsCount = transactions.length;
+
+      // Get plan limits
+      const plan = await storage.getPlanByType(user.planType);
+      const accountsLimit = plan?.maxAccounts || -1;
+      const transactionsLimit = plan?.maxTransactions || -1;
+
+      // Calculate percentages
+      const accountsPercentage = accountsLimit === -1 ? 0 : Math.min((currentAccountsCount / accountsLimit) * 100, 100);
+      const transactionsPercentage = transactionsLimit === -1 ? 0 : Math.min((currentTransactionsCount / transactionsLimit) * 100, 100);
+
+      const limitsStatus = {
+        accounts: {
+          current: currentAccountsCount,
+          limit: accountsLimit,
+          percentage: accountsPercentage,
+          canCreate: accountsLimit === -1 || currentAccountsCount < accountsLimit
+        },
+        transactions: {
+          current: currentTransactionsCount,
+          limit: transactionsLimit,
+          percentage: transactionsPercentage,
+          canCreate: transactionsLimit === -1 || currentTransactionsCount < transactionsLimit
+        },
+        planType: user.planType,
+        isUnlimited: accountsLimit === -1 && transactionsLimit === -1
+      };
+      
       res.json(limitsStatus);
     } catch (error) {
       console.error("Error fetching user limits:", error);
