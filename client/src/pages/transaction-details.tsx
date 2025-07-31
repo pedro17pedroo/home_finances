@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { 
   ArrowLeft,
-  Download,
   Receipt,
   CreditCard,
   Calendar,
@@ -68,36 +67,7 @@ export default function TransactionDetailsPage() {
     }
   };
 
-  const downloadReceipt = async () => {
-    if (!transaction) return;
-    
-    try {
-      // Fetch the HTML receipt
-      const response = await fetch(`/api/payment/receipt/${transaction.id}/pdf`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Erro ao gerar recibo');
-      }
-      
-      const htmlBlob = await response.blob();
-      
-      // Create a blob URL and trigger download
-      const url = window.URL.createObjectURL(htmlBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `recibo-${transaction.paymentReference}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error: any) {
-      console.error('Erro ao baixar recibo:', error);
-      // Could show a toast error here
-    }
-  };
+
 
   const printReceipt = () => {
     if (!transaction) return;
@@ -168,14 +138,6 @@ export default function TransactionDetailsPage() {
             <Button onClick={printReceipt} className="flex items-center gap-2">
               <Printer className="w-4 h-4" />
               Imprimir PDF
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={downloadReceipt} 
-              className="flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Baixar HTML
             </Button>
             <Button 
               variant="outline" 
