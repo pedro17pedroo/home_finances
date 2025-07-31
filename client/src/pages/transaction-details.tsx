@@ -17,7 +17,8 @@ import {
   Building,
   User,
   Hash,
-  DollarSign
+  DollarSign,
+  Printer
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -71,23 +72,23 @@ export default function TransactionDetailsPage() {
     if (!transaction) return;
     
     try {
-      // Fetch the PDF receipt
+      // Fetch the HTML receipt
       const response = await fetch(`/api/payment/receipt/${transaction.id}/pdf`, {
         method: 'GET',
         credentials: 'include',
       });
       
       if (!response.ok) {
-        throw new Error('Erro ao gerar recibo PDF');
+        throw new Error('Erro ao gerar recibo');
       }
       
-      const pdfBlob = await response.blob();
+      const htmlBlob = await response.blob();
       
       // Create a blob URL and trigger download
-      const url = window.URL.createObjectURL(pdfBlob);
+      const url = window.URL.createObjectURL(htmlBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `recibo-${transaction.paymentReference}.pdf`;
+      link.download = `recibo-${transaction.paymentReference}.html`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -95,6 +96,20 @@ export default function TransactionDetailsPage() {
     } catch (error: any) {
       console.error('Erro ao baixar recibo:', error);
       // Could show a toast error here
+    }
+  };
+
+  const printReceipt = () => {
+    if (!transaction) return;
+    
+    // Open receipt in new window for printing
+    const printWindow = window.open(`/api/payment/receipt/${transaction.id}`, '_blank');
+    if (printWindow) {
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+      };
     }
   };
 
@@ -149,10 +164,18 @@ export default function TransactionDetailsPage() {
         </div>
         
         {transaction.status === 'completed' && (
-          <div className="flex gap-2">
-            <Button onClick={downloadReceipt} className="flex items-center gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={printReceipt} className="flex items-center gap-2">
+              <Printer className="w-4 h-4" />
+              Imprimir PDF
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={downloadReceipt} 
+              className="flex items-center gap-2"
+            >
               <Download className="w-4 h-4" />
-              Baixar Recibo (PDF)
+              Baixar HTML
             </Button>
             <Button 
               variant="outline" 

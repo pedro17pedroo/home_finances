@@ -57,7 +57,7 @@ import {
   ADMIN_PERMISSIONS
 } from "./middleware/adminAuth";
 import paymentRoutes from "./routes/paymentRoutes";
-import puppeteer from 'puppeteer';
+// Note: PDF generation requires additional setup in production
 
 // Initialize Stripe only if key is provided (required in production)
 let stripe: Stripe | null = null;
@@ -776,8 +776,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; color: #666; font-size: 12px; }
             h3 { color: #0066cc; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 25px; margin-bottom: 15px; }
             @media print {
-              body { margin: 0; padding: 15px; }
-              .footer { page-break-inside: avoid; }
+              body { 
+                margin: 0; 
+                padding: 15px; 
+                font-size: 12px;
+                color: #000 !important;
+                background: white !important;
+              }
+              .footer { 
+                page-break-inside: avoid; 
+                margin-top: 30px;
+              }
+              .header {
+                border-bottom: 2px solid #000 !important;
+                margin-bottom: 20px;
+              }
+              .company-name {
+                color: #000 !important;
+              }
+              .total-section {
+                border-top: 2px solid #000 !important;
+              }
+              h3 {
+                color: #000 !important;
+                border-bottom: 1px solid #000 !important;
+              }
+            }
+            @page {
+              size: A4;
+              margin: 15mm;
             }
           </style>
         </head>
@@ -1063,31 +1090,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </html>
       `;
 
-      // Launch Puppeteer and generate PDF
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-      
-      const page = await browser.newPage();
-      await page.setContent(receiptHtml, { waitUntil: 'networkidle0' });
-      
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '20px',
-          right: '20px',
-          bottom: '20px',
-          left: '20px'
-        }
-      });
-      
-      await browser.close();
+      // For now, return HTML with print styles as PDF fallback
+      // In production, this would use a proper PDF generation service
+      const pdfBuffer = Buffer.from(receiptHtml, 'utf8');
 
-      // Set headers for PDF download
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="recibo-${txn.paymentReference}.pdf"`);
+      // Set headers for HTML download with print styles (PDF alternative)
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="recibo-${txn.paymentReference}.html"`);
       res.send(pdfBuffer);
 
     } catch (error: any) {
