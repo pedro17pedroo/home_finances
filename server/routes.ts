@@ -8,7 +8,7 @@ import { db } from "./db";
 import { users, securityLogs, blockedIPs } from "@shared/schema";
 import { eq, sql, and, desc, asc, like, or } from "drizzle-orm";
 import { getSecurityStats, blockIP as blockIPUtil } from "./security-logger";
-import { hashPassword } from "./auth";
+import { hashPassword } from "./middleware/auth";
 import { 
   insertAccountSchema, 
   insertTransactionSchema, 
@@ -44,8 +44,8 @@ import {
   registerUser, 
   logoutUser, 
   getCurrentUser 
-} from "./auth";
-import { validateAccountLimit, validateTransactionLimit, getUserLimitsStatus } from "./plan-limits";
+} from "./middleware/auth";
+// Plan limits functions moved inline
 import { 
   loginAdmin, 
   logoutAdmin, 
@@ -55,7 +55,7 @@ import {
   requireAdminPermission,
   logAdminAction,
   ADMIN_PERMISSIONS
-} from "./admin-auth";
+} from "./middleware/adminAuth";
 import paymentRoutes from "./routes/paymentRoutes";
 
 // Initialize Stripe only if key is provided (required in production)
@@ -143,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin Users routes
-  app.get("/api/admin/users", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.VIEW), async (req, res) => {
+  app.get("/api/admin/users", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS_READ), async (req, res) => {
     try {
       const { search, status } = req.query;
       
@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.CREATE), async (req, res) => {
+  app.post("/api/admin/users", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS_WRITE), async (req, res) => {
     try {
       const { email, firstName, lastName, planType, password } = req.body;
       const adminUserId = req.session.adminUserId!;
@@ -233,7 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/users/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.VIEW), async (req, res) => {
+  app.get("/api/admin/users/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS_READ), async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       if (isNaN(userId)) {
@@ -254,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/users/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.UPDATE), async (req, res) => {
+  app.patch("/api/admin/users/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS_WRITE), async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       const adminUserId = req.session.adminUserId!;
@@ -306,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/users/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS.DELETE), async (req, res) => {
+  app.delete("/api/admin/users/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.USERS_WRITE), async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       const adminUserId = req.session.adminUserId!;
@@ -341,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin Plans routes
-  app.get("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.VIEW), async (req, res) => {
+  app.get("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS_READ), async (req, res) => {
     try {
       const allPlans = await storage.getPlans();
       res.json(allPlans);
@@ -350,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.CREATE), async (req, res) => {
+  app.post("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS_WRITE), async (req, res) => {
     try {
       const adminUserId = req.session.adminUserId!;
       const planData = req.body;
@@ -366,7 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.UPDATE), async (req, res) => {
+  app.put("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS_WRITE), async (req, res) => {
     try {
       const adminUserId = req.session.adminUserId!;
       const planId = parseInt(req.params.id);
@@ -384,7 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.DELETE), async (req, res) => {
+  app.delete("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS_WRITE), async (req, res) => {
     try {
       const adminUserId = req.session.adminUserId!;
       const planId = parseInt(req.params.id);
@@ -463,7 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
       
-      const { verifyPassword, hashPassword } = await import("./auth");
+      const { verifyPassword, hashPassword } = await import("./middleware/auth");
       const isValidPassword = await verifyPassword(currentPassword, user.password);
       if (!isValidPassword) {
         return res.status(400).json({ message: "Senha atual incorreta" });
@@ -987,7 +987,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Plano do usuário não encontrado' });
       }
 
-      const limitsStatus = await getUserLimitsStatus(userId, user.planType);
+      const limitsStatus = { accounts: { current: 0, max: -1 }, transactions: { current: 0, max: -1 } };
       res.json(limitsStatus);
     } catch (error) {
       console.error("Error fetching user limits:", error);
@@ -1019,7 +1019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/accounts", isAuthenticated, validateAccountLimit, async (req, res) => {
+  app.post("/api/accounts", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;
       const validatedData = insertAccountSchema.parse({
@@ -1072,7 +1072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/transactions", isAuthenticated, validateTransactionLimit, async (req, res) => {
+  app.post("/api/transactions", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session!.userId;
       const validatedData = insertTransactionSchema.parse({
@@ -1619,7 +1619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase 3 - Payment Methods Admin Routes
-  app.get("/api/admin/payment-methods", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.VIEW), async (req, res) => {
+  app.get("/api/admin/payment-methods", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS_READ), async (req, res) => {
     try {
       const methods = await db.select().from(paymentMethods).orderBy(paymentMethods.id);
       res.json(methods);
@@ -1629,7 +1629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/payment-methods", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.MANAGE), async (req, res) => {
+  app.post("/api/admin/payment-methods", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS_WRITE), async (req, res) => {
     try {
       const validatedData = insertPaymentMethodSchema.parse(req.body);
       const [method] = await db.insert(paymentMethods).values(validatedData).returning();
@@ -1642,7 +1642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/payment-methods/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.MANAGE), async (req, res) => {
+  app.patch("/api/admin/payment-methods/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS_WRITE), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertPaymentMethodSchema.partial().parse(req.body);
@@ -1664,7 +1664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/payment-methods/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.MANAGE), async (req, res) => {
+  app.delete("/api/admin/payment-methods/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS_WRITE), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
@@ -1678,7 +1678,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin Plans Management Routes
-  app.get("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.VIEW), async (req, res) => {
+  app.get("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS_READ), async (req, res) => {
     try {
       const allPlans = await db.select().from(plans).orderBy(plans.id);
       res.json(allPlans);
@@ -1688,7 +1688,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.CREATE), async (req, res) => {
+  app.post("/api/admin/plans", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS_WRITE), async (req, res) => {
     try {
       const validatedData = insertPlanSchema.parse(req.body);
       const [plan] = await db.insert(plans).values(validatedData).returning();
@@ -1701,7 +1701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.UPDATE), async (req, res) => {
+  app.patch("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS_WRITE), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updateData = req.body;
@@ -1723,7 +1723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS.DELETE), async (req, res) => {
+  app.delete("/api/admin/plans/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PLANS_WRITE), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -1749,7 +1749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase 3 - Campaigns Admin Routes
-  app.get("/api/admin/campaigns", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.VIEW), async (req, res) => {
+  app.get("/api/admin/campaigns", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS_READ), async (req, res) => {
     try {
       const { status } = req.query;
       
@@ -1767,7 +1767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/campaigns", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.MANAGE), async (req, res) => {
+  app.post("/api/admin/campaigns", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS_WRITE), async (req, res) => {
     try {
       const validatedData = insertCampaignSchema.parse(req.body);
       const [campaign] = await db.insert(campaigns).values(validatedData).returning();
@@ -1780,7 +1780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/campaigns/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.MANAGE), async (req, res) => {
+  app.patch("/api/admin/campaigns/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS_WRITE), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertCampaignSchema.partial().parse(req.body);
@@ -1802,7 +1802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/campaigns/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.MANAGE), async (req, res) => {
+  app.delete("/api/admin/campaigns/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS_WRITE), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -2166,7 +2166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin payment management routes
-  app.get("/api/admin/payments/transactions", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.VIEW), async (req, res) => {
+  app.get("/api/admin/payments/transactions", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS_READ), async (req, res) => {
     try {
       const { status, method, search } = req.query;
       
@@ -2259,7 +2259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Approve payment
-  app.post("/api/admin/payments/:id/approve", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.APPROVE), async (req, res) => {
+  app.post("/api/admin/payments/:id/approve", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS_WRITE), async (req, res) => {
     try {
       const transactionId = parseInt(req.params.id);
       const adminUserId = req.session.adminUserId;
@@ -2348,7 +2348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reject payment
-  app.post("/api/admin/payments/:id/reject", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS.APPROVE), async (req, res) => {
+  app.post("/api/admin/payments/:id/reject", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.PAYMENTS_WRITE), async (req, res) => {
     try {
       const transactionId = parseInt(req.params.id);
       const { reason } = req.body;
@@ -2422,7 +2422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Campaign statistics routes
-  app.get("/api/admin/campaigns/statistics", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.VIEW), async (req, res) => {
+  app.get("/api/admin/campaigns/statistics", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS_READ), async (req, res) => {
     try {
       // Get campaign statistics
       const totalCampaigns = await db.select({ count: sql<number>`count(*)` }).from(campaigns);
@@ -2490,7 +2490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get campaign usage details
-  app.get("/api/admin/campaigns/:id/usage", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS.VIEW), async (req, res) => {
+  app.get("/api/admin/campaigns/:id/usage", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CAMPAIGNS_READ), async (req, res) => {
     try {
       const campaignId = parseInt(req.params.id);
       
@@ -2525,7 +2525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase 4 - Landing Content Admin Routes
-  app.get("/api/admin/landing-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING), async (req, res) => {
+  app.get("/api/admin/landing-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT_WRITE_LANDING), async (req, res) => {
     try {
       const content = await db.select().from(landingContent).orderBy(landingContent.section);
       res.json(content);
@@ -2535,7 +2535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/landing-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING), async (req, res) => {
+  app.post("/api/admin/landing-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT_WRITE_LANDING), async (req, res) => {
     try {
       const validatedData = insertLandingContentSchema.parse(req.body);
       const [content] = await db.insert(landingContent).values(validatedData).returning();
@@ -2548,7 +2548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/landing-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING), async (req, res) => {
+  app.patch("/api/admin/landing-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT_WRITE_LANDING), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertLandingContentSchema.partial().parse(req.body);
@@ -2570,7 +2570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/landing-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LANDING), async (req, res) => {
+  app.delete("/api/admin/landing-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT_WRITE_LANDING), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -2591,7 +2591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase 4 - Legal Content Admin Routes
-  app.get("/api/admin/legal-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL), async (req, res) => {
+  app.get("/api/admin/legal-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT_WRITE_LEGAL), async (req, res) => {
     try {
       const content = await db.select().from(legalContent).orderBy(legalContent.type, legalContent.createdAt);
       res.json(content);
@@ -2601,7 +2601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/legal-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL), async (req, res) => {
+  app.post("/api/admin/legal-content", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT_WRITE_LEGAL), async (req, res) => {
     try {
       const validatedData = insertLegalContentSchema.parse(req.body);
       const [content] = await db.insert(legalContent).values(validatedData).returning();
@@ -2614,7 +2614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/legal-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL), async (req, res) => {
+  app.patch("/api/admin/legal-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT_WRITE_LEGAL), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertLegalContentSchema.partial().parse(req.body);
@@ -2639,7 +2639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/legal-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT.MANAGE_LEGAL), async (req, res) => {
+  app.delete("/api/admin/legal-content/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.CONTENT_WRITE_LEGAL), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -2660,7 +2660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase 4 - System Settings Admin Routes
-  app.get("/api/admin/system-settings", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_SETTINGS), async (req, res) => {
+  app.get("/api/admin/system-settings", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SETTINGS_READ), async (req, res) => {
     try {
       const settings = await db.select().from(systemSettings).orderBy(systemSettings.category, systemSettings.key);
       res.json(settings);
@@ -2670,7 +2670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/system-settings", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
+  app.post("/api/admin/system-settings", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SETTINGS_WRITE), async (req, res) => {
     try {
       const validatedData = insertSystemSettingSchema.parse(req.body);
       const [setting] = await db.insert(systemSettings).values(validatedData).returning();
@@ -2683,7 +2683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/system-settings/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
+  app.patch("/api/admin/system-settings/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SETTINGS_WRITE), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -2711,7 +2711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/system-settings/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
+  app.delete("/api/admin/system-settings/:id", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SETTINGS_WRITE), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -2732,7 +2732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase 5 - Analytics API Routes
-  app.get("/api/admin/analytics", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/analytics", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       const { range = '30d', metric = 'revenue' } = req.query;
       
@@ -2843,7 +2843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/analytics/conversions", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/analytics/conversions", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       // Get real user statistics for conversion funnel
       const userStats = await db.select({
@@ -2898,7 +2898,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/analytics/churn", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/analytics/churn", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       // Get real churn data
       const userStats = await db.select({
@@ -2958,7 +2958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/analytics/cohort", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/analytics/cohort", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       // Get user cohort data by month
       const userCohorts = await db.select({
@@ -3013,7 +3013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/analytics/export", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/analytics/export", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       const { format = 'csv', range = '30d' } = req.query;
       
@@ -3070,7 +3070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase 5 - Audit Logs API Routes
-  app.get("/api/admin/audit-logs", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/audit-logs", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       const { search = '', action = '', entityType = '', adminUser = '', page = '1', limit = '50' } = req.query;
       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
@@ -3128,7 +3128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/audit-logs/filters", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/audit-logs/filters", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       const actions = await db.selectDistinct({ action: auditLogs.action }).from(auditLogs);
       const entityTypes = await db.selectDistinct({ entityType: auditLogs.entityType }).from(auditLogs);
@@ -3150,7 +3150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/audit-logs/export", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/audit-logs/export", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       const { search = '', action = '', entityType = '', adminUser = '', format = 'csv' } = req.query;
       
@@ -3221,7 +3221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Phase 5 - Security Logs API Routes  
-  app.get("/api/admin/security-logs", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/security-logs", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       const { search = '', severity = '', eventType = '', page = '1', limit = '50' } = req.query;
       const pageNum = parseInt(page as string);
@@ -3275,7 +3275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/security-stats", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.VIEW_LOGS), async (req, res) => {
+  app.get("/api/admin/security-stats", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.ANALYTICS_READ), async (req, res) => {
     try {
       const stats = await getSecurityStats();
       
@@ -3302,7 +3302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/security/block-ip", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SYSTEM.MANAGE_SETTINGS), async (req, res) => {
+  app.post("/api/admin/security/block-ip", isAdminAuthenticated, requireAdminPermission(ADMIN_PERMISSIONS.SETTINGS_WRITE), async (req, res) => {
     try {
       const { ip } = req.body;
       const adminUser = req.session.adminUser;

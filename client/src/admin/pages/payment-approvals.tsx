@@ -171,7 +171,7 @@ export default function PaymentApprovals() {
     }
   };
 
-  const filteredTransactions = transactions?.filter((transaction: PaymentTransaction) => {
+  const filteredTransactions = (transactions || []).filter((transaction: PaymentTransaction) => {
     const matchesStatus = filterStatus === "all" || transaction.status === filterStatus;
     const matchesMethod = filterMethod === "all" || transaction.paymentMethod.name === filterMethod;
     const matchesSearch = !searchTerm || 
@@ -181,11 +181,11 @@ export default function PaymentApprovals() {
       transaction.id.toString().includes(searchTerm);
     
     return matchesStatus && matchesMethod && matchesSearch;
-  }) || [];
+  });
 
-  const pendingTransactions = filteredTransactions.filter(t => t.status === 'processing');
-  const completedTransactions = filteredTransactions.filter(t => t.status === 'completed');
-  const rejectedTransactions = filteredTransactions.filter(t => t.status === 'failed' || t.status === 'rejected');
+  const pendingTransactions = filteredTransactions.filter((t: PaymentTransaction) => t.status === 'processing');
+  const completedTransactions = filteredTransactions.filter((t: PaymentTransaction) => t.status === 'completed');
+  const rejectedTransactions = filteredTransactions.filter((t: PaymentTransaction) => t.status === 'failed' || t.status === 'rejected');
 
   if (isLoading) {
     return (
@@ -252,7 +252,7 @@ export default function PaymentApprovals() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {paymentMethods?.map((method: any) => (
+                  {(paymentMethods || []).map((method: any) => (
                     <SelectItem key={method.id} value={method.name}>
                       {method.displayName}
                     </SelectItem>

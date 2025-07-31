@@ -9,6 +9,9 @@ declare global {
     interface Request {
       admin?: any;
     }
+    interface Session {
+      adminUserId?: number;
+    }
   }
 }
 
@@ -85,15 +88,63 @@ export function requireAdminPermission(permission: string) {
   };
 }
 
+export async function loginAdmin(req: Request, res: Response) {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const [admin] = await db.select().from(adminUsers).where(eq(adminUsers.email, email));
+    if (!admin || !admin.isActive || !await bcryptjs.compare(password, admin.password)) {
+      return res.status(401).json({ message: "Credenciais inválidas" });
+    }
+
+    req.session.adminUserId = admin.id;
+    const { password: _, ...adminWithoutPassword } = admin;
+    res.json({ admin: adminWithoutPassword, message: "Login realizado com sucesso" });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({ message: "Erro interno do servidor" });
+  }
+}
+
+export async function logoutAdmin(req: Request, res: Response) {
+  req.session.destroy(() => {
+    res.json({ message: "Logout realizado com sucesso" });
+  });
+}
+
+export async function getCurrentAdmin(req: Request, res: Response) {
+  try {
+    if (!req.session?.adminUserId) {
+      return res.status(401).json({ message: "Admin authentication required" });
+    }
+
+    const [admin] = await db.select().from(adminUsers).where(eq(adminUsers.id, req.session.adminUserId));
+    if (!admin || !admin.isActive) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ message: "Admin not found or inactive" });
+    }
+
+    const { password: _, ...adminWithoutPassword } = admin;
+    res.json(adminWithoutPassword);
+  } catch (error) {
+    console.error('Get current admin error:', error);
+    res.status(500).json({ message: "Authentication error" });
+  }
+}
+
 export async function logAdminAction(adminUserId: number, action: string, entityType?: string, entityId?: number, oldData?: any, newData?: any, ipAddress?: string, userAgent?: string) {
   try {
     await db.insert(auditLogs).values({
-      adminUserId,
+      userId: adminUserId,
+      userType: 'admin',
       action,
-      entityType,
-      entityId,
-      oldData,
-      newData,
+      resource: entityType || 'unknown',
+      resourceId: entityId?.toString(),
+      metadata: JSON.stringify({ oldData, newData }),
       ipAddress,
       userAgent,
     });
