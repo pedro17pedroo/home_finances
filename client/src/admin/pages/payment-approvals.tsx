@@ -407,6 +407,8 @@ export default function PaymentApprovals() {
               isRejecting={rejectPaymentMutation.isPending}
               rejectionReason={rejectionReason}
               setRejectionReason={setRejectionReason}
+              getStatusBadge={getStatusBadge}
+              getConfirmationStatusBadge={getConfirmationStatusBadge}
             />
           )}
         </DialogContent>
@@ -490,6 +492,8 @@ interface PaymentDetailsContentProps {
   isRejecting: boolean;
   rejectionReason: string;
   setRejectionReason: (reason: string) => void;
+  getStatusBadge: (status: string) => JSX.Element;
+  getConfirmationStatusBadge: (status: string) => JSX.Element;
 }
 
 function PaymentDetailsContent({
@@ -499,7 +503,9 @@ function PaymentDetailsContent({
   isApproving,
   isRejecting,
   rejectionReason,
-  setRejectionReason
+  setRejectionReason,
+  getStatusBadge,
+  getConfirmationStatusBadge
 }: PaymentDetailsContentProps) {
   const canApprove = transaction.status === 'processing' && transaction.confirmation?.status === 'pending';
   const canReject = transaction.status === 'processing' && transaction.confirmation?.status === 'pending';
