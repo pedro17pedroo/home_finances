@@ -56,6 +56,7 @@ import {
   logAdminAction,
   ADMIN_PERMISSIONS
 } from "./admin-auth";
+import paymentRoutes from "./routes/paymentRoutes";
 
 // Initialize Stripe only if key is provided (required in production)
 let stripe: Stripe | null = null;
@@ -97,6 +98,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", registerUser);
   app.post("/api/auth/logout", logoutUser);
   app.get("/api/auth/user", getCurrentUser);
+  
+  // Payment routes
+  app.use("/api/payments", paymentRoutes);
   
   // Admin Auth routes
   app.post("/api/admin/auth/login", loginAdmin);
@@ -2101,147 +2105,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Initiate payment endpoint
-  app.post("/api/payments/initiate", isAuthenticated, async (req, res) => {
-    try {
-      const { paymentMethodId, planType, couponCode } = req.body;
-      const userId = req.session.userId;
-      
-      // Get payment method
-      const [paymentMethod] = await db.select()
-        .from(paymentMethods)
-        .where(and(
-          eq(paymentMethods.id, paymentMethodId),
-          eq(paymentMethods.isActive, true)
-        ));
-      
-      if (!paymentMethod) {
-        return res.status(404).json({ message: "Método de pagamento não encontrado" });
-      }
-      
-      // Get plan
-      const [plan] = await db.select().from(plans).where(eq(plans.type, planType));
-      if (!plan) {
-        return res.status(404).json({ message: "Plano não encontrado" });
-      }
-      
-      let finalAmount = parseFloat(plan.price);
-      let discountAmount = 0;
-      let campaignId = null;
-      
-      // Apply coupon if provided
-      if (couponCode) {
-        const [campaign] = await db.select()
-          .from(campaigns)
-          .where(
-            and(
-              eq(campaigns.couponCode, couponCode),
-              eq(campaigns.isActive, true)
-            )
-          );
-        
-        if (campaign) {
-          // Validate coupon
-          const now = new Date();
-          if (campaign.validFrom && new Date(campaign.validFrom) > now) {
-            return res.status(400).json({ message: "Cupom ainda não está válido" });
-          }
-          
-          if (campaign.validUntil && new Date(campaign.validUntil) < now) {
-            return res.status(400).json({ message: "Cupom expirado" });
-          }
-          
-          if (campaign.usageLimit && campaign.usageCount >= campaign.usageLimit) {
-            return res.status(400).json({ message: "Cupom atingiu o limite de uso" });
-          }
-          
-          // Calculate discount
-          if (campaign.discountType === 'percentage') {
-            discountAmount = (finalAmount * (campaign.discountValue ? parseFloat(campaign.discountValue.toString()) : 0)) / 100;
-          } else if (campaign.discountType === 'fixed_amount') {
-            discountAmount = campaign.discountValue ? parseFloat(campaign.discountValue.toString()) : 0;
-          }
-          
-          finalAmount = Math.max(0, finalAmount - discountAmount);
-          campaignId = campaign.id;
-        }
-      }
-      
-      // Create transaction
-      const [transaction] = await db.insert(paymentTransactions).values({
-        userId,
-        planId: plan.id,
-        paymentMethodId,
-        amount: plan.price,
-        finalAmount: finalAmount.toString(),
-        discountAmount: discountAmount.toString(),
-        campaignId,
-        status: 'pending',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        metadata: {
-          planType,
-          couponCode: couponCode || null,
-          userAgent: req.headers['user-agent'],
-          ipAddress: req.ip
-        }
-      }).returning();
-      
-      // Handle different payment methods
-      if (paymentMethod.name === 'stripe') {
-        // Create Stripe checkout session
-        const session = await stripe.checkout.sessions.create({
-          payment_method_types: ['card'],
-          line_items: [
-            {
-              price_data: {
-                currency: 'aoa',
-                product_data: {
-                  name: plan.name,
-                  description: couponCode ? `Cupom aplicado: ${couponCode}` : undefined,
-                },
-                unit_amount: Math.round(finalAmount * 100), // Convert to cents
-              },
-              quantity: 1,
-            },
-          ],
-          mode: 'subscription',
-          success_url: `${process.env.FRONTEND_URL || 'http://localhost:5000'}/dashboard?success=true`,
-          cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5000'}/pricing`,
-          metadata: {
-            transactionId: transaction.id.toString(),
-            userId: userId.toString(),
-            planType: planType
-          }
-        });
-        
-        // Update transaction with Stripe session ID
-        await db.update(paymentTransactions)
-          .set({ stripeSessionId: session.id })
-          .where(eq(paymentTransactions.id, transaction.id));
-        
-        res.json({
-          type: 'redirect',
-          redirectUrl: session.url,
-          transactionId: transaction.id
-        });
-      } else {
-        // Manual payment method
-        res.json({
-          type: 'manual',
-          transactionId: transaction.id,
-          paymentMethod,
-          transaction: {
-            ...transaction,
-            finalAmount: parseFloat(transaction.finalAmount),
-            discountAmount: parseFloat(transaction.discountAmount)
-          }
-        });
-      }
-    } catch (error: any) {
-      console.error("Error initiating payment:", error);
-      res.status(500).json({ message: error.message });
-    }
-  });
+  // NOTE: Moved payment initiation to PaymentController to avoid conflicts
+  // The route /api/payments/initiate is now handled by server/routes/paymentRoutes.ts
 
   // Payment confirmation endpoint
   app.post("/api/payments/confirm", isAuthenticated, async (req, res) => {

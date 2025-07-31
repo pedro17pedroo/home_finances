@@ -130,7 +130,7 @@ export class PaymentController {
 
       // Create confirmation record
       const [confirmation] = await db.insert(paymentConfirmations).values({
-        paymentTransactionId: parseInt(transactionId),
+        transactionId: parseInt(transactionId),
         userId: userId,
         paymentProof: filePath,
         bankReference: bankReference || null,
@@ -186,7 +186,7 @@ export class PaymentController {
       // Get confirmation if exists
       const [confirmation] = await db.select()
         .from(paymentConfirmations)
-        .where(eq(paymentConfirmations.paymentTransactionId, parseInt(transactionId)));
+        .where(eq(paymentConfirmations.transactionId, parseInt(transactionId)));
 
       res.json({
         transaction,
