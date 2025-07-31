@@ -336,6 +336,8 @@ export default function PaymentApprovals() {
               transaction={transaction}
               onViewDetails={setSelectedTransaction}
               showActions={true}
+              getStatusBadge={getStatusBadge}
+              getConfirmationStatusBadge={getConfirmationStatusBadge}
             />
           ))}
           {pendingTransactions.length === 0 && (
@@ -355,6 +357,8 @@ export default function PaymentApprovals() {
               transaction={transaction}
               onViewDetails={setSelectedTransaction}
               showActions={false}
+              getStatusBadge={getStatusBadge}
+              getConfirmationStatusBadge={getConfirmationStatusBadge}
             />
           ))}
         </TabsContent>
@@ -366,6 +370,8 @@ export default function PaymentApprovals() {
               transaction={transaction}
               onViewDetails={setSelectedTransaction}
               showActions={false}
+              getStatusBadge={getStatusBadge}
+              getConfirmationStatusBadge={getConfirmationStatusBadge}
             />
           ))}
         </TabsContent>
@@ -377,6 +383,8 @@ export default function PaymentApprovals() {
               transaction={transaction}
               onViewDetails={setSelectedTransaction}
               showActions={false}
+              getStatusBadge={getStatusBadge}
+              getConfirmationStatusBadge={getConfirmationStatusBadge}
             />
           ))}
         </TabsContent>
@@ -411,9 +419,11 @@ interface TransactionCardProps {
   transaction: PaymentTransaction;
   onViewDetails: (transaction: PaymentTransaction) => void;
   showActions: boolean;
+  getStatusBadge: (status: string) => JSX.Element;
+  getConfirmationStatusBadge: (status: string) => JSX.Element;
 }
 
-function TransactionCard({ transaction, onViewDetails, showActions }: TransactionCardProps) {
+function TransactionCard({ transaction, onViewDetails, showActions, getStatusBadge, getConfirmationStatusBadge }: TransactionCardProps) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
