@@ -93,9 +93,24 @@ export default function Relatorios() {
     labels: expenseData?.map(item => item.category) || [],
     datasets: [{
       data: expenseData?.map(item => parseFloat(item.amount)) || [],
-      backgroundColor: expenseData?.map(item => CATEGORY_COLORS[item.category as keyof typeof CATEGORY_COLORS]) || [],
+      backgroundColor: expenseData?.map(item => {
+        // Try exact match first, then fallback to default colors
+        const color = CATEGORY_COLORS[item.category as keyof typeof CATEGORY_COLORS] || 
+                     CATEGORY_COLORS[item.category.toLowerCase() as keyof typeof CATEGORY_COLORS] ||
+                     generateCategoryColor(item.category);
+        return color;
+      }) || [],
+      borderWidth: 2,
+      borderColor: '#ffffff',
     }]
   };
+
+  // Helper function to generate consistent colors for unknown categories
+  function generateCategoryColor(category: string): string {
+    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#64748B', '#F97316', '#84CC16', '#EC4899'];
+    const hash = category.split('').reduce((a, b) => (a * 31 + b.charCodeAt(0)) % colors.length, 0);
+    return colors[Math.abs(hash)];
+  }
 
   // Calculate cumulative balance evolution
   const calculateBalanceEvolution = () => {
