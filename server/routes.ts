@@ -1295,9 +1295,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/payment-proofs/:filename", isAdminAuthenticated, async (req, res) => {
     try {
       const filename = req.params.filename;
-      const path = require('path');
-      const mime = require('mime-types');
-      const fs = require('fs');
+      const path = await import('path');
+      const mime = await import('mime-types');
+      const fs = await import('fs');
       
       // Try multiple file locations for backward compatibility
       const possiblePaths = [
