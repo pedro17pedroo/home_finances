@@ -132,7 +132,7 @@ export class PaymentController {
       const [confirmation] = await db.insert(paymentConfirmations).values({
         transactionId: parseInt(transactionId),
         userId: userId,
-        paymentProof: filePath,
+        paymentProof: fileName, // Store only filename, not full path
         bankReference: bankReference || null,
         phoneNumber: phoneNumber || null,
         notes: notes || null,

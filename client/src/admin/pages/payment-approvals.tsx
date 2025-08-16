@@ -655,7 +655,18 @@ function PaymentDetailsContent({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(transaction.confirmation.paymentProof, '_blank')}
+                      onClick={() => {
+                        // Construct proper URL for viewing the file
+                        const proofValue = transaction.confirmation?.paymentProof;
+                        if (!proofValue) return;
+                        
+                        const fileUrl = proofValue.startsWith('/api/admin/payment-proofs/') 
+                          ? proofValue 
+                          : proofValue.includes('uploads')
+                            ? `/api/admin/payment-proofs/${proofValue.split('/').pop()}`
+                            : `/api/admin/payment-proofs/${proofValue}`;
+                        window.open(fileUrl, '_blank');
+                      }}
                       className="flex items-center gap-1"
                     >
                       <Eye className="h-4 w-4" />
@@ -664,7 +675,18 @@ function PaymentDetailsContent({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => downloadReceipt(transaction.confirmation.paymentProof, `comprovante-${transaction.id}`)}
+                      onClick={() => {
+                        // Construct proper URL for downloading the file
+                        const proofValue = transaction.confirmation?.paymentProof;
+                        if (!proofValue) return;
+                        
+                        const fileUrl = proofValue.startsWith('/api/admin/payment-proofs/') 
+                          ? proofValue 
+                          : proofValue.includes('uploads')
+                            ? `/api/admin/payment-proofs/${proofValue.split('/').pop()}`
+                            : `/api/admin/payment-proofs/${proofValue}`;
+                        downloadReceipt(fileUrl, `comprovante-${transaction.id}`);
+                      }}
                       className="flex items-center gap-1"
                     >
                       <Download className="h-4 w-4" />
@@ -674,10 +696,32 @@ function PaymentDetailsContent({
                 </div>
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <img 
-                    src={transaction.confirmation.paymentProof} 
+                    src={(() => {
+                      // Construct proper URL for image preview
+                      const proofValue = transaction.confirmation?.paymentProof;
+                      if (!proofValue) return '';
+                      
+                      const fileUrl = proofValue.startsWith('/api/admin/payment-proofs/') 
+                        ? proofValue 
+                        : proofValue.includes('uploads')
+                          ? `/api/admin/payment-proofs/${proofValue.split('/').pop()}`
+                          : `/api/admin/payment-proofs/${proofValue}`;
+                      return fileUrl;
+                    })()} 
                     alt="Comprovante de pagamento"
                     className="max-w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => window.open(transaction.confirmation.paymentProof, '_blank')}
+                    onClick={() => {
+                      // Construct proper URL for viewing the file
+                      const proofValue = transaction.confirmation?.paymentProof;
+                      if (!proofValue) return;
+                      
+                      const fileUrl = proofValue.startsWith('/api/admin/payment-proofs/') 
+                        ? proofValue 
+                        : proofValue.includes('uploads')
+                          ? `/api/admin/payment-proofs/${proofValue.split('/').pop()}`
+                          : `/api/admin/payment-proofs/${proofValue}`;
+                      window.open(fileUrl, '_blank');
+                    }}
                   />
                 </div>
               </div>

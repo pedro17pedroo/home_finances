@@ -1291,17 +1291,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve payment proof files (admin only)
+  // Serve payment proof files (admin only) - supports both new format (payment_proofs) and legacy (receipts)
   app.get("/api/admin/payment-proofs/:filename", isAdminAuthenticated, async (req, res) => {
     try {
       const filename = req.params.filename;
       const path = require('path');
       const mime = require('mime-types');
-      const filePath = path.join(process.cwd(), 'uploads', 'payment_proofs', filename);
-      
-      // Check if file exists
       const fs = require('fs');
-      if (!fs.existsSync(filePath)) {
+      
+      // Try multiple file locations for backward compatibility
+      const possiblePaths = [
+        path.join(process.cwd(), 'uploads', 'payment_proofs', filename),
+        path.join(process.cwd(), 'uploads', 'receipts', filename),
+        path.join(process.cwd(), filename.startsWith('./uploads/') ? filename.substring(2) : filename)
+      ];
+      
+      let filePath = null;
+      for (const testPath of possiblePaths) {
+        if (fs.existsSync(testPath)) {
+          filePath = testPath;
+          break;
+        }
+      }
+      
+      // If no file found, return 404
+      if (!filePath) {
         return res.status(404).json({ message: "Arquivo não encontrado" });
       }
       
@@ -1318,7 +1332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Set headers for proper file serving
       res.setHeader('Content-Type', contentType);
-      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Disposition', `inline; filename="${path.basename(filename)}"`);
       res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
