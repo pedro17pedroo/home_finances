@@ -63,7 +63,7 @@ import paymentRoutes from "./routes/paymentRoutes";
 let stripe: Stripe | null = null;
 if (process.env.STRIPE_SECRET_KEY) {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: "2024-11-20.acacia",
+    apiVersion: "2025-06-30.basil",
   });
 } else if (process.env.NODE_ENV === 'production') {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
