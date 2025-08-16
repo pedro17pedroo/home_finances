@@ -695,34 +695,63 @@ function PaymentDetailsContent({
                   </div>
                 </div>
                 <div className="border rounded-lg p-4 bg-gray-50">
-                  <img 
-                    src={(() => {
-                      // Construct proper URL for image preview
-                      const proofValue = transaction.confirmation?.paymentProof;
-                      if (!proofValue) return '';
-                      
-                      const fileUrl = proofValue.startsWith('/api/admin/payment-proofs/') 
-                        ? proofValue 
-                        : proofValue.includes('uploads')
-                          ? `/api/admin/payment-proofs/${proofValue.split('/').pop()}`
-                          : `/api/admin/payment-proofs/${proofValue}`;
-                      return fileUrl;
-                    })()} 
-                    alt="Comprovante de pagamento"
-                    className="max-w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => {
-                      // Construct proper URL for viewing the file
-                      const proofValue = transaction.confirmation?.paymentProof;
-                      if (!proofValue) return;
-                      
-                      const fileUrl = proofValue.startsWith('/api/admin/payment-proofs/') 
-                        ? proofValue 
-                        : proofValue.includes('uploads')
-                          ? `/api/admin/payment-proofs/${proofValue.split('/').pop()}`
-                          : `/api/admin/payment-proofs/${proofValue}`;
-                      window.open(fileUrl, '_blank');
-                    }}
-                  />
+                  {(() => {
+                    const proofValue = transaction.confirmation?.paymentProof;
+                    if (!proofValue) return null;
+                    
+                    const fileUrl = proofValue.startsWith('/api/admin/payment-proofs/') 
+                      ? proofValue 
+                      : proofValue.includes('uploads')
+                        ? `/api/admin/payment-proofs/${proofValue.split('/').pop()}`
+                        : `/api/admin/payment-proofs/${proofValue}`;
+                    
+                    // Check if it's a PDF or image
+                    const isPDF = proofValue.toLowerCase().includes('.pdf');
+                    
+                    if (isPDF) {
+                      return (
+                        <div 
+                          className="flex items-center justify-center p-8 cursor-pointer hover:bg-gray-100 transition-colors rounded"
+                          onClick={() => window.open(fileUrl, '_blank')}
+                        >
+                          <div className="text-center">
+                            <FileText className="h-16 w-16 mx-auto mb-2 text-red-600" />
+                            <p className="text-sm font-medium text-gray-700">Documento PDF</p>
+                            <p className="text-xs text-gray-500">Clique para visualizar</p>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <img 
+                          src={fileUrl}
+                          alt="Comprovante de pagamento"
+                          className="max-w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => window.open(fileUrl, '_blank')}
+                          onError={(e) => {
+                            // If image fails to load, show fallback icon
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `
+                                <div class="flex items-center justify-center p-8 cursor-pointer hover:bg-gray-100 transition-colors rounded">
+                                  <div class="text-center">
+                                    <svg class="h-16 w-16 mx-auto mb-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    </svg>
+                                    <p class="text-sm font-medium text-gray-700">Comprovante</p>
+                                    <p class="text-xs text-gray-500">Clique para visualizar</p>
+                                  </div>
+                                </div>
+                              `;
+                              parent.addEventListener('click', () => window.open(fileUrl, '_blank'));
+                            }
+                          }}
+                        />
+                      );
+                    }
+                  })()}
                 </div>
               </div>
             )}

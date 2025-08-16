@@ -22,6 +22,9 @@ Preferred communication style: Simple, everyday language.
 **Fixed Issues**
 - Fixed PDF document serving in admin panel - now properly serves PDFs and images with correct MIME types
 - Updated payment proof file serving to handle multiple file formats correctly
+- Resolved 'require is not defined' error by converting CommonJS to ES6 imports
+- Improved file preview interface with proper PDF icons and fallback handling for broken images
+- Standardized file storage to use filenames only for consistency
 
 ## Recent Changes
 **Migration Completed (August 16, 2025)**
