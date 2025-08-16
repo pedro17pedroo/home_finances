@@ -1296,6 +1296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const filename = req.params.filename;
       const path = require('path');
+      const mime = require('mime-types');
       const filePath = path.join(process.cwd(), 'uploads', 'payment_proofs', filename);
       
       // Check if file exists
@@ -1304,7 +1305,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Arquivo não encontrado" });
       }
       
-      // Send file with appropriate headers
+      // Get file extension and determine content type
+      const ext = path.extname(filename).toLowerCase();
+      let contentType = mime.lookup(filename) || 'application/octet-stream';
+      
+      // Set appropriate content type based on file extension
+      if (ext === '.pdf') {
+        contentType = 'application/pdf';
+      } else if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
+        contentType = mime.lookup(filename) || 'image/jpeg';
+      }
+      
+      // Set headers for proper file serving
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
+      // Send file
       res.sendFile(filePath);
     } catch (error: any) {
       console.error("Error serving payment proof:", error);

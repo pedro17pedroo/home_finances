@@ -19,6 +19,23 @@ Preferred communication style: Simple, everyday language.
 - Plans, payment methods, and system configurations seeded
 - All tables created and relationships established
 
+**Fixed Issues**
+- Fixed PDF document serving in admin panel - now properly serves PDFs and images with correct MIME types
+- Updated payment proof file serving to handle multiple file formats correctly
+
+## Recent Changes
+**Migration Completed (August 16, 2025)**
+- Successfully migrated from Replit Agent to Replit environment
+- Updated database connection from Neon to PostgreSQL
+- All database schemas pushed successfully
+- Executed all seeds including admin user setup
+- Application running on port 5000 with no errors
+
+**Database Setup**
+- Admin user created: admin@financecontrol.com / admin123
+- Plans, payment methods, and system configurations seeded
+- All tables created and relationships established
+
 ## System Architecture
 
 ### Frontend Architecture
@@ -36,7 +53,7 @@ Preferred communication style: Simple, everyday language.
 - **Runtime**: Node.js with Express.js
 - **Language**: TypeScript with ESM modules
 - **Database ORM**: Drizzle ORM
-- **Database**: PostgreSQL (Neon serverless driver)
+- **Database**: PostgreSQL (using node-postgres driver)
 - **Session Management**: Connect-pg-simple for PostgreSQL session storage
 - **API Design**: RESTful API with JSON responses
 - **Architecture Pattern**: Controller-Model-Middleware-Router (CMMR) for clear separation of concerns, authentication, and modular routing.
@@ -61,7 +78,7 @@ Preferred communication style: Simple, everyday language.
 
 ## External Dependencies
 
-- **Database**: Neon PostgreSQL serverless database
+- **Database**: PostgreSQL (migrated from Neon to Replit PostgreSQL)
 - **Payment Gateway**: Stripe (for payment processing and subscription management)
 - **UI Components**: Radix UI
 - **Charting Library**: Chart.js
