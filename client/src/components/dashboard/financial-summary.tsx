@@ -83,7 +83,7 @@ export default function FinancialSummary() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-600">{card.title}</p>
                 <p className="text-2xl sm:text-3xl font-bold text-slate-900 break-words">
-                  <CurrencyDisplay amount={card.value} />
+                  <CurrencyDisplay value={card.value} />
                 </p>
                 <div className="flex items-center text-sm mt-1">
                   {card.trendIcon && (

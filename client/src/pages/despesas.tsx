@@ -131,7 +131,7 @@ export default function Despesas() {
             </CardHeader>
             <CardContent className="pt-2">
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600 break-words">
-                <CurrencyDisplay amount={totalDespesas} />
+                <CurrencyDisplay value={totalDespesas} />
               </p>
             </CardContent>
           </Card>
@@ -141,7 +141,7 @@ export default function Despesas() {
             </CardHeader>
             <CardContent className="pt-2">
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 break-words">
-                <CurrencyDisplay amount={thisMonthDespesas} />
+                <CurrencyDisplay value={thisMonthDespesas} />
               </p>
             </CardContent>
           </Card>
@@ -151,7 +151,7 @@ export default function Despesas() {
             </CardHeader>
             <CardContent className="pt-2">
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 break-words">
-                <CurrencyDisplay amount={averageMonthlyDespesas} />
+                <CurrencyDisplay value={averageMonthlyDespesas} />
               </p>
             </CardContent>
           </Card>
@@ -291,7 +291,7 @@ export default function Despesas() {
                     </div>
                     <div className="text-right flex-shrink-0 ml-2">
                       <p className="font-semibold text-red-600 text-sm sm:text-base">
-                        -<CurrencyDisplay amount={transaction.amount} />
+                        -<CurrencyDisplay value={transaction.amount} />
                       </p>
                       <p className="text-xs sm:text-sm text-slate-500">
                         {formatDate(transaction.date)}
