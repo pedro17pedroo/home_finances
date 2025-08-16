@@ -510,6 +510,31 @@ function PaymentDetailsContent({
   const canApprove = transaction.status === 'processing' && transaction.confirmation?.status === 'pending';
   const canReject = transaction.status === 'processing' && transaction.confirmation?.status === 'pending';
 
+  // Function to download receipt
+  const downloadReceipt = async (imageUrl: string, filename: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element and trigger download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.${blob.type.split('/')[1] || 'jpg'}`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro ao baixar comprovante:', error);
+      // You could add a toast notification here
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Informações do usuário */}
@@ -624,12 +649,35 @@ function PaymentDetailsContent({
             
             {transaction.confirmation.paymentProof && (
               <div>
-                <Label>Comprovante</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Comprovante</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(transaction.confirmation.paymentProof, '_blank')}
+                      className="flex items-center gap-1"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Visualizar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadReceipt(transaction.confirmation.paymentProof, `comprovante-${transaction.id}`)}
+                      className="flex items-center gap-1"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download
+                    </Button>
+                  </div>
+                </div>
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <img 
                     src={transaction.confirmation.paymentProof} 
                     alt="Comprovante de pagamento"
-                    className="max-w-full h-auto rounded"
+                    className="max-w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => window.open(transaction.confirmation.paymentProof, '_blank')}
                   />
                 </div>
               </div>
