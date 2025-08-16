@@ -153,8 +153,8 @@ export default function Poupanca() {
               ) : (
                 <div className="space-y-4">
                   {goals?.map((goal) => {
-                    // Use total savings from accounts as current amount instead of stored currentAmount
-                    const currentAmount = totalSavings;
+                    // Use the saved currentAmount from the goal
+                    const currentAmount = parseFloat(goal.currentAmount || '0');
                     const targetAmount = parseFloat(goal.targetAmount);
                     const percentage = calculatePercentage(currentAmount, targetAmount);
                     

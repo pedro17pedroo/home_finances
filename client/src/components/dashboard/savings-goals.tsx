@@ -73,8 +73,8 @@ export default function SavingsGoals() {
               </div>
             ) : (
               goals?.map((goal) => {
-                // Use total savings from accounts as current amount instead of stored currentAmount
-                const currentAmount = totalSavings;
+                // Use the saved currentAmount from the goal
+                const currentAmount = parseFloat(goal.currentAmount || '0');
                 const targetAmount = parseFloat(goal.targetAmount);
                 const percentage = calculatePercentage(currentAmount, targetAmount);
                 const remainingAmount = targetAmount - currentAmount;
