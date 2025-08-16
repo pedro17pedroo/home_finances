@@ -1,11 +1,13 @@
 import { seedPlans } from './plans';
 import { seedPaymentMethods } from './payment-methods';
 import { seedPaymentTransactions } from './payment-transactions';
+import { createAdminUser } from './admin-setup';
 
 export const runSeeds = async () => {
   console.log('🌱 Running database seeds...');
   
   try {
+    await createAdminUser();
     await seedPlans();
     await seedPaymentMethods();
     await seedPaymentTransactions();
