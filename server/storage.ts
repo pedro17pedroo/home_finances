@@ -755,6 +755,8 @@ export class DatabaseStorage implements IStorage {
     totalSavings: string;
     totalDebts: string;
     totalLoans: string;
+    activeLoansCount: number;
+    activeDebtsCount: number;
   }> {
     const accountBalance = await db
       .select({ total: sql<string>`COALESCE(SUM(${accounts.balance}), 0)` })
@@ -776,11 +778,23 @@ export class DatabaseStorage implements IStorage {
       .from(loans)
       .where(and(eq(loans.userId, userId), eq(loans.status, 'pendente')));
 
+    const activeLoansCount = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(loans)
+      .where(and(eq(loans.userId, userId), eq(loans.status, 'pendente')));
+
+    const activeDebtsCount = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(debts)
+      .where(and(eq(debts.userId, userId), eq(debts.status, 'pendente')));
+
     return {
       currentAccountBalance: accountBalance[0]?.total || "0.00",
       totalSavings: savingsTotal[0]?.total || "0.00",
       totalDebts: debtsTotal[0]?.total || "0.00",
       totalLoans: loansTotal[0]?.total || "0.00",
+      activeLoansCount: activeLoansCount[0]?.count || 0,
+      activeDebtsCount: activeDebtsCount[0]?.count || 0,
     };
   }
 

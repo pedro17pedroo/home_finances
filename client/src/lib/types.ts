@@ -3,6 +3,8 @@ export interface FinancialSummary {
   totalSavings: string;
   totalDebts: string;
   totalLoans: string;
+  activeLoansCount: number;
+  activeDebtsCount: number;
 }
 
 export interface MonthlyTransactionsSummary {

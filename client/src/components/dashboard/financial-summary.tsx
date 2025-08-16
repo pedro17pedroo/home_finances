@@ -68,7 +68,9 @@ export default function FinancialSummary() {
       icon: HandCoins,
       iconBg: "bg-amber-100",
       iconColor: "text-amber-600",
-      trend: "2 empréstimos ativos",
+      trend: summary && (summary as any).activeLoansCount !== undefined
+        ? `${(summary as any).activeLoansCount} ${(summary as any).activeLoansCount === 1 ? 'empréstimo ativo' : 'empréstimos ativos'}`
+        : 'Nenhum empréstimo ativo',
       trendIcon: null,
       trendColor: "text-slate-500"
     }
