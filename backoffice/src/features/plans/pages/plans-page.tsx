@@ -159,12 +159,12 @@ export function PlansPage() {
                         {plan.name}
                       </CardTitle>
                       <span className={`text-xs px-2 py-1 rounded-full mt-2 inline-block ${
-                        plan.type === 'free' ? 'bg-gray-100 text-gray-800' :
                         plan.type === 'basic' ? 'bg-blue-100 text-blue-800' :
                         plan.type === 'premium' ? 'bg-purple-100 text-purple-800' :
                         'bg-orange-100 text-orange-800'
                       }`}>
-                        {plan.type.charAt(0).toUpperCase() + plan.type.slice(1)}
+                        {plan.type === 'basic' ? 'Básico' : 
+                         plan.type === 'premium' ? 'Premium' : 'Enterprise'}
                       </span>
                     </div>
                     <div className="flex gap-1">
@@ -251,7 +251,6 @@ export function PlansPage() {
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="free">Gratuito</option>
                     <option value="basic">Básico</option>
                     <option value="premium">Premium</option>
                     <option value="enterprise">Enterprise</option>

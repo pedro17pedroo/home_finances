@@ -23,7 +23,8 @@ export interface AdminAuthResponse {
 
 export interface CreatePlanRequest {
   name: string;
-  description: string;
+  type: 'basic' | 'premium' | 'enterprise';
+  description?: string;
   price: number;
   features: string[];
   maxAccounts: number;
@@ -122,9 +123,19 @@ export class AdminService {
   }
 
   static async createPlan(data: CreatePlanRequest, createdBy: number) {
+    // Log received data for debugging
+    console.log('Creating plan with data:', JSON.stringify(data));
+    
+    // Validate plan type
+    const validTypes = ['basic', 'premium', 'enterprise'];
+    if (!data.type || !validTypes.includes(data.type)) {
+      console.log('Invalid type received:', data.type);
+      throw new BadRequestError(`Tipo de plano inválido: "${data.type}". Use: ${validTypes.join(', ')}`);
+    }
+
     const planData: InsertPlan = {
       name: data.name,
-      description: data.description,
+      type: data.type,
       price: data.price.toString(),
       features: JSON.stringify(data.features),
       maxAccounts: data.maxAccounts,
@@ -144,7 +155,7 @@ export class AdminService {
     const updateData: Partial<InsertPlan> = {};
     
     if (data.name !== undefined) updateData.name = data.name;
-    if (data.description !== undefined) updateData.description = data.description;
+    if (data.type !== undefined) updateData.type = data.type;
     if (data.price !== undefined) updateData.price = data.price.toString();
     if (data.features !== undefined) updateData.features = JSON.stringify(data.features);
     if (data.maxAccounts !== undefined) updateData.maxAccounts = data.maxAccounts;
