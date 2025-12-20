@@ -1,0 +1,40 @@
+export const pt = {
+  common: {
+    save: 'Salvar',
+    cancel: 'Cancelar',
+    delete: 'Excluir',
+    edit: 'Editar',
+    add: 'Adicionar',
+    loading: 'Carregando...',
+    error: 'Erro',
+    success: 'Sucesso',
+    confirm: 'Confirmar',
+    back: 'Voltar',
+  },
+  auth: {
+    login: 'Entrar',
+    logout: 'Sair',
+    email: 'E-mail',
+    password: 'Senha',
+    forgotPassword: 'Esqueci a senha',
+    dontHaveAccount: 'Não tem conta?',
+    signUp: 'Criar conta',
+  },
+  dashboard: {
+    title: 'Dashboard',
+    totalBalance: 'Saldo Total',
+    monthlyIncome: 'Receitas Mensais',
+    monthlyExpenses: 'Despesas Mensais',
+    quickActions: 'Ações Rápidas',
+  },
+  transactions: {
+    title: 'Transações',
+    income: 'Receita',
+    expense: 'Despesa',
+    amount: 'Valor',
+    description: 'Descrição',
+    category: 'Categoria',
+    date: 'Data',
+  },
+  // ... mais traduções
+};
