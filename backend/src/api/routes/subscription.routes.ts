@@ -31,16 +31,21 @@ router.get('/plans/:id', async (req, res) => {
 // Get current user subscription
 router.get('/current', authenticate, async (req, res) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.json({ success: true, subscription: null, plan: null });
+    }
+    
     const subscription = await subscriptionService.getUserSubscription(userId);
 
     let plan = null;
-    if (subscription) {
+    if (subscription && subscription.planId) {
       plan = await subscriptionService.getPlanById(parseInt(subscription.planId));
     }
 
     res.json({ success: true, subscription, plan });
   } catch (error: any) {
+    console.error('Get current subscription error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -49,7 +54,7 @@ router.get('/current', authenticate, async (req, res) => {
 router.post('/subscribe', authenticate, async (req, res) => {
   try {
     const userId = (req as any).user.id;
-    const { planId, paymentType, paymentMethod } = req.body;
+    const { planId, paymentType, paymentMethod, payerPhone, payerName, payerEmail } = req.body;
 
     if (!planId) {
       return res.status(400).json({
@@ -72,11 +77,22 @@ router.post('/subscribe', authenticate, async (req, res) => {
       });
     }
 
+    // For E-Kwanza and GPO, phone is required
+    if (plan.price > 0 && (paymentMethod === 'ekwanza' || paymentMethod === 'gpo') && !payerPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Número de telefone é obrigatório para este método de pagamento',
+      });
+    }
+
     const result = await subscriptionService.createSubscription(
       userId,
       planId,
       paymentType || 'one_time',
-      paymentMethod || 'gpo'
+      paymentMethod || 'gpo',
+      payerPhone,
+      payerName,
+      payerEmail
     );
 
     res.json({
@@ -146,11 +162,15 @@ router.get('/payment/:paymentId/status', authenticate, async (req, res) => {
 // Get payment history
 router.get('/payments', authenticate, async (req, res) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.json({ success: true, payments: [] });
+    }
     const payments = await subscriptionService.getPaymentHistory(userId);
 
-    res.json({ success: true, payments });
+    res.json({ success: true, payments: payments || [] });
   } catch (error: any) {
+    console.error('Get payment history error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

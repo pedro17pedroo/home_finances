@@ -44,6 +44,9 @@ export interface SubscribeRequest {
   planId: number;
   paymentType: PaymentType;
   paymentMethod: PaymentMethod;
+  payerPhone?: string;
+  payerName?: string;
+  payerEmail?: string;
 }
 
 export interface SubscribeResponse {

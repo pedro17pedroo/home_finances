@@ -80,7 +80,10 @@ class SubscriptionService {
     userId: number,
     planId: number,
     paymentType: PaymentType,
-    paymentMethod: PaymentMethod
+    paymentMethod: PaymentMethod,
+    payerPhone?: string,
+    payerName?: string,
+    payerEmail?: string
   ) {
     const plan = await this.getPlanById(planId);
     if (!plan) throw new Error('Plano não encontrado');
@@ -115,29 +118,47 @@ class SubscriptionService {
       return { subscription, payment: null, plan };
     }
 
+    // Use provided payer info or fall back to user info
+    const customerName = payerName || `${user.firstName} ${user.lastName}`;
+    const customerPhone = payerPhone || user.phone || '';
+    const customerEmail = payerEmail || user.email || '';
+
+    console.log(`[createSubscription] Creating payment:`, {
+      method: paymentMethod,
+      amount: plan.price,
+      customerName,
+      customerPhone,
+      customerEmail,
+    });
+
     // Create payment for paid plans
     const paymentResult = await tpagamentoService.createPayment(
       paymentMethod,
       plan.price,
       {
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email || '',
-        phone: user.phone || '',
+        name: customerName,
+        email: customerEmail,
+        phone: customerPhone,
       },
       `Assinatura ${plan.name} - FinanceControl`
     );
+
+    console.log(`[createSubscription] TPagamento response:`, paymentResult);
 
     if (!paymentResult.success) {
       throw new Error(paymentResult.message || 'Erro ao criar pagamento');
     }
 
-    // Create pending subscription
+    // Check if payment was already completed (instant payment)
+    const isAlreadyPaid = paymentResult.status === 'paid';
+
+    // Create subscription (active if already paid, pending otherwise)
     const [subscription] = await db
       .insert(subscriptions)
       .values({
         userId,
         planId: plan.id.toString(),
-        status: 'pending',
+        status: isAlreadyPaid ? 'active' : 'pending',
         paymentType,
         paymentMethod,
         startDate: new Date(),
@@ -153,11 +174,31 @@ class SubscriptionService {
         userId,
         amount: plan.price.toString(),
         paymentMethod,
-        paymentId: paymentResult.paymentId,
-        referenceCode: paymentResult.referenceCode,
-        status: 'pending',
+        paymentId: paymentResult.paymentId || null,
+        referenceCode: paymentResult.referenceCode || null,
+        status: isAlreadyPaid ? 'paid' : 'pending',
+        paidAt: isAlreadyPaid ? new Date() : null,
       })
       .returning();
+
+    // If already paid, update user's plan
+    if (isAlreadyPaid) {
+      console.log(`[createSubscription] Payment already completed, activating subscription`);
+      await db
+        .update(users)
+        .set({
+          planType: plan.type as any,
+          subscriptionStatus: 'active',
+        })
+        .where(eq(users.id, userId));
+    }
+
+    console.log(`[createSubscription] Payment record created:`, {
+      id: payment.id,
+      paymentId: payment.paymentId,
+      referenceCode: payment.referenceCode,
+      status: payment.status,
+    });
 
     return {
       subscription,
@@ -171,19 +212,54 @@ class SubscriptionService {
 
   // Check payment status and activate subscription if paid
   async checkPaymentStatus(paymentId: number) {
+    console.log(`[checkPaymentStatus] Checking payment ID: ${paymentId}`);
+    
     const [payment] = await db
       .select()
       .from(subscriptionPayments)
       .where(eq(subscriptionPayments.id, paymentId));
 
-    if (!payment) throw new Error('Pagamento não encontrado');
+    if (!payment) {
+      console.log(`[checkPaymentStatus] Payment not found: ${paymentId}`);
+      throw new Error('Pagamento não encontrado');
+    }
+
+    console.log(`[checkPaymentStatus] Payment found:`, {
+      id: payment.id,
+      method: payment.paymentMethod,
+      paymentId: payment.paymentId,
+      referenceCode: payment.referenceCode,
+      status: payment.status
+    });
 
     const method = payment.paymentMethod as PaymentMethod;
-    const idOrCode = method === 'ekwanza' ? payment.referenceCode! : payment.paymentId!;
+    
+    // For ekwanza, use referenceCode; for others, use paymentId
+    let idOrCode: string;
+    if (method === 'ekwanza') {
+      idOrCode = payment.referenceCode || '';
+    } else {
+      idOrCode = payment.paymentId || '';
+    }
 
+    if (!idOrCode) {
+      console.log(`[checkPaymentStatus] No payment ID or reference code found for payment ${paymentId}`);
+      return {
+        ...payment,
+        currentStatus: payment.status,
+        statusData: null,
+      };
+    }
+
+    console.log(`[checkPaymentStatus] Checking status with TPagamento: method=${method}, idOrCode=${idOrCode}`);
+    
     const statusResult = await tpagamentoService.getPaymentStatus(method, idOrCode);
+    
+    console.log(`[checkPaymentStatus] TPagamento response:`, statusResult);
 
     if (statusResult.status === 'paid' && payment.status !== 'paid') {
+      console.log(`[checkPaymentStatus] Payment confirmed as paid, activating subscription`);
+      
       // Update payment status
       await db
         .update(subscriptionPayments)
@@ -216,6 +292,7 @@ class SubscriptionService {
         }
       }
     } else if (statusResult.status === 'failed' || statusResult.status === 'expired') {
+      console.log(`[checkPaymentStatus] Payment status: ${statusResult.status}`);
       await db
         .update(subscriptionPayments)
         .set({ status: statusResult.status })
