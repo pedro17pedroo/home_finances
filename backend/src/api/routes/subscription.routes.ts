@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middlewares/auth.middleware.js';
+import { authenticate } from '../middlewares/auth.js';
 import subscriptionService from '../../domain/services/subscription.service.js';
 
 const router = Router();
@@ -29,7 +29,7 @@ router.get('/plans/:id', async (req, res) => {
 });
 
 // Get current user subscription
-router.get('/current', authenticateToken, async (req, res) => {
+router.get('/current', authenticate, async (req, res) => {
   try {
     const userId = (req as any).user.id;
     const subscription = await subscriptionService.getUserSubscription(userId);
@@ -46,7 +46,7 @@ router.get('/current', authenticateToken, async (req, res) => {
 });
 
 // Subscribe to a plan (authenticated users)
-router.post('/subscribe', authenticateToken, async (req, res) => {
+router.post('/subscribe', authenticate, async (req, res) => {
   try {
     const userId = (req as any).user.id;
     const { planId, paymentType, paymentMethod } = req.body;
@@ -128,7 +128,7 @@ router.post('/onboard', async (req, res) => {
 });
 
 // Check payment status
-router.get('/payment/:paymentId/status', authenticateToken, async (req, res) => {
+router.get('/payment/:paymentId/status', authenticate, async (req, res) => {
   try {
     const { paymentId } = req.params;
     const result = await subscriptionService.checkPaymentStatus(parseInt(paymentId));
@@ -144,7 +144,7 @@ router.get('/payment/:paymentId/status', authenticateToken, async (req, res) => 
 });
 
 // Get payment history
-router.get('/payments', authenticateToken, async (req, res) => {
+router.get('/payments', authenticate, async (req, res) => {
   try {
     const userId = (req as any).user.id;
     const payments = await subscriptionService.getPaymentHistory(userId);
@@ -156,7 +156,7 @@ router.get('/payments', authenticateToken, async (req, res) => {
 });
 
 // Cancel subscription
-router.post('/cancel', authenticateToken, async (req, res) => {
+router.post('/cancel', authenticate, async (req, res) => {
   try {
     const userId = (req as any).user.id;
     await subscriptionService.cancelSubscription(userId);

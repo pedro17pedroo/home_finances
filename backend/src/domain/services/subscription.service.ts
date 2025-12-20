@@ -1,4 +1,4 @@
-import { db } from '../../core/database/index.js';
+import { db } from '../../core/database/db.js';
 import {
   subscriptions,
   subscriptionPayments,
