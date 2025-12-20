@@ -29,6 +29,10 @@ interface DashboardStats {
   revenue: { monthly: number; total: number; growth: number };
   subscriptions: { active: number; trial: number; cancelled: number };
   payments: { pending: number; completed: number; failed: number };
+  charts?: {
+    revenueHistory: { month: string; revenue: number }[];
+    userGrowthHistory: { month: string; users: number }[];
+  };
 }
 
 export function DashboardPage() {
@@ -39,35 +43,21 @@ export function DashboardPage() {
         const response = await apiClient.get('/admin/dashboard/stats');
         return response.data;
       } catch {
-        // Return mock data if API fails
+        // Return empty data if API fails
         return {
-          users: { total: 1250, active: 980, newThisMonth: 85 },
-          revenue: { monthly: 8500000, total: 45000000, growth: 12.5 },
-          subscriptions: { active: 850, trial: 200, cancelled: 50 },
-          payments: { pending: 15, completed: 320, failed: 5 },
+          users: { total: 0, active: 0, newThisMonth: 0 },
+          revenue: { monthly: 0, total: 0, growth: 0 },
+          subscriptions: { active: 0, trial: 0, cancelled: 0 },
+          payments: { pending: 0, completed: 0, failed: 0 },
+          charts: { revenueHistory: [], userGrowthHistory: [] }
         };
       }
     },
   });
 
-  // Mock chart data
-  const revenueData = [
-    { month: 'Jan', revenue: 4200000 },
-    { month: 'Fev', revenue: 5100000 },
-    { month: 'Mar', revenue: 4800000 },
-    { month: 'Abr', revenue: 6200000 },
-    { month: 'Mai', revenue: 7100000 },
-    { month: 'Jun', revenue: 8500000 },
-  ];
-
-  const userGrowthData = [
-    { month: 'Jan', users: 850 },
-    { month: 'Fev', users: 920 },
-    { month: 'Mar', users: 980 },
-    { month: 'Abr', users: 1050 },
-    { month: 'Mai', users: 1150 },
-    { month: 'Jun', users: 1250 },
-  ];
+  // Use chart data from API or empty arrays
+  const revenueData = stats?.charts?.revenueHistory || [];
+  const userGrowthData = stats?.charts?.userGrowthHistory || [];
 
   const StatCard = ({
     title,

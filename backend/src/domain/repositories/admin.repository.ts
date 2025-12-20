@@ -66,33 +66,29 @@ export class AdminRepository {
 
   // Users Management
   static async getAllUsers(limit: number = 100, offset: number = 0, search?: string, status?: string) {
-    let query = db
-      .select({
-        id: users.id,
-        email: users.email,
-        phone: users.phone,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        planType: users.planType,
-        subscriptionStatus: users.subscriptionStatus,
-        trialEndsAt: users.trialEndsAt,
-        createdAt: users.createdAt,
-        planName: plans.name,
-        planPrice: plans.price
-      })
-      .from(users)
-      .leftJoin(plans, eq(users.planType, plans.name))
-      .orderBy(desc(users.createdAt))
-      .limit(limit)
-      .offset(offset);
+    try {
+      const usersData = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          phone: users.phone,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          planType: users.planType,
+          subscriptionStatus: users.subscriptionStatus,
+          trialEndsAt: users.trialEndsAt,
+          createdAt: users.createdAt
+        })
+        .from(users)
+        .orderBy(desc(users.createdAt))
+        .limit(limit)
+        .offset(offset);
 
-    const usersData = await query;
-
-    const totalUsers = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(users);
-
-    return usersData;
+      return usersData;
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
+    }
   }
 
   static async getUserStats() {
@@ -123,6 +119,192 @@ export class AdminRepository {
         count: Number(stat.count)
       }))
     };
+  }
+
+  // Dashboard Stats - Real data from database
+  static async getDashboardStats() {
+    try {
+      // Total users
+      const totalUsersResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(users);
+      const totalUsers = Number(totalUsersResult[0]?.count || 0);
+
+      // Active users (with active subscription)
+      const activeUsersResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.subscriptionStatus, 'active'));
+      const activeUsers = Number(activeUsersResult[0]?.count || 0);
+
+      // New users this month
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
+      const newUsersResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(sql`${users.createdAt} >= ${startOfMonth}`);
+      const newUsersThisMonth = Number(newUsersResult[0]?.count || 0);
+
+      // Subscription stats
+      const subscriptionStats = await db
+        .select({
+          status: users.subscriptionStatus,
+          count: sql<number>`count(*)`
+        })
+        .from(users)
+        .groupBy(users.subscriptionStatus);
+
+      const subscriptions = {
+        active: 0,
+        trial: 0,
+        cancelled: 0
+      };
+      
+      subscriptionStats.forEach(stat => {
+        if (stat.status === 'active') subscriptions.active = Number(stat.count);
+        if (stat.status === 'trialing') subscriptions.trial = Number(stat.count);
+        if (stat.status === 'canceled') subscriptions.cancelled = Number(stat.count);
+      });
+
+      // Payment stats
+      const paymentStats = await db
+        .select({
+          status: subscriptionPayments.status,
+          count: sql<number>`count(*)`,
+          total: sql<number>`COALESCE(SUM(CAST(${subscriptionPayments.amount} AS DECIMAL)), 0)`
+        })
+        .from(subscriptionPayments)
+        .groupBy(subscriptionPayments.status);
+
+      const payments = {
+        pending: 0,
+        completed: 0,
+        failed: 0
+      };
+      
+      let totalRevenue = 0;
+      
+      paymentStats.forEach(stat => {
+        if (stat.status === 'pending') payments.pending = Number(stat.count);
+        if (stat.status === 'paid') {
+          payments.completed = Number(stat.count);
+          totalRevenue = Number(stat.total);
+        }
+        if (stat.status === 'failed') payments.failed = Number(stat.count);
+      });
+
+      // Monthly revenue (current month)
+      const monthlyRevenueResult = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(CAST(${subscriptionPayments.amount} AS DECIMAL)), 0)`
+        })
+        .from(subscriptionPayments)
+        .where(and(
+          eq(subscriptionPayments.status, 'paid'),
+          sql`${subscriptionPayments.paidAt} >= ${startOfMonth}`
+        ));
+      const monthlyRevenue = Number(monthlyRevenueResult[0]?.total || 0);
+
+      // Calculate growth (compare with last month)
+      const startOfLastMonth = new Date(startOfMonth);
+      startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
+      
+      const lastMonthRevenueResult = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(CAST(${subscriptionPayments.amount} AS DECIMAL)), 0)`
+        })
+        .from(subscriptionPayments)
+        .where(and(
+          eq(subscriptionPayments.status, 'paid'),
+          sql`${subscriptionPayments.paidAt} >= ${startOfLastMonth}`,
+          sql`${subscriptionPayments.paidAt} < ${startOfMonth}`
+        ));
+      const lastMonthRevenue = Number(lastMonthRevenueResult[0]?.total || 0);
+      
+      const growth = lastMonthRevenue > 0 
+        ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 
+        : 0;
+
+      // Get monthly revenue for last 6 months (for chart)
+      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      const revenueHistory: { month: string; revenue: number }[] = [];
+      const userGrowthHistory: { month: string; users: number }[] = [];
+      
+      for (let i = 5; i >= 0; i--) {
+        const monthStart = new Date();
+        monthStart.setMonth(monthStart.getMonth() - i);
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        
+        const monthEnd = new Date(monthStart);
+        monthEnd.setMonth(monthEnd.getMonth() + 1);
+        
+        const monthName = monthNames[monthStart.getMonth()];
+        
+        // Revenue for this month
+        const revenueResult = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(CAST(${subscriptionPayments.amount} AS DECIMAL)), 0)`
+          })
+          .from(subscriptionPayments)
+          .where(and(
+            eq(subscriptionPayments.status, 'paid'),
+            sql`${subscriptionPayments.paidAt} >= ${monthStart}`,
+            sql`${subscriptionPayments.paidAt} < ${monthEnd}`
+          ));
+        
+        revenueHistory.push({
+          month: monthName,
+          revenue: Number(revenueResult[0]?.total || 0)
+        });
+        
+        // Users count at end of this month
+        const usersResult = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(users)
+          .where(sql`${users.createdAt} < ${monthEnd}`);
+        
+        userGrowthHistory.push({
+          month: monthName,
+          users: Number(usersResult[0]?.count || 0)
+        });
+      }
+
+      return {
+        users: {
+          total: totalUsers,
+          active: activeUsers,
+          newThisMonth: newUsersThisMonth
+        },
+        revenue: {
+          monthly: monthlyRevenue,
+          total: totalRevenue,
+          growth: Math.round(growth * 10) / 10
+        },
+        subscriptions,
+        payments,
+        charts: {
+          revenueHistory,
+          userGrowthHistory
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      // Return default values on error
+      return {
+        users: { total: 0, active: 0, newThisMonth: 0 },
+        revenue: { monthly: 0, total: 0, growth: 0 },
+        subscriptions: { active: 0, trial: 0, cancelled: 0 },
+        payments: { pending: 0, completed: 0, failed: 0 },
+        charts: {
+          revenueHistory: [],
+          userGrowthHistory: []
+        }
+      };
+    }
   }
 
   // Landing Content Management
@@ -370,5 +552,113 @@ export class AdminRepository {
       .update(legalContent)
       .set({ content: data.content, updatedAt: new Date() })
       .where(eq(legalContent.id, contentId));
+  }
+
+  // Reports - Real data from database
+  static async getReports(period: string) {
+    try {
+      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      
+      // Revenue by month (last 6 months)
+      const revenue: { month: string; value: number }[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const monthStart = new Date();
+        monthStart.setMonth(monthStart.getMonth() - i);
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        
+        const monthEnd = new Date(monthStart);
+        monthEnd.setMonth(monthEnd.getMonth() + 1);
+        
+        const revenueResult = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(CAST(${subscriptionPayments.amount} AS DECIMAL)), 0)`
+          })
+          .from(subscriptionPayments)
+          .where(and(
+            eq(subscriptionPayments.status, 'paid'),
+            sql`${subscriptionPayments.paidAt} >= ${monthStart}`,
+            sql`${subscriptionPayments.paidAt} < ${monthEnd}`
+          ));
+        
+        revenue.push({
+          month: monthNames[monthStart.getMonth()],
+          value: Number(revenueResult[0]?.total || 0)
+        });
+      }
+
+      // Plan distribution
+      const planStats = await db
+        .select({
+          planType: users.planType,
+          count: sql<number>`count(*)`
+        })
+        .from(users)
+        .groupBy(users.planType);
+
+      const planDistribution = planStats.map(stat => ({
+        name: stat.planType === 'basic' ? 'Básico' : 
+              stat.planType === 'premium' ? 'Premium' : 
+              stat.planType === 'enterprise' ? 'Enterprise' : 'Gratuito',
+        value: Number(stat.count)
+      }));
+
+      // Payment methods distribution
+      const paymentMethodStats = await db
+        .select({
+          method: subscriptionPayments.paymentMethod,
+          count: sql<number>`count(*)`
+        })
+        .from(subscriptionPayments)
+        .groupBy(subscriptionPayments.paymentMethod);
+
+      const paymentMethods = paymentMethodStats.map(stat => ({
+        method: stat.method === 'ekwanza' ? 'E-Kwanza' :
+                stat.method === 'gpo' ? 'Multicaixa Express' :
+                stat.method === 'ref' ? 'Referência' : stat.method,
+        count: Number(stat.count)
+      }));
+
+      // Summary stats
+      const totalRevenueResult = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(CAST(${subscriptionPayments.amount} AS DECIMAL)), 0)`
+        })
+        .from(subscriptionPayments)
+        .where(eq(subscriptionPayments.status, 'paid'));
+
+      const totalUsersResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(users);
+
+      const activeSubscriptionsResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.subscriptionStatus, 'active'));
+
+      const totalUsers = Number(totalUsersResult[0]?.count || 0);
+      const activeSubscriptions = Number(activeSubscriptionsResult[0]?.count || 0);
+      const conversionRate = totalUsers > 0 ? (activeSubscriptions / totalUsers) * 100 : 0;
+
+      return {
+        revenue,
+        planDistribution,
+        paymentMethods,
+        summary: {
+          totalRevenue: Number(totalRevenueResult[0]?.total || 0),
+          totalUsers,
+          activeSubscriptions,
+          conversionRate: Math.round(conversionRate * 10) / 10
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      return {
+        revenue: [],
+        planDistribution: [],
+        paymentMethods: [],
+        summary: { totalRevenue: 0, totalUsers: 0, activeSubscriptions: 0, conversionRate: 0 }
+      };
+    }
   }
 }

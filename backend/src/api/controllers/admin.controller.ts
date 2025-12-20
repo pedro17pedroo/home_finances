@@ -95,8 +95,8 @@ export class AdminController {
       const search = req.query.search as string;
       const status = req.query.status as string;
       
-      const result = await AdminService.getAllUsers(page, limit, search, status);
-      res.json(result);
+      const users = await AdminService.getAllUsers(page, limit, search, status);
+      res.json({ users });
     } catch (error) {
       next(error);
     }

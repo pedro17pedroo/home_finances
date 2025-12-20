@@ -43,7 +43,7 @@ export class AdminService {
       throw new UnauthorizedError("Credenciais inválidas");
     }
 
-    const isValidPassword = await verifyPassword(password, admin.passwordHash);
+    const isValidPassword = await verifyPassword(password, admin.password);
     if (!isValidPassword) {
       throw new UnauthorizedError("Credenciais inválidas");
     }
@@ -96,7 +96,7 @@ export class AdminService {
 
     const adminData: InsertAdminUser = {
       email: data.email,
-      passwordHash,
+      password: passwordHash,
       firstName: data.firstName,
       lastName: data.lastName,
       role: data.role || 'admin',
@@ -254,32 +254,9 @@ export class AdminService {
    * Dashboard Analytics
    */
   static async getDashboardStats() {
-    const userStats = await this.getUserStats();
-    const plans = await this.getAllPlans();
-    
-    return {
-      users: userStats,
-      plans: {
-        total: plans.length,
-        active: plans.filter(p => p.isActive).length,
-        list: plans
-      },
-      revenue: {
-        monthly: 8500000,
-        total: 45000000,
-        growth: 12.5
-      },
-      subscriptions: {
-        active: 850,
-        trial: 200,
-        cancelled: 50
-      },
-      payments: {
-        pending: 15,
-        completed: 320,
-        failed: 5
-      }
-    };
+    // Get real stats from database
+    const dashboardStats = await AdminRepository.getDashboardStats();
+    return dashboardStats;
   }
 
   /**
@@ -370,33 +347,7 @@ export class AdminService {
    * Reports
    */
   static async getReports(period: string) {
-    return {
-      revenue: [
-        { month: 'Jan', value: 4200000 },
-        { month: 'Fev', value: 5100000 },
-        { month: 'Mar', value: 4800000 },
-        { month: 'Abr', value: 6200000 },
-        { month: 'Mai', value: 7100000 },
-        { month: 'Jun', value: 8500000 },
-      ],
-      planDistribution: [
-        { name: 'Gratuito', value: 450 },
-        { name: 'Básico', value: 380 },
-        { name: 'Premium', value: 220 },
-        { name: 'Enterprise', value: 50 },
-      ],
-      paymentMethods: [
-        { method: 'E-Kwanza', count: 320 },
-        { method: 'Multicaixa Express', count: 280 },
-        { method: 'Referência', count: 150 },
-      ],
-      summary: {
-        totalRevenue: 35900000,
-        totalUsers: 1100,
-        activeSubscriptions: 650,
-        conversionRate: 58.5,
-      },
-    };
+    return await AdminRepository.getReports(period);
   }
 
   /**

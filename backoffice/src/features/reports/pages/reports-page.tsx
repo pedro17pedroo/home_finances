@@ -38,38 +38,13 @@ export function ReportsPage() {
   const { data: reportData } = useQuery({
     queryKey: ['admin', 'reports', period],
     queryFn: async () => {
-      try {
-        const response = await apiClient.get('/admin/reports', { params: { period } });
-        return response.data;
-      } catch {
-        return {
-          revenue: [
-            { month: 'Jan', value: 4200000 },
-            { month: 'Fev', value: 5100000 },
-            { month: 'Mar', value: 4800000 },
-            { month: 'Abr', value: 6200000 },
-            { month: 'Mai', value: 7100000 },
-            { month: 'Jun', value: 8500000 },
-          ],
-          planDistribution: [
-            { name: 'Gratuito', value: 450 },
-            { name: 'Básico', value: 380 },
-            { name: 'Premium', value: 220 },
-            { name: 'Enterprise', value: 50 },
-          ],
-          paymentMethods: [
-            { method: 'E-Kwanza', count: 320 },
-            { method: 'Multicaixa Express', count: 280 },
-            { method: 'Referência', count: 150 },
-          ],
-          summary: {
-            totalRevenue: 35900000,
-            totalUsers: 1100,
-            activeSubscriptions: 650,
-            conversionRate: 58.5,
-          },
-        };
-      }
+      const response = await apiClient.get('/admin/reports', { params: { period } });
+      return response.data || {
+        revenue: [],
+        planDistribution: [],
+        paymentMethods: [],
+        summary: { totalRevenue: 0, totalUsers: 0, activeSubscriptions: 0, conversionRate: 0 }
+      };
     },
   });
 

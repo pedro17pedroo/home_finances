@@ -33,16 +33,8 @@ export function PaymentsPage() {
   const { data: payments, isLoading } = useQuery<Payment[]>({
     queryKey: ['admin', 'payments', statusFilter],
     queryFn: async () => {
-      try {
-        const response = await apiClient.get('/admin/payments', { params: { status: statusFilter } });
-        return response.data;
-      } catch {
-        return [
-          { id: 1, userId: 1, userName: 'João Silva', amount: 5000, paymentMethod: 'gpo', status: 'pending', referenceCode: 'REF-001', createdAt: '2024-06-15T10:30:00', paidAt: null },
-          { id: 2, userId: 2, userName: 'Maria Santos', amount: 2500, paymentMethod: 'ref', status: 'paid', referenceCode: 'REF-002', createdAt: '2024-06-14T14:20:00', paidAt: '2024-06-14T15:00:00' },
-          { id: 3, userId: 3, userName: 'Pedro Costa', amount: 5000, paymentMethod: 'ekwanza', status: 'failed', referenceCode: 'REF-003', createdAt: '2024-06-13T09:15:00', paidAt: null },
-        ];
-      }
+      const response = await apiClient.get('/admin/payments', { params: { status: statusFilter } });
+      return response.data || [];
     },
   });
 

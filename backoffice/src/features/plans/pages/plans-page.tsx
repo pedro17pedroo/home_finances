@@ -56,16 +56,14 @@ export function PlansPage() {
   const { data: plans, isLoading } = useQuery<Plan[]>({
     queryKey: ['admin', 'plans'],
     queryFn: async () => {
-      try {
-        const response = await apiClient.get('/admin/plans');
-        return response.data;
-      } catch {
-        return [
-          { id: 1, name: 'Gratuito', type: 'free', price: 0, features: ['1 conta', '50 transações/mês', 'Relatórios básicos'], maxAccounts: 1, maxTransactions: 50, isActive: true },
-          { id: 2, name: 'Básico', type: 'basic', price: 2500, features: ['3 contas', '200 transações/mês', 'Relatórios avançados', 'Suporte por email'], maxAccounts: 3, maxTransactions: 200, isActive: true },
-          { id: 3, name: 'Premium', type: 'premium', price: 5000, features: ['10 contas', 'Transações ilimitadas', 'Todos os relatórios', 'Suporte prioritário', 'API access'], maxAccounts: 10, maxTransactions: -1, isActive: true },
-        ];
-      }
+      const response = await apiClient.get('/admin/plans');
+      // Parse features from JSON string if needed
+      const plansData = response.data || [];
+      return plansData.map((plan: any) => ({
+        ...plan,
+        price: Number(plan.price) || 0,
+        features: typeof plan.features === 'string' ? JSON.parse(plan.features) : (plan.features || [])
+      }));
     },
   });
 
