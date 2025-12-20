@@ -13,6 +13,7 @@ import {
   Copy,
   CheckCircle,
 } from 'lucide-react';
+import Swal from 'sweetalert2';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
@@ -48,6 +49,10 @@ export function SubscriptionPage() {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('gpo');
   const [selectedPaymentType, setSelectedPaymentType] = useState<PaymentType>('one_time');
+  const [payerPhone, setPayerPhone] = useState('');
+  const [payerName, setPayerName] = useState('');
+  const [payerEmail, setPayerEmail] = useState('');
+  const [paymentStep, setPaymentStep] = useState(1);
 
   // Payment status modal
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -80,17 +85,42 @@ export function SubscriptionPage() {
 
   const handleSelectPlan = (plan: Plan) => {
     if (plan.price === 0) {
-      handleSubscribe(plan, 'one_time', 'gpo');
+      handleSubscribe(plan, 'one_time', 'gpo', '', '', '');
       return;
     }
     setSelectedPlan(plan);
+    setPaymentStep(1);
+    // Get user data from localStorage if available
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        setPayerPhone(user.phone || '');
+        setPayerName(`${user.firstName || ''} ${user.lastName || ''}`.trim());
+        setPayerEmail(user.email || '');
+      } catch {
+        setPayerPhone('');
+        setPayerName('');
+        setPayerEmail('');
+      }
+    }
     setShowPaymentModal(true);
+  };
+
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setPaymentStep(1);
+    setSelectedPaymentMethod('gpo');
+    setSelectedPaymentType('one_time');
   };
 
   const handleSubscribe = async (
     plan: Plan,
     paymentType: PaymentType,
-    paymentMethod: PaymentMethod
+    paymentMethod: PaymentMethod,
+    phone?: string,
+    name?: string,
+    email?: string
   ) => {
     setSubscribing(true);
     try {
@@ -98,6 +128,9 @@ export function SubscriptionPage() {
         planId: plan.id,
         paymentType,
         paymentMethod,
+        payerPhone: phone || payerPhone,
+        payerName: name || payerName,
+        payerEmail: email || payerEmail,
       });
 
       if (result.success) {
@@ -106,13 +139,31 @@ export function SubscriptionPage() {
         if (plan.price === 0) {
           await loadData();
         } else if (result.payment) {
-          setPendingPayment(result.payment);
-          setShowStatusModal(true);
+          // Check if payment was already completed (instant payment like GPO)
+          if (result.payment.status === 'paid') {
+            await loadData();
+            await Swal.fire({
+              icon: 'success',
+              title: 'Pagamento Confirmado!',
+              text: 'Sua assinatura foi ativada com sucesso.',
+              confirmButtonText: 'Continuar',
+              confirmButtonColor: '#2563eb',
+            });
+          } else {
+            setPendingPayment(result.payment);
+            setShowStatusModal(true);
+          }
         }
       }
     } catch (error: any) {
       console.error('Subscribe error:', error);
-      alert(error.response?.data?.message || 'Erro ao processar assinatura');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Erro',
+        text: error.response?.data?.message || 'Erro ao processar assinatura',
+        confirmButtonText: 'Tentar Novamente',
+        confirmButtonColor: '#dc2626',
+      });
     } finally {
       setSubscribing(false);
     }
@@ -127,9 +178,21 @@ export function SubscriptionPage() {
         setShowStatusModal(false);
         setPendingPayment(null);
         await loadData();
-        alert('Pagamento confirmado! Sua assinatura foi ativada.');
+        await Swal.fire({
+          icon: 'success',
+          title: 'Pagamento Confirmado!',
+          text: 'Sua assinatura foi ativada com sucesso.',
+          confirmButtonText: 'Continuar',
+          confirmButtonColor: '#2563eb',
+        });
       } else {
-        alert('Pagamento ainda pendente. Tente novamente em alguns instantes.');
+        await Swal.fire({
+          icon: 'info',
+          title: 'Pagamento Pendente',
+          text: 'O pagamento ainda não foi confirmado. Tente novamente em alguns instantes.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#2563eb',
+        });
       }
     } catch (error) {
       console.error('Check status error:', error);
@@ -139,12 +202,38 @@ export function SubscriptionPage() {
   };
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Tem certeza que deseja cancelar sua assinatura?')) return;
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Cancelar Assinatura',
+      text: 'Tem certeza que deseja cancelar sua assinatura? Você perderá acesso aos recursos premium.',
+      showCancelButton: true,
+      confirmButtonText: 'Sim, Cancelar',
+      cancelButtonText: 'Não, Manter',
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+    });
+    
+    if (!result.isConfirmed) return;
+    
     try {
       await cancelSubscription();
       await loadData();
+      await Swal.fire({
+        icon: 'success',
+        title: 'Assinatura Cancelada',
+        text: 'Sua assinatura foi cancelada com sucesso.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#2563eb',
+      });
     } catch (error) {
       console.error('Cancel error:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Erro',
+        text: 'Não foi possível cancelar a assinatura. Tente novamente.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626',
+      });
     }
   };
 
@@ -427,123 +516,277 @@ export function SubscriptionPage() {
           </Card>
         )}
 
-        {/* Payment Method Modal */}
+        {/* Payment Method Modal with Steps */}
         {showPaymentModal && selectedPlan && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Assinar {selectedPlan.name}
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Valor: {formatCurrency(selectedPlan.price)}/mês
-              </p>
-
-              {/* Payment Type */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Tipo de Pagamento
-                </label>
-                <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Assinar {selectedPlan.name}
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {formatCurrency(selectedPlan.price)}/mês
+                    </p>
+                  </div>
                   <button
-                    onClick={() => setSelectedPaymentType('one_time')}
-                    className={`p-3 rounded-lg border-2 text-left ${
-                      selectedPaymentType === 'one_time'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-600'
-                    }`}
+                    onClick={closePaymentModal}
+                    className="text-gray-400 hover:text-gray-600"
                   >
-                    <p className="font-medium text-gray-900 dark:text-white">Pagamento Único</p>
-                    <p className="text-xs text-gray-500">Pague manualmente cada mês</p>
+                    <XCircle className="w-6 h-6" />
                   </button>
-                  <button
-                    onClick={() => setSelectedPaymentType('recurring')}
-                    className={`p-3 rounded-lg border-2 text-left ${
-                      selectedPaymentType === 'recurring'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-600'
-                    }`}
-                  >
-                    <p className="font-medium text-gray-900 dark:text-white">Assinatura</p>
-                    <p className="text-xs text-gray-500">Cobrança automática mensal</p>
-                  </button>
+                </div>
+                
+                {/* Step Indicator */}
+                <div className="flex items-center mt-4">
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                    paymentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    1
+                  </div>
+                  <div className={`flex-1 h-1 mx-2 ${paymentStep >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                    paymentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    2
+                  </div>
+                  <div className={`flex-1 h-1 mx-2 ${paymentStep >= 3 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                    paymentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    3
+                  </div>
+                </div>
+                <div className="flex justify-between mt-2 text-xs text-gray-500">
+                  <span>Tipo</span>
+                  <span>Método</span>
+                  <span>Pagador</span>
                 </div>
               </div>
 
-              {/* Payment Method */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Método de Pagamento
-                </label>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setSelectedPaymentMethod('ekwanza')}
-                    className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
-                      selectedPaymentMethod === 'ekwanza'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-600'
-                    }`}
-                  >
-                    <Smartphone className="w-6 h-6 text-orange-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">E-Kwanza</p>
-                      <p className="text-xs text-gray-500">{paymentMethodDescriptions.ekwanza}</p>
+              {/* Content */}
+              <div className="p-6 overflow-y-auto flex-1">
+                {/* Step 1: Payment Type */}
+                {paymentStep === 1 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                      Selecione o tipo de pagamento
+                    </h4>
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => setSelectedPaymentType('one_time')}
+                        className={`w-full p-4 rounded-lg border-2 text-left ${
+                          selectedPaymentType === 'one_time'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900 dark:text-white">Pagamento Único</p>
+                        <p className="text-sm text-gray-500 mt-1">Pague manualmente cada mês quando quiser renovar</p>
+                      </button>
+                      <button
+                        onClick={() => setSelectedPaymentType('recurring')}
+                        className={`w-full p-4 rounded-lg border-2 text-left ${
+                          selectedPaymentType === 'recurring'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900 dark:text-white">Assinatura Mensal</p>
+                        <p className="text-sm text-gray-500 mt-1">Cobrança automática todo mês</p>
+                      </button>
                     </div>
-                  </button>
+                  </div>
+                )}
 
-                  <button
-                    onClick={() => setSelectedPaymentMethod('gpo')}
-                    className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
-                      selectedPaymentMethod === 'gpo'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-600'
-                    }`}
-                  >
-                    <Zap className="w-6 h-6 text-blue-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">Multicaixa Express</p>
-                      <p className="text-xs text-gray-500">{paymentMethodDescriptions.gpo}</p>
-                    </div>
-                  </button>
+                {/* Step 2: Payment Method */}
+                {paymentStep === 2 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                      Selecione o método de pagamento
+                    </h4>
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => setSelectedPaymentMethod('ekwanza')}
+                        className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
+                          selectedPaymentMethod === 'ekwanza'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        <Smartphone className="w-6 h-6 text-orange-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">E-Kwanza</p>
+                          <p className="text-sm text-gray-500">{paymentMethodDescriptions.ekwanza}</p>
+                        </div>
+                      </button>
 
-                  <button
-                    onClick={() => setSelectedPaymentMethod('ref')}
-                    className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
-                      selectedPaymentMethod === 'ref'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-600'
-                    }`}
-                  >
-                    <Building2 className="w-6 h-6 text-green-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        Referência Multicaixa
-                      </p>
-                      <p className="text-xs text-gray-500">{paymentMethodDescriptions.ref}</p>
+                      <button
+                        onClick={() => setSelectedPaymentMethod('gpo')}
+                        className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
+                          selectedPaymentMethod === 'gpo'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        <Zap className="w-6 h-6 text-blue-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">Multicaixa Express</p>
+                          <p className="text-sm text-gray-500">{paymentMethodDescriptions.gpo}</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => setSelectedPaymentMethod('ref')}
+                        className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
+                          selectedPaymentMethod === 'ref'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        <Building2 className="w-6 h-6 text-green-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">Referência Multicaixa</p>
+                          <p className="text-sm text-gray-500">{paymentMethodDescriptions.ref}</p>
+                        </div>
+                      </button>
                     </div>
-                  </button>
-                </div>
+                  </div>
+                )}
+
+                {/* Step 3: Payer Information */}
+                {paymentStep === 3 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Dados do Pagador
+                    </h4>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Pode alterar os dados caso outra pessoa vá efectuar o pagamento
+                    </p>
+                    
+                    <div className="space-y-4">
+                      {(selectedPaymentMethod === 'ekwanza' || selectedPaymentMethod === 'gpo') && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Número de Telefone *
+                          </label>
+                          <input
+                            type="tel"
+                            value={payerPhone}
+                            onChange={(e) => setPayerPhone(e.target.value)}
+                            placeholder="Ex: 923456789"
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            {selectedPaymentMethod === 'ekwanza' 
+                              ? 'O código de pagamento será enviado para este número'
+                              : 'A notificação de pagamento será enviada para este número'}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Nome do Pagador
+                        </label>
+                        <input
+                          type="text"
+                          value={payerName}
+                          onChange={(e) => setPayerName(e.target.value)}
+                          placeholder="Nome completo"
+                          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Email do Pagador
+                        </label>
+                        <input
+                          type="email"
+                          value={payerEmail}
+                          onChange={(e) => setPayerEmail(e.target.value)}
+                          placeholder="email@exemplo.com"
+                          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          O comprovativo de pagamento será enviado para este email
+                        </p>
+                      </div>
+
+                      {/* Summary */}
+                      <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Resumo</h5>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Plano</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{selectedPlan.name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Tipo</span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {selectedPaymentType === 'one_time' ? 'Pagamento Único' : 'Assinatura'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Método</span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {paymentMethodNames[selectedPaymentMethod]}
+                            </span>
+                          </div>
+                          <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">Total</span>
+                            <span className="font-bold text-gray-900 dark:text-white">
+                              {formatCurrency(selectedPlan.price)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="flex justify-end space-x-3">
-                <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={() =>
-                    handleSubscribe(selectedPlan, selectedPaymentType, selectedPaymentMethod)
-                  }
-                  disabled={subscribing}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {subscribing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processando...
-                    </>
-                  ) : (
-                    'Confirmar Pagamento'
-                  )}
-                </Button>
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+                {paymentStep > 1 ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => setPaymentStep(paymentStep - 1)}
+                  >
+                    Voltar
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={closePaymentModal}>
+                    Cancelar
+                  </Button>
+                )}
+                
+                {paymentStep < 3 ? (
+                  <Button
+                    onClick={() => setPaymentStep(paymentStep + 1)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Continuar
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleSubscribe(selectedPlan, selectedPaymentType, selectedPaymentMethod)}
+                    disabled={subscribing || ((selectedPaymentMethod === 'ekwanza' || selectedPaymentMethod === 'gpo') && !payerPhone)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {subscribing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processando...
+                      </>
+                    ) : (
+                      'Confirmar Pagamento'
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
