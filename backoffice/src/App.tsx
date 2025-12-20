@@ -1,5 +1,4 @@
 import { Route, Switch, Redirect } from 'wouter';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AdminAuthProvider, useAdminAuth } from './shared/contexts/admin-auth-context';
 
 // Pages
@@ -13,15 +12,6 @@ import { ContentPage } from './features/content/pages/content-page';
 import { NotificationsPage } from './features/notifications/pages/notifications-page';
 import { SecurityPage } from './features/security/pages/security-page';
 import { SettingsPage } from './features/settings/pages/settings-page';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
-    },
-  },
-});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAdminAuth();
@@ -85,10 +75,8 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AdminAuthProvider>
-        <AppRoutes />
-      </AdminAuthProvider>
-    </QueryClientProvider>
+    <AdminAuthProvider>
+      <AppRoutes />
+    </AdminAuthProvider>
   );
 }

@@ -26,16 +26,20 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<SystemSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
 
-  useQuery({
+  const { isLoading, error } = useQuery({
     queryKey: ['admin', 'settings'],
     queryFn: async () => {
-      try {
-        const response = await apiClient.get('/admin/settings');
-        setSettings(response.data);
-        return response.data;
-      } catch {
-        return defaultSettings;
-      }
+      const response = await apiClient.get('/admin/settings');
+      const data = response.data;
+      // Ensure we have all required sections
+      const mergedSettings: SystemSettings = {
+        general: { ...defaultSettings.general, ...data.general },
+        email: { ...defaultSettings.email, ...data.email },
+        payment: { ...defaultSettings.payment, ...data.payment },
+        notifications: { ...defaultSettings.notifications, ...data.notifications },
+      };
+      setSettings(mergedSettings);
+      return mergedSettings;
     },
   });
 
@@ -96,7 +100,16 @@ export function SettingsPage() {
 
   return (
     <AdminLayout title="Configurações do Sistema">
-      <div className="flex gap-6">
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+          Erro ao carregar configurações. Tente novamente.
+        </div>
+      ) : (
+        <div className="flex gap-6">
         {/* Sidebar */}
         <div className="w-64 shrink-0">
           <Card>
@@ -182,6 +195,7 @@ export function SettingsPage() {
           </Card>
         </div>
       </div>
+      )}
     </AdminLayout>
   );
 }

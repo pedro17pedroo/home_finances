@@ -506,20 +506,34 @@ export class AdminRepository {
 
   // Settings Management
   static async getSettings() {
+    const defaultSettings = {
+      general: { siteName: 'FinançasPro', siteUrl: 'https://financaspro.ao', supportEmail: 'suporte@financaspro.ao', currency: 'AOA' },
+      email: { smtpHost: '', smtpPort: 587, smtpUser: '', fromEmail: '', fromName: '' },
+      payment: { tpagamentoApiKey: '', tpagamentoUrl: 'https://tpagamento-backend.tatusolutions.com', enableEkwanza: true, enableGpo: true, enableRef: true },
+      notifications: { enableEmailNotifications: true, enablePushNotifications: false, adminAlertEmail: '' },
+    };
+    
     try {
       const settings = await db.select().from(systemSettings);
-      const result: Record<string, any> = {};
+      
+      // If no settings in database, return defaults
+      if (!settings || settings.length === 0) {
+        return defaultSettings;
+      }
+      
+      // Build result from database values
+      const result: Record<string, any> = { ...defaultSettings };
       settings.forEach(s => {
-        result[s.key] = s.value;
+        try {
+          result[s.key] = typeof s.value === 'string' ? JSON.parse(s.value) : s.value;
+        } catch {
+          result[s.key] = s.value;
+        }
       });
       return result;
-    } catch {
-      return {
-        general: { siteName: 'FinançasPro', siteUrl: 'https://financaspro.ao', supportEmail: 'suporte@financaspro.ao', currency: 'AOA' },
-        email: { smtpHost: '', smtpPort: 587, smtpUser: '', fromEmail: '', fromName: '' },
-        payment: { tpagamentoApiKey: '', tpagamentoUrl: 'https://tpagamento-backend.tatusolutions.com', enableEkwanza: true, enableGpo: true, enableRef: true },
-        notifications: { enableEmailNotifications: true, enablePushNotifications: false, adminAlertEmail: '' },
-      };
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      return defaultSettings;
     }
   }
 
