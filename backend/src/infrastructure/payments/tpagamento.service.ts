@@ -139,7 +139,7 @@ class TPagamentoService {
     try {
       const cleanPhone = customerPhone.replace(/\D/g, '').slice(-9);
 
-      const response = await this.client.post('/payments', {
+      const requestData = {
         amount,
         currency: 'AOA',
         paymentMethod: 'gpo',
@@ -152,14 +152,23 @@ class TPagamentoService {
           method: 'gpo',
         },
         expiresIn: 30,
-      });
+      };
 
+      console.log('[TPagamento] Creating GPO payment:', requestData);
+
+      const response = await this.client.post('/payments', requestData);
+
+      console.log('[TPagamento] GPO payment response:', response.data);
+
+      // Handle nested response structure: { success: true, data: { id, reference, ... } }
+      const paymentData = response.data.data || response.data;
+      
       return {
         success: true,
-        paymentId: response.data.id,
-        referenceCode: response.data.reference,
-        status: 'pending',
-        data: response.data,
+        paymentId: paymentData.id,
+        referenceCode: paymentData.reference,
+        status: paymentData.status === 'completed' ? 'paid' : 'pending',
+        data: paymentData,
       };
     } catch (error: any) {
       console.error('Multicaixa Express payment error:', error.response?.data || error.message);
@@ -181,7 +190,7 @@ class TPagamentoService {
     try {
       const cleanPhone = customerPhone.replace(/\D/g, '').slice(-9);
 
-      const response = await this.client.post('/payments', {
+      const requestData = {
         amount,
         currency: 'AOA',
         paymentMethod: 'ref',
@@ -194,14 +203,23 @@ class TPagamentoService {
           method: 'ref',
         },
         expiresIn: 60,
-      });
+      };
+
+      console.log('[TPagamento] Creating REF payment:', requestData);
+
+      const response = await this.client.post('/payments', requestData);
+
+      console.log('[TPagamento] REF payment response:', response.data);
+
+      // Handle nested response structure: { success: true, data: { id, reference, ... } }
+      const paymentData = response.data.data || response.data;
 
       return {
         success: true,
-        paymentId: response.data.id,
-        referenceCode: response.data.reference,
-        status: 'pending',
-        data: response.data,
+        paymentId: paymentData.id,
+        referenceCode: paymentData.reference,
+        status: paymentData.status === 'completed' ? 'paid' : 'pending',
+        data: paymentData,
       };
     } catch (error: any) {
       console.error('Referência Multicaixa payment error:', error.response?.data || error.message);
@@ -215,7 +233,23 @@ class TPagamentoService {
   // Check Multicaixa/Referência Payment Status
   async checkPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
     try {
+      console.log(`[TPagamento] Checking payment status for ID: ${paymentId}`);
+      
+      if (!paymentId || paymentId === 'null' || paymentId === 'undefined') {
+        console.log('[TPagamento] Invalid payment ID provided');
+        return {
+          success: false,
+          status: 'pending',
+          data: { error: 'Invalid payment ID' },
+        };
+      }
+
       const response = await this.client.get(`/payments/${paymentId}`);
+
+      console.log(`[TPagamento] Payment status response:`, response.data);
+
+      // Handle nested response structure: { success: true, data: { status, ... } }
+      const paymentData = response.data.data || response.data;
 
       const statusMap: Record<string, PaymentStatusResponse['status']> = {
         pending: 'pending',
@@ -225,13 +259,17 @@ class TPagamentoService {
         expired: 'expired',
       };
 
+      const mappedStatus = statusMap[paymentData.status?.toLowerCase()] || 'pending';
+      
+      console.log(`[TPagamento] Status mapping: ${paymentData.status} -> ${mappedStatus}`);
+
       return {
         success: true,
-        status: statusMap[response.data.status?.toLowerCase()] || 'pending',
-        paymentId: response.data.id,
-        amount: response.data.amount,
-        paidAt: response.data.paidAt,
-        data: response.data,
+        status: mappedStatus,
+        paymentId: paymentData.id,
+        amount: paymentData.amount,
+        paidAt: paymentData.paidAt,
+        data: paymentData,
       };
     } catch (error: any) {
       console.error('Payment status check error:', error.response?.data || error.message);
