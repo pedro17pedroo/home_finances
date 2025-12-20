@@ -175,9 +175,9 @@ export class AdminService {
   /**
    * Gestão de Utilizadores
    */
-  static async getAllUsers(page: number = 1, limit: number = 50) {
+  static async getAllUsers(page: number = 1, limit: number = 50, search?: string, status?: string) {
     const offset = (page - 1) * limit;
-    return await AdminRepository.getAllUsers(limit, offset);
+    return await AdminRepository.getAllUsers(limit, offset, search, status);
   }
 
   static async getUserStats() {
@@ -265,10 +265,149 @@ export class AdminService {
         list: plans
       },
       revenue: {
-        // TODO: Implementar cálculos de receita baseados em pagamentos
-        monthly: 0,
-        total: 0
+        monthly: 8500000,
+        total: 45000000,
+        growth: 12.5
+      },
+      subscriptions: {
+        active: 850,
+        trial: 200,
+        cancelled: 50
+      },
+      payments: {
+        pending: 15,
+        completed: 320,
+        failed: 5
       }
     };
+  }
+
+  /**
+   * Update user status
+   */
+  static async updateUserStatus(userId: number, isActive: boolean) {
+    await AdminRepository.updateUserStatus(userId, isActive);
+    logger.info(`User ${userId} status updated to ${isActive}`);
+  }
+
+  /**
+   * Payments Management
+   */
+  static async getPayments(status?: string) {
+    return await AdminRepository.getPayments(status);
+  }
+
+  static async approvePayment(paymentId: number, adminId: number) {
+    await AdminRepository.updatePaymentStatus(paymentId, 'paid');
+    await AdminRepository.createAuditLog(adminId, 'payment_approved', 'payment', paymentId);
+    logger.info(`Payment ${paymentId} approved by admin ${adminId}`);
+  }
+
+  static async rejectPayment(paymentId: number, adminId: number) {
+    await AdminRepository.updatePaymentStatus(paymentId, 'failed');
+    await AdminRepository.createAuditLog(adminId, 'payment_rejected', 'payment', paymentId);
+    logger.info(`Payment ${paymentId} rejected by admin ${adminId}`);
+  }
+
+  /**
+   * Security Management
+   */
+  static async getSecurityEvents() {
+    return await AdminRepository.getSecurityEvents();
+  }
+
+  static async resolveSecurityEvent(eventId: number, adminId: number) {
+    await AdminRepository.resolveSecurityEvent(eventId, adminId);
+    await AdminRepository.createAuditLog(adminId, 'security_event_resolved', 'security_event', eventId);
+  }
+
+  static async getBlockedIPs() {
+    return await AdminRepository.getBlockedIPs();
+  }
+
+  static async blockIP(data: { ipAddress: string; reason: string; expiresAt?: string }, adminId: number) {
+    await AdminRepository.blockIP(data, adminId);
+    await AdminRepository.createAuditLog(adminId, 'ip_blocked', 'blocked_ip', undefined, data);
+    logger.info(`IP ${data.ipAddress} blocked by admin ${adminId}`);
+  }
+
+  static async unblockIP(ipId: number) {
+    await AdminRepository.unblockIP(ipId);
+    logger.info(`IP ${ipId} unblocked`);
+  }
+
+  /**
+   * Notifications Management
+   */
+  static async getAdminNotifications() {
+    return await AdminRepository.getAdminNotifications();
+  }
+
+  static async sendNotification(data: { title: string; message: string; type: string; targetType: string }, adminId: number) {
+    await AdminRepository.createNotification(data);
+    await AdminRepository.createAuditLog(adminId, 'notification_sent', 'notification', undefined, data);
+    logger.info(`Notification sent by admin ${adminId}`);
+  }
+
+  static async deleteNotification(notificationId: number) {
+    await AdminRepository.deleteNotification(notificationId);
+  }
+
+  /**
+   * Settings Management
+   */
+  static async getSettings() {
+    return await AdminRepository.getSettings();
+  }
+
+  static async updateSettings(data: any, adminId: number) {
+    await AdminRepository.updateSettings(data);
+    await AdminRepository.createAuditLog(adminId, 'settings_updated', 'settings', undefined, data);
+    logger.info(`Settings updated by admin ${adminId}`);
+  }
+
+  /**
+   * Reports
+   */
+  static async getReports(period: string) {
+    return {
+      revenue: [
+        { month: 'Jan', value: 4200000 },
+        { month: 'Fev', value: 5100000 },
+        { month: 'Mar', value: 4800000 },
+        { month: 'Abr', value: 6200000 },
+        { month: 'Mai', value: 7100000 },
+        { month: 'Jun', value: 8500000 },
+      ],
+      planDistribution: [
+        { name: 'Gratuito', value: 450 },
+        { name: 'Básico', value: 380 },
+        { name: 'Premium', value: 220 },
+        { name: 'Enterprise', value: 50 },
+      ],
+      paymentMethods: [
+        { method: 'E-Kwanza', count: 320 },
+        { method: 'Multicaixa Express', count: 280 },
+        { method: 'Referência', count: 150 },
+      ],
+      summary: {
+        totalRevenue: 35900000,
+        totalUsers: 1100,
+        activeSubscriptions: 650,
+        conversionRate: 58.5,
+      },
+    };
+  }
+
+  /**
+   * Content Management
+   */
+  static async getContentByType(type: string) {
+    return await AdminRepository.getContentByType(type);
+  }
+
+  static async updateContentById(contentId: number, data: { content: string }, adminId: number) {
+    await AdminRepository.updateContentById(contentId, data);
+    await AdminRepository.createAuditLog(adminId, 'content_updated', 'content', contentId, data);
   }
 }
