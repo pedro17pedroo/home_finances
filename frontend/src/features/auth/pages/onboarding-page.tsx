@@ -143,6 +143,7 @@ export function OnboardingPage() {
 
     // Register user before going to payment
     setSubmitting(true);
+    setFormErrors({});
     try {
       const registerResponse = await apiClient.post('/auth/register', {
         firstName: formData.firstName,
@@ -152,16 +153,17 @@ export function OnboardingPage() {
         password: formData.password,
       });
 
-      if (registerResponse.data.success) {
+      if (registerResponse.data.status === 'success') {
         // Login to get token
         const loginResponse = await apiClient.post('/auth/login', {
           emailOrPhone: formData.email || formData.phone,
           password: formData.password,
         });
 
-        if (loginResponse.data.token) {
-          localStorage.setItem('token', loginResponse.data.token);
-          setAuthToken(loginResponse.data.token);
+        const token = loginResponse.data.data?.token || loginResponse.data.token;
+        if (token) {
+          localStorage.setItem('token', token);
+          setAuthToken(token);
           setIsRegistered(true);
           setCurrentStep('payment');
         }
@@ -177,12 +179,17 @@ export function OnboardingPage() {
             password: formData.password,
           });
 
-          if (loginResponse.data.token) {
-            localStorage.setItem('token', loginResponse.data.token);
-            setAuthToken(loginResponse.data.token);
+          const token = loginResponse.data.data?.token || loginResponse.data.token;
+          if (token) {
+            localStorage.setItem('token', token);
+            setAuthToken(token);
             setIsRegistered(true);
             setCurrentStep('payment');
             return;
+          } else {
+            setFormErrors({
+              general: 'Erro ao fazer login. Tente novamente.',
+            });
           }
         } catch (loginError: any) {
           setFormErrors({
@@ -201,6 +208,7 @@ export function OnboardingPage() {
 
   const handleFreeRegistration = async () => {
     setSubmitting(true);
+    setFormErrors({});
     try {
       // Register user
       const registerResponse = await apiClient.post('/auth/register', {
@@ -211,15 +219,16 @@ export function OnboardingPage() {
         password: formData.password,
       });
 
-      if (registerResponse.data.success) {
+      if (registerResponse.data.status === 'success') {
         // Login
         const loginResponse = await apiClient.post('/auth/login', {
           emailOrPhone: formData.email || formData.phone,
           password: formData.password,
         });
 
-        if (loginResponse.data.token) {
-          localStorage.setItem('token', loginResponse.data.token);
+        const token = loginResponse.data.data?.token || loginResponse.data.token;
+        if (token) {
+          localStorage.setItem('token', token);
 
           // Subscribe to free plan
           await apiClient.post('/subscriptions/subscribe', {
@@ -257,16 +266,17 @@ export function OnboardingPage() {
           password: formData.password,
         });
 
-        if (registerResponse.data.success) {
+        if (registerResponse.data.status === 'success') {
           // Login to get token
           const loginResponse = await apiClient.post('/auth/login', {
             emailOrPhone: formData.email || formData.phone,
             password: formData.password,
           });
 
-          if (loginResponse.data.token) {
-            localStorage.setItem('token', loginResponse.data.token);
-            setAuthToken(loginResponse.data.token);
+          const token = loginResponse.data.data?.token || loginResponse.data.token;
+          if (token) {
+            localStorage.setItem('token', token);
+            setAuthToken(token);
             setIsRegistered(true);
           }
         }
@@ -294,9 +304,10 @@ export function OnboardingPage() {
             password: formData.password,
           });
 
-          if (loginResponse.data.token) {
-            localStorage.setItem('token', loginResponse.data.token);
-            setAuthToken(loginResponse.data.token);
+          const token = loginResponse.data.data?.token || loginResponse.data.token;
+          if (token) {
+            localStorage.setItem('token', token);
+            setAuthToken(token);
             setIsRegistered(true);
             
             // Retry subscription
@@ -764,7 +775,7 @@ export function OnboardingPage() {
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900">Pagamento Pendente</h2>
                   <p className="text-gray-500 text-sm mt-1">
-                    Complete o pagamento usando {paymentMethodNames[pendingPayment.paymentMethod]}
+                    Complete o pagamento usando {paymentMethodNames[pendingPayment.paymentMethod as PaymentMethod] || pendingPayment.paymentMethod}
                   </p>
                 </div>
 
