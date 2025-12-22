@@ -4,7 +4,7 @@ import { LoanService } from "../../domain/services/loan.service.js";
 export class LoanController {
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const loan = await LoanService.createLoan(userId, req.body);
       
       res.status(201).json({
@@ -19,7 +19,7 @@ export class LoanController {
 
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const loans = await LoanService.getLoansByUserId(userId);
       
       res.json({
@@ -33,7 +33,7 @@ export class LoanController {
 
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const loanId = parseInt(req.params.id);
       const loan = await LoanService.getLoanById(userId, loanId);
       
@@ -48,7 +48,7 @@ export class LoanController {
 
   static async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const loanId = parseInt(req.params.id);
       const loan = await LoanService.updateLoan(userId, loanId, req.body);
       
@@ -64,7 +64,7 @@ export class LoanController {
 
   static async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const loanId = parseInt(req.params.id);
       await LoanService.deleteLoan(userId, loanId);
       
@@ -79,7 +79,7 @@ export class LoanController {
 
   static async getSummary(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const summary = await LoanService.getLoansSummary(userId);
       
       res.json({
@@ -93,7 +93,7 @@ export class LoanController {
 
   static async getOverdue(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const overdueLoans = await LoanService.getOverdueLoans(userId);
       
       res.json({

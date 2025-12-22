@@ -5,7 +5,7 @@ import type { AuthenticatedRequest } from "../middlewares/auth.js";
 export class TransferController {
   static async getTransfers(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const { startDate, endDate, accountId } = req.query;
       
       const filters = {
@@ -27,7 +27,7 @@ export class TransferController {
 
   static async getTransferById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const transferId = parseInt(req.params.id);
       
       if (isNaN(transferId)) {
@@ -50,7 +50,7 @@ export class TransferController {
 
   static async createTransfer(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const transfer = await TransferService.createTransfer(req.body, userId);
       
       res.status(201).json({
@@ -65,7 +65,7 @@ export class TransferController {
 
   static async deleteTransfer(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const transferId = parseInt(req.params.id);
       
       if (isNaN(transferId)) {
@@ -88,7 +88,7 @@ export class TransferController {
 
   static async getTransferSummary(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const summary = await TransferService.getTransferSummary(userId);
       
       res.json({
@@ -102,7 +102,7 @@ export class TransferController {
 
   static async getAccountTransferHistory(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const accountId = parseInt(req.params.accountId);
       
       if (isNaN(accountId)) {

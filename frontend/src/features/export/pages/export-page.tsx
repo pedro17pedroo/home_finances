@@ -3,6 +3,7 @@ import { Button } from '../../../shared/components/ui/button';
 import { Card } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
 import { Select } from '../../../shared/components/ui/select';
+import { showError, showSuccess } from '../../../shared/lib/alerts';
 
 export function ExportPage() {
   const [isExporting, setIsExporting] = useState(false);
@@ -48,12 +49,13 @@ export function ExportPage() {
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(downloadUrl);
+        await showSuccess('Exportação Concluída', 'Seus dados foram exportados com sucesso');
       } else {
-        alert('Erro ao exportar dados');
+        await showError('Erro na Exportação', 'Não foi possível exportar os dados');
       }
     } catch (error) {
       console.error('Erro na exportação:', error);
-      alert('Erro ao exportar dados');
+      await showError('Erro na Exportação', 'Ocorreu um erro ao exportar os dados');
     } finally {
       setIsExporting(false);
     }

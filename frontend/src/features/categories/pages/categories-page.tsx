@@ -1,60 +1,46 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, Tag, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Tag, X, Loader2 } from 'lucide-react';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
+import { useCategories, useCreateCategory, useDeleteCategory } from '../hooks/use-categories';
+import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
+import type { Category, CreateCategoryRequest } from '../../../shared/api/categories';
 
 type TabType = 'receitas' | 'despesas';
-
-interface Category {
-  id: number;
-  name: string;
-  type: 'receita' | 'despesa';
-  color?: string;
-}
 
 export function CategoriesPage() {
   const [activeTab, setActiveTab] = useState<TabType>('receitas');
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [categories, setCategories] = useState<Category[]>([
-    // Default categories
-    { id: 1, name: 'Salário', type: 'receita', color: '#10B981' },
-    { id: 2, name: 'Freelance', type: 'receita', color: '#3B82F6' },
-    { id: 3, name: 'Investimentos', type: 'receita', color: '#8B5CF6' },
-    { id: 4, name: 'Alimentação', type: 'despesa', color: '#EF4444' },
-    { id: 5, name: 'Transporte', type: 'despesa', color: '#F59E0B' },
-    { id: 6, name: 'Moradia', type: 'despesa', color: '#EC4899' },
-    { id: 7, name: 'Saúde', type: 'despesa', color: '#06B6D4' },
-    { id: 8, name: 'Educação', type: 'despesa', color: '#84CC16' },
-    { id: 9, name: 'Lazer', type: 'despesa', color: '#F97316' },
-  ]);
-
   const [formData, setFormData] = useState({ name: '', color: '#10B981' });
 
-  const filteredCategories = categories.filter(
-    (cat) => (activeTab === 'receitas' ? cat.type === 'receita' : cat.type === 'despesa')
-  );
+  const { data: categories, isLoading } = useCategories();
+  const createCategoryMutation = useCreateCategory();
+  const deleteCategoryMutation = useDeleteCategory();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const filteredCategories = categories?.filter(
+    (cat) => (activeTab === 'receitas' ? cat.type === 'receita' : cat.type === 'despesa')
+  ) || [];
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingCategory) {
-      setCategories(categories.map((cat) =>
-        cat.id === editingCategory.id ? { ...cat, name: formData.name, color: formData.color } : cat
-      ));
-      setEditingCategory(null);
-    } else {
-      const newCategory: Category = {
-        id: Date.now(),
+    try {
+      const categoryData: CreateCategoryRequest = {
         name: formData.name,
         type: activeTab === 'receitas' ? 'receita' : 'despesa',
         color: formData.color,
       };
-      setCategories([...categories, newCategory]);
+      await createCategoryMutation.mutateAsync(categoryData);
+      setFormData({ name: '', color: activeTab === 'receitas' ? '#10B981' : '#EF4444' });
+      setShowForm(false);
+      setEditingCategory(null);
+      showSuccessToast('Categoria criada com sucesso!');
+    } catch (error) {
+      console.error('Error creating category:', error);
+      showErrorToast('Erro ao criar categoria');
     }
-    setFormData({ name: '', color: activeTab === 'receitas' ? '#10B981' : '#EF4444' });
-    setShowForm(false);
   };
 
   const handleEdit = (category: Category) => {
@@ -63,9 +49,16 @@ export function CategoriesPage() {
     setShowForm(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta categoria?')) {
-      setCategories(categories.filter((cat) => cat.id !== id));
+  const handleDelete = async (id: number) => {
+    const confirmed = await showDeleteConfirm('esta categoria');
+    if (confirmed) {
+      try {
+        await deleteCategoryMutation.mutateAsync(id);
+        showSuccessToast('Categoria excluída com sucesso!');
+      } catch (error) {
+        console.error('Error deleting category:', error);
+        showErrorToast('Erro ao excluir categoria');
+      }
     }
   };
 
@@ -74,6 +67,18 @@ export function CategoriesPage() {
     setFormData({ name: '', color: activeTab === 'receitas' ? '#10B981' : '#EF4444' });
     setShowForm(true);
   };
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -137,7 +142,7 @@ export function CategoriesPage() {
                     <div className="flex items-center space-x-3">
                       <div
                         className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: category.color }}
+                        style={{ backgroundColor: category.color || '#6B7280' }}
                       ></div>
                       <span className="font-medium text-gray-900 dark:text-white">{category.name}</span>
                     </div>
@@ -150,6 +155,7 @@ export function CategoriesPage() {
                       </button>
                       <button
                         onClick={() => handleDelete(category.id)}
+                        disabled={deleteCategoryMutation.isPending}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -167,6 +173,13 @@ export function CategoriesPage() {
                 <p className="text-gray-500 text-sm mb-6">
                   Crie categorias para organizar suas {activeTab === 'receitas' ? 'receitas' : 'despesas'}
                 </p>
+                <Button
+                  onClick={openNewForm}
+                  className={activeTab === 'receitas' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Criar Primeira Categoria
+                </Button>
               </div>
             )}
           </CardContent>
@@ -225,9 +238,10 @@ export function CategoriesPage() {
                   </Button>
                   <Button
                     type="submit"
+                    disabled={createCategoryMutation.isPending}
                     className={`flex-1 ${activeTab === 'receitas' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'}`}
                   >
-                    {editingCategory ? 'Salvar' : 'Criar'}
+                    {createCategoryMutation.isPending ? 'Salvando...' : editingCategory ? 'Salvar' : 'Criar'}
                   </Button>
                 </div>
               </form>

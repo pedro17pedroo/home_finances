@@ -4,6 +4,7 @@ import { Check, Loader2 } from 'lucide-react';
 import { Button } from '../../../shared/components/ui/button';
 import { Card } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
+import { showSuccess, showError } from '../../../shared/lib/alerts';
 import { getPlans, Plan } from '../../../shared/api/subscriptions';
 
 export function LandingPage() {
@@ -54,13 +55,13 @@ export function LandingPage() {
       });
 
       if (response.ok) {
-        alert('Mensagem enviada com sucesso!');
+        await showSuccess('Mensagem Enviada', 'Sua mensagem foi enviada com sucesso! Entraremos em contato em breve.');
         setContactForm({ name: '', email: '', subject: '', message: '' });
       } else {
-        alert('Erro ao enviar mensagem');
+        await showError('Erro', 'Não foi possível enviar sua mensagem. Tente novamente.');
       }
     } catch (error) {
-      alert('Erro ao enviar mensagem');
+      await showError('Erro', 'Ocorreu um erro ao enviar a mensagem. Tente novamente.');
     }
   };
 

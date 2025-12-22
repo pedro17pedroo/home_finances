@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../shared/components/ui/button';
 import { Card, CardContent } from '../../../shared/components/ui/card';
+import { showInfo } from '../../../shared/lib/alerts';
 import {
   getPlans,
   getPlanById,
@@ -231,7 +232,7 @@ export function OnboardingPage() {
         // Redirect to dashboard
         window.location.href = '/dashboard';
       } else {
-        alert('Pagamento ainda pendente. Tente novamente em alguns instantes.');
+        await showInfo('Pagamento Pendente', 'O pagamento ainda está pendente. Tente novamente em alguns instantes.');
       }
     } catch (error) {
       console.error('Check status error:', error);

@@ -5,6 +5,7 @@ import { loansApi } from '../../../shared/api/loans';
 import { debtsApi } from '../../../shared/api/debts';
 import { accountsApi } from '../../../shared/api/accounts';
 import { formatCurrency } from '../../../shared/lib/utils';
+import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
 import { Card, CardContent } from '../../../shared/components/ui/card';
@@ -103,12 +104,20 @@ export function LoansPage() {
     setFormData({ accountId: '', amount: '', person: '', interestRate: '', dueDate: '', description: '' });
   };
 
-  const handleDelete = (id: number) => {
-    if (window.confirm(`Tem certeza que deseja excluir ${activeTab === 'loans' ? 'este empréstimo' : 'esta dívida'}?`)) {
-      if (activeTab === 'loans') {
-        deleteLoanMutation.mutate(id);
-      } else {
-        deleteDebtMutation.mutate(id);
+  const handleDelete = async (id: number) => {
+    const itemName = activeTab === 'loans' ? 'este empréstimo' : 'esta dívida';
+    const confirmed = await showDeleteConfirm(itemName);
+    if (confirmed) {
+      try {
+        if (activeTab === 'loans') {
+          await deleteLoanMutation.mutateAsync(id);
+        } else {
+          await deleteDebtMutation.mutateAsync(id);
+        }
+        showSuccessToast(`${activeTab === 'loans' ? 'Empréstimo' : 'Dívida'} excluído(a) com sucesso`);
+      } catch (error) {
+        console.error('Error deleting:', error);
+        showErrorToast(`Erro ao excluir ${activeTab === 'loans' ? 'empréstimo' : 'dívida'}`);
       }
     }
   };

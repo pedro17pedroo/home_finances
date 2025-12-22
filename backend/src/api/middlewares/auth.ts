@@ -20,6 +20,17 @@ declare global {
   }
 }
 
+// Export type for controllers
+export type AuthenticatedRequest = Request & {
+  user: {
+    id: number;
+    email?: string;
+    phone?: string;
+    planType: string;
+    subscriptionStatus: string;
+  };
+};
+
 export interface JWTPayload {
   userId: number;
   email?: string;

@@ -303,13 +303,15 @@ export const accounts = pgTable("accounts", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
-// Categorias customizadas
+// Categorias customizadas (por usuário)
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   type: transactionTypeEnum("type").notNull(),
   color: varchar("color", { length: 7 }),
   icon: varchar("icon", { length: 50 }),
+  isDefault: boolean("is_default").default(false),
   createdAt: timestamp("created_at").defaultNow()
 });
 

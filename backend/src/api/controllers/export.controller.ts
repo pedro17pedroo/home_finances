@@ -4,7 +4,7 @@ import { ExportService } from "../../domain/services/export.service.js";
 export class ExportController {
   static async exportData(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const {
         format = 'json',
         startDate,
@@ -46,7 +46,7 @@ export class ExportController {
 
   static async createBackup(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       
       const result = await ExportService.createFullBackup(userId);
 
@@ -62,7 +62,7 @@ export class ExportController {
 
   static async exportTransactions(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const { startDate, endDate } = req.query;
 
       const result = await ExportService.exportTransactionsCSV(
@@ -83,7 +83,7 @@ export class ExportController {
 
   static async generateSummaryReport(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       
       const result = await ExportService.generateFinancialSummaryReport(userId);
 

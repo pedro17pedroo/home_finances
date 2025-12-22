@@ -4,7 +4,7 @@ import { RecurringTransactionService } from "../../domain/services/recurring-tra
 export class RecurringTransactionController {
   static async getUpcoming(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const days = parseInt(req.query.days as string) || 30;
       
       const upcoming = await RecurringTransactionService.getUpcomingRecurringTransactions(userId, days);
@@ -20,7 +20,7 @@ export class RecurringTransactionController {
 
   static async deactivate(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const transactionId = parseInt(req.params.id);
       
       await RecurringTransactionService.deactivateRecurringTransaction(userId, transactionId);

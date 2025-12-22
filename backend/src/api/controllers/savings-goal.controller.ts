@@ -5,7 +5,7 @@ import type { AuthenticatedRequest } from "../middlewares/auth.js";
 export class SavingsGoalController {
   static async getSavingsGoals(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const goals = await SavingsGoalService.getUserSavingsGoals(userId);
       
       res.json({
@@ -19,7 +19,7 @@ export class SavingsGoalController {
 
   static async getSavingsGoalById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const goalId = parseInt(req.params.id);
       
       if (isNaN(goalId)) {
@@ -42,7 +42,7 @@ export class SavingsGoalController {
 
   static async createSavingsGoal(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const goal = await SavingsGoalService.createSavingsGoal(req.body, userId);
       
       res.status(201).json({
@@ -57,7 +57,7 @@ export class SavingsGoalController {
 
   static async updateSavingsGoal(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const goalId = parseInt(req.params.id);
       
       if (isNaN(goalId)) {
@@ -81,7 +81,7 @@ export class SavingsGoalController {
 
   static async addToSavingsGoal(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const goalId = parseInt(req.params.id);
       
       if (isNaN(goalId)) {
@@ -105,7 +105,7 @@ export class SavingsGoalController {
 
   static async deleteSavingsGoal(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const goalId = parseInt(req.params.id);
       
       if (isNaN(goalId)) {
@@ -128,7 +128,7 @@ export class SavingsGoalController {
 
   static async getSavingsGoalsSummary(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const summary = await SavingsGoalService.getSavingsGoalsSummary(userId);
       
       res.json({
@@ -142,7 +142,7 @@ export class SavingsGoalController {
 
   static async getGoalProgress(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const goalId = parseInt(req.params.id);
       
       if (isNaN(goalId)) {

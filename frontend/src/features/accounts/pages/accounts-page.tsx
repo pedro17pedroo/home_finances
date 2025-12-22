@@ -7,6 +7,7 @@ import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
 import { Select } from '../../../shared/components/ui/select';
 import { formatCurrency } from '../../../shared/lib/utils';
+import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
 import type { CreateAccountRequest } from '../../../shared/types';
 
 const accountTypeLabels = {
@@ -52,11 +53,14 @@ export function AccountsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta conta?')) {
+    const confirmed = await showDeleteConfirm('esta conta');
+    if (confirmed) {
       try {
         await deleteAccountMutation.mutateAsync(id);
+        showSuccessToast('Conta excluída com sucesso');
       } catch (error) {
         console.error('Error deleting account:', error);
+        showErrorToast('Erro ao excluir conta');
       }
     }
   };

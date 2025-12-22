@@ -4,7 +4,7 @@ import { AdvancedReportsService } from "../../domain/services/advanced-reports.s
 export class AdvancedReportsController {
   static async getFinancialOverview(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const months = parseInt(req.query.months as string) || 12;
       
       const overview = await AdvancedReportsService.getFinancialOverview(userId, months);
@@ -20,7 +20,7 @@ export class AdvancedReportsController {
 
   static async getCashFlowAnalysis(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       
       const analysis = await AdvancedReportsService.getCashFlowAnalysis(userId);
       
@@ -35,7 +35,7 @@ export class AdvancedReportsController {
 
   static async getDebtAnalysis(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       
       const analysis = await AdvancedReportsService.getDebtAnalysis(userId);
       
@@ -50,7 +50,7 @@ export class AdvancedReportsController {
 
   static async getPeriodComparison(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const currentMonths = parseInt(req.query.currentMonths as string) || 6;
       const previousMonths = parseInt(req.query.previousMonths as string) || 6;
       

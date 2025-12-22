@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtsApi } from '../../../shared/api/debts';
 import { accountsApi } from '../../../shared/api/accounts';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
+import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
 import { Button } from '../../../shared/components/ui/button';
 import { Card } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
@@ -253,9 +254,15 @@ export function DebtsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
-                      if (confirm('Tem certeza que deseja remover esta dívida?')) {
-                        deleteMutation.mutate(debt.id);
+                    onClick={async () => {
+                      const confirmed = await showDeleteConfirm('esta dívida');
+                      if (confirmed) {
+                        try {
+                          await deleteMutation.mutateAsync(debt.id);
+                          showSuccessToast('Dívida removida com sucesso');
+                        } catch (error) {
+                          showErrorToast('Erro ao remover dívida');
+                        }
                       }
                     }}
                     disabled={deleteMutation.isPending}

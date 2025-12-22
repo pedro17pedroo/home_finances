@@ -1,4 +1,5 @@
 import { UserRepository } from "../repositories/user.repository.js";
+import { CategoryService } from "./category.service.js";
 import { 
   hashPassword, 
   verifyPassword, 
@@ -127,6 +128,14 @@ export class AuthService {
     };
 
     const user = await UserRepository.create(userData);
+
+    // Create default categories for the new user
+    try {
+      await CategoryService.createDefaultCategoriesForUser(user.id);
+    } catch (error) {
+      // Log error but don't fail registration
+      console.error('Error creating default categories for user:', error);
+    }
 
     // Generate tokens
     const tokenPayload: JWTPayload = {

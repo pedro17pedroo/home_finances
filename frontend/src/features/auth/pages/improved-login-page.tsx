@@ -6,6 +6,7 @@ import { Button } from '../../../shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
 import { Label } from '../../../shared/components/ui/label';
+import { showInfo } from '../../../shared/lib/alerts';
 import type { LoginRequest } from '../../../shared/types';
 
 export function ImprovedLoginPage() {
@@ -57,7 +58,7 @@ export function ImprovedLoginPage() {
 
     try {
       // Simulate forgot password request
-      alert(`Instruções de redefinição de senha foram enviadas para: ${formData.emailOrPhone}`);
+      await showInfo('Instruções Enviadas', `Instruções de redefinição de senha foram enviadas para: ${formData.emailOrPhone}`);
       setShowForgotPassword(false);
     } catch (error) {
       setErrors({ submit: 'Erro ao enviar instruções de redefinição' });

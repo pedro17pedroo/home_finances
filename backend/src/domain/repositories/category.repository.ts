@@ -1,4 +1,4 @@
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, isNull, or } from "drizzle-orm";
 import { db } from "../../core/database/db.js";
 import { categories, transactions, type Category, type InsertCategory } from "../../core/database/schema.js";
 
@@ -13,10 +13,31 @@ export class CategoryRepository {
     return result[0] || null;
   }
 
+  static async findByIdAndUser(id: number, userId: number): Promise<Category | null> {
+    const result = await db
+      .select()
+      .from(categories)
+      .where(and(
+        eq(categories.id, id),
+        eq(categories.userId, userId)
+      ))
+      .limit(1);
+    
+    return result[0] || null;
+  }
+
   static async findAll(): Promise<Category[]> {
     return db
       .select()
       .from(categories)
+      .orderBy(categories.type, categories.name);
+  }
+
+  static async findAllByUser(userId: number): Promise<Category[]> {
+    return db
+      .select()
+      .from(categories)
+      .where(eq(categories.userId, userId))
       .orderBy(categories.type, categories.name);
   }
 
@@ -28,11 +49,35 @@ export class CategoryRepository {
       .orderBy(categories.name);
   }
 
+  static async findByTypeAndUser(type: 'receita' | 'despesa', userId: number): Promise<Category[]> {
+    return db
+      .select()
+      .from(categories)
+      .where(and(
+        eq(categories.type, type),
+        eq(categories.userId, userId)
+      ))
+      .orderBy(categories.name);
+  }
+
   static async findByName(name: string): Promise<Category | null> {
     const result = await db
       .select()
       .from(categories)
       .where(eq(categories.name, name))
+      .limit(1);
+    
+    return result[0] || null;
+  }
+
+  static async findByNameAndUser(name: string, userId: number): Promise<Category | null> {
+    const result = await db
+      .select()
+      .from(categories)
+      .where(and(
+        eq(categories.name, name),
+        eq(categories.userId, userId)
+      ))
       .limit(1);
     
     return result[0] || null;
@@ -72,11 +117,32 @@ export class CategoryRepository {
     return Number(result[0]?.count || 0);
   }
 
+  static async countByUser(userId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(categories)
+      .where(eq(categories.userId, userId));
+    
+    return Number(result[0]?.count || 0);
+  }
+
   static async getTransactionCount(categoryName: string): Promise<number> {
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(transactions)
       .where(eq(transactions.category, categoryName));
+    
+    return Number(result[0]?.count || 0);
+  }
+
+  static async getTransactionCountByUser(categoryName: string, userId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(transactions)
+      .where(and(
+        eq(transactions.category, categoryName),
+        eq(transactions.userId, userId)
+      ));
     
     return Number(result[0]?.count || 0);
   }

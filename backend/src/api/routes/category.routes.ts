@@ -19,10 +19,16 @@ router.get("/defaults", CategoryController.getDefaultCategories);
 // POST /api/categories/defaults - Create default categories
 router.post("/defaults", CategoryController.createDefaultCategories);
 
+// POST /api/categories - Create a new category
+router.post("/", CategoryController.createCategory);
+
 // GET /api/categories/type/:type - Get categories by type
 router.get("/type/:type", CategoryController.getCategoriesByType);
 
 // GET /api/categories/:id - Get specific category
 router.get("/:id", CategoryController.getCategoryById);
+
+// DELETE /api/categories/:id - Delete a category
+router.delete("/:id", CategoryController.deleteCategory);
 
 export default router;

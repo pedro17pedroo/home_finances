@@ -4,7 +4,7 @@ import { DebtService } from "../../domain/services/debt.service.js";
 export class DebtController {
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const debt = await DebtService.createDebt(userId, req.body);
       
       res.status(201).json({
@@ -19,7 +19,7 @@ export class DebtController {
 
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const debts = await DebtService.getDebtsByUserId(userId);
       
       res.json({
@@ -33,7 +33,7 @@ export class DebtController {
 
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const debtId = parseInt(req.params.id);
       const debt = await DebtService.getDebtById(userId, debtId);
       
@@ -48,7 +48,7 @@ export class DebtController {
 
   static async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const debtId = parseInt(req.params.id);
       const debt = await DebtService.updateDebt(userId, debtId, req.body);
       
@@ -64,7 +64,7 @@ export class DebtController {
 
   static async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const debtId = parseInt(req.params.id);
       await DebtService.deleteDebt(userId, debtId);
       
@@ -79,7 +79,7 @@ export class DebtController {
 
   static async getSummary(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const summary = await DebtService.getDebtsSummary(userId);
       
       res.json({
@@ -93,7 +93,7 @@ export class DebtController {
 
   static async getOverdue(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const overdueDebts = await DebtService.getOverdueDebts(userId);
       
       res.json({

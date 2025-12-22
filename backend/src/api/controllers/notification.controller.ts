@@ -4,7 +4,7 @@ import { NotificationService } from "../../domain/services/notification.service.
 export class NotificationController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const notifications = await NotificationService.getNotificationsForUser(userId);
       
       res.json({
@@ -18,7 +18,7 @@ export class NotificationController {
 
   static async getUnreadCount(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const count = await NotificationService.getUnreadCount(userId);
       
       res.json({
@@ -32,7 +32,7 @@ export class NotificationController {
 
   static async markAsRead(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const notificationId = req.params.id;
       
       await NotificationService.markAsRead(userId, notificationId);
@@ -48,7 +48,7 @@ export class NotificationController {
 
   static async markAllAsRead(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       
       await NotificationService.markAllAsRead(userId);
       

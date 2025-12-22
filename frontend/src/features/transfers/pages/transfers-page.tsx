@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/compon
 import { Input } from '../../../shared/components/ui/input';
 import { Select } from '../../../shared/components/ui/select';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
+import { showConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
 import type { CreateTransferRequest } from '../../../shared/types';
 
 export function TransfersPage() {
@@ -37,11 +38,20 @@ export function TransfersPage() {
   };
 
   const handleReverse = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja reverter esta transferência? Os saldos das contas serão atualizados.')) {
+    const confirmed = await showConfirm(
+      'Reverter Transferência',
+      'Tem certeza que deseja reverter esta transferência? Os saldos das contas serão atualizados.',
+      'Sim, Reverter',
+      'Cancelar',
+      true
+    );
+    if (confirmed) {
       try {
         await reverseTransferMutation.mutateAsync(id);
+        showSuccessToast('Transferência revertida com sucesso');
       } catch (error) {
         console.error('Error reversing transfer:', error);
+        showErrorToast('Erro ao reverter transferência');
       }
     }
   };

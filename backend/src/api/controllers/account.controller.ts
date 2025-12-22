@@ -5,7 +5,7 @@ import type { AuthenticatedRequest } from "../middlewares/auth.js";
 export class AccountController {
   static async getAccounts(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const accounts = await AccountService.getUserAccounts(userId);
       
       res.json({
@@ -19,7 +19,7 @@ export class AccountController {
 
   static async getSavingsAccounts(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const accounts = await AccountService.getSavingsAccounts(userId);
       
       res.json({
@@ -33,7 +33,7 @@ export class AccountController {
 
   static async getAccountById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const accountId = parseInt(req.params.id);
       
       if (isNaN(accountId)) {
@@ -56,7 +56,7 @@ export class AccountController {
 
   static async createAccount(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const account = await AccountService.createAccount(req.body, userId);
       
       res.status(201).json({
@@ -71,7 +71,7 @@ export class AccountController {
 
   static async updateAccount(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const accountId = parseInt(req.params.id);
       
       if (isNaN(accountId)) {
@@ -95,7 +95,7 @@ export class AccountController {
 
   static async deleteAccount(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const accountId = parseInt(req.params.id);
       
       if (isNaN(accountId)) {
@@ -118,7 +118,7 @@ export class AccountController {
 
   static async getAccountSummary(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const summary = await AccountService.getAccountSummary(userId);
       
       res.json({

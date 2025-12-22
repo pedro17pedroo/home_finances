@@ -11,6 +11,7 @@ import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
 import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
+import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
 import type { CreateSavingsGoalRequest, AddToGoalRequest } from '../../../shared/types';
 
 export function SavingsGoalsPage() {
@@ -63,11 +64,14 @@ export function SavingsGoalsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta meta de poupança?')) {
+    const confirmed = await showDeleteConfirm('esta meta de poupança');
+    if (confirmed) {
       try {
         await deleteGoalMutation.mutateAsync(id);
+        showSuccessToast('Meta de poupança excluída com sucesso');
       } catch (error) {
         console.error('Error deleting savings goal:', error);
+        showErrorToast('Erro ao excluir meta de poupança');
       }
     }
   };
