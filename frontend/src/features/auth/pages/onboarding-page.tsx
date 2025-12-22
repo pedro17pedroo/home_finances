@@ -60,6 +60,10 @@ export function OnboardingPage() {
   const [pendingPayment, setPendingPayment] = useState<any>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  // Track if user is already registered
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   // Check for plan ID in URL
   useEffect(() => {
@@ -131,8 +135,68 @@ export function OnboardingPage() {
       return;
     }
 
-    // For paid plans, go to payment step
-    setCurrentStep('payment');
+    // If user is already registered, just go to payment step
+    if (isRegistered) {
+      setCurrentStep('payment');
+      return;
+    }
+
+    // Register user before going to payment
+    setSubmitting(true);
+    try {
+      const registerResponse = await apiClient.post('/auth/register', {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        password: formData.password,
+      });
+
+      if (registerResponse.data.success) {
+        // Login to get token
+        const loginResponse = await apiClient.post('/auth/login', {
+          emailOrPhone: formData.email || formData.phone,
+          password: formData.password,
+        });
+
+        if (loginResponse.data.token) {
+          localStorage.setItem('token', loginResponse.data.token);
+          setAuthToken(loginResponse.data.token);
+          setIsRegistered(true);
+          setCurrentStep('payment');
+        }
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      
+      // If user already exists, try to login
+      if (error.response?.status === 409) {
+        try {
+          const loginResponse = await apiClient.post('/auth/login', {
+            emailOrPhone: formData.email || formData.phone,
+            password: formData.password,
+          });
+
+          if (loginResponse.data.token) {
+            localStorage.setItem('token', loginResponse.data.token);
+            setAuthToken(loginResponse.data.token);
+            setIsRegistered(true);
+            setCurrentStep('payment');
+            return;
+          }
+        } catch (loginError: any) {
+          setFormErrors({
+            general: 'Este email já está cadastrado. Verifique a senha ou faça login.',
+          });
+        }
+      } else {
+        setFormErrors({
+          general: error.response?.data?.message || 'Erro ao criar conta',
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleFreeRegistration = async () => {
@@ -180,44 +244,84 @@ export function OnboardingPage() {
 
   const handlePaymentSubmit = async () => {
     setSubmitting(true);
+    setFormErrors({});
+    
     try {
-      // Register user first
-      const registerResponse = await apiClient.post('/auth/register', {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        password: formData.password,
-      });
-
-      if (registerResponse.data.success) {
-        // Login to get token
-        const loginResponse = await apiClient.post('/auth/login', {
-          emailOrPhone: formData.email || formData.phone,
+      // If not registered yet, register first
+      if (!isRegistered) {
+        const registerResponse = await apiClient.post('/auth/register', {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
           password: formData.password,
         });
 
-        if (loginResponse.data.token) {
-          localStorage.setItem('token', loginResponse.data.token);
-
-          // Create subscription with payment
-          const subscribeResponse = await apiClient.post('/subscriptions/subscribe', {
-            planId: selectedPlan!.id,
-            paymentType,
-            paymentMethod,
+        if (registerResponse.data.success) {
+          // Login to get token
+          const loginResponse = await apiClient.post('/auth/login', {
+            emailOrPhone: formData.email || formData.phone,
+            password: formData.password,
           });
 
-          if (subscribeResponse.data.success && subscribeResponse.data.payment) {
-            setPendingPayment(subscribeResponse.data.payment);
-            setCurrentStep('status');
+          if (loginResponse.data.token) {
+            localStorage.setItem('token', loginResponse.data.token);
+            setAuthToken(loginResponse.data.token);
+            setIsRegistered(true);
           }
         }
       }
+
+      // Create subscription with payment
+      const subscribeResponse = await apiClient.post('/subscriptions/subscribe', {
+        planId: selectedPlan!.id,
+        paymentType,
+        paymentMethod,
+      });
+
+      if (subscribeResponse.data.success && subscribeResponse.data.payment) {
+        setPendingPayment(subscribeResponse.data.payment);
+        setCurrentStep('status');
+      }
     } catch (error: any) {
       console.error('Payment error:', error);
-      setFormErrors({
-        general: error.response?.data?.message || 'Erro ao processar pagamento',
-      });
+      
+      // If user already exists, try to login and continue
+      if (error.response?.status === 409) {
+        try {
+          const loginResponse = await apiClient.post('/auth/login', {
+            emailOrPhone: formData.email || formData.phone,
+            password: formData.password,
+          });
+
+          if (loginResponse.data.token) {
+            localStorage.setItem('token', loginResponse.data.token);
+            setAuthToken(loginResponse.data.token);
+            setIsRegistered(true);
+            
+            // Retry subscription
+            const subscribeResponse = await apiClient.post('/subscriptions/subscribe', {
+              planId: selectedPlan!.id,
+              paymentType,
+              paymentMethod,
+            });
+
+            if (subscribeResponse.data.success && subscribeResponse.data.payment) {
+              setPendingPayment(subscribeResponse.data.payment);
+              setCurrentStep('status');
+              return;
+            }
+          }
+        } catch (loginError: any) {
+          setFormErrors({
+            general: 'Este email já está cadastrado. Verifique a senha ou faça login.',
+          });
+        }
+      } else {
+        setFormErrors({
+          general: error.response?.data?.message || 'Erro ao processar pagamento',
+        });
+      }
     } finally {
       setSubmitting(false);
     }
