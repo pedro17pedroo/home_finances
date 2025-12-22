@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ChevronDown, Moon, Sun, User, LogOut, Menu, X } from 'lucide-react';
+import { ChevronDown, Moon, Sun, User, LogOut, Menu, X, Users } from 'lucide-react';
 import { useTheme } from '../../contexts/theme-context';
 import { useAuth } from '../../contexts/auth-context';
 
@@ -199,6 +199,12 @@ export function NavigationHeader() {
                   <Link href="/profile">
                     <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
                       Perfil
+                    </div>
+                  </Link>
+                  <Link href="/team">
+                    <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center">
+                      <Users className="w-4 h-4 mr-2" />
+                      Equipe
                     </div>
                   </Link>
                   <button

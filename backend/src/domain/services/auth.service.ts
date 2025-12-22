@@ -1,5 +1,6 @@
 import { UserRepository } from "../repositories/user.repository.js";
 import { CategoryService } from "./category.service.js";
+import { OrganizationService } from "./organization.service.js";
 import { 
   hashPassword, 
   verifyPassword, 
@@ -135,6 +136,18 @@ export class AuthService {
     } catch (error) {
       // Log error but don't fail registration
       console.error('Error creating default categories for user:', error);
+    }
+
+    // Create organization for the new user (they become the owner)
+    try {
+      const orgName = `${firstName} ${lastName}`.trim() || 'Minha Organização';
+      await OrganizationService.createOrganization({
+        name: orgName,
+        ownerId: user.id,
+      });
+    } catch (error) {
+      // Log error but don't fail registration
+      console.error('Error creating organization for user:', error);
     }
 
     // Generate tokens

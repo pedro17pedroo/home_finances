@@ -1934,3 +1934,68 @@
 {"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-22T11:24:19.857Z"}
 {"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-22T11:24:19.877Z"}
 {"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-22T11:24:19.877Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-22T11:32:00.172Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-22T11:32:01.159Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-22T11:32:01.163Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-22T11:32:01.163Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-22T11:32:01.163Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-22T11:32:01.163Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-22T11:32:01.163Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-22T11:32:01.164Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-22T11:32:01.164Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-22T11:32:01.219Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-22T11:32:01.219Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-22T11:32:06.727Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-22T11:32:07.556Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-22T11:32:07.558Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-22T11:32:07.558Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-22T11:32:07.558Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-22T11:32:07.558Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-22T11:32:07.558Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-22T11:32:07.559Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-22T11:32:07.559Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-22T11:32:07.577Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-22T11:32:07.577Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-22T11:32:16.810Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-22T11:32:17.661Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-22T11:32:17.662Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-22T11:32:17.662Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-22T11:32:17.663Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-22T11:32:17.663Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-22T11:32:17.663Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-22T11:32:17.663Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-22T11:32:17.663Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-22T11:32:18.255Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-22T11:32:18.255Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-22T11:32:25.906Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-22T11:32:26.846Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-22T11:32:26.848Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-22T11:32:26.848Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-22T11:32:26.848Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-22T11:32:26.848Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-22T11:32:26.848Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-22T11:32:26.849Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-22T11:32:26.849Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-22T11:32:26.869Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-22T11:32:26.869Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-22T11:33:32.508Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-22T11:33:33.430Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-22T11:33:33.432Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-22T11:33:33.433Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-22T11:33:33.433Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-22T11:33:33.433Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-22T11:33:33.433Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-22T11:33:33.433Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-22T11:33:33.433Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-22T11:33:33.686Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-22T11:33:33.687Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-22T11:33:53.873Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-22T11:33:53.875Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-22T11:33:53.875Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-22T11:33:53.875Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-22T11:33:53.875Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-22T11:33:53.875Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-22T11:33:53.875Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-22T11:33:53.875Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-22T11:33:53.898Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-22T11:33:53.898Z"}

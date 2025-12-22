@@ -21,6 +21,8 @@ import { CategoriesPage } from './features/categories/pages/categories-page';
 import { SubscriptionPage } from './features/subscription/pages/subscription-page';
 import { ProfilePage } from './features/profile/pages/profile-page';
 import { OnboardingPage } from './features/auth/pages/onboarding-page';
+import { TeamPage } from './features/team/pages/team-page';
+import { AcceptInvitationPage } from './features/team/pages/accept-invitation-page';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -55,6 +57,10 @@ function AppRoutes() {
       
       <Route path="/onboarding">
         {isAuthenticated ? <Redirect to="/dashboard" /> : <OnboardingPage />}
+      </Route>
+      
+      <Route path="/accept-invitation">
+        <AcceptInvitationPage />
       </Route>
       
 
@@ -132,6 +138,12 @@ function AppRoutes() {
       <Route path="/profile">
         <ProtectedRoute>
           <ProfilePage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/team">
+        <ProtectedRoute>
+          <TeamPage />
         </ProtectedRoute>
       </Route>
       

@@ -16,6 +16,7 @@ import publicRoutes from "./public.js";
 import whatsappRoutes from "./whatsapp.js";
 import receiptsRoutes from "./receipts.js";
 import subscriptionRoutes from "./subscription.routes.js";
+import organizationRoutes from "./organization.routes.js";
 
 const router = Router();
 
@@ -47,5 +48,6 @@ router.use("/public", publicRoutes);
 router.use("/whatsapp", whatsappRoutes);
 router.use("/receipts", receiptsRoutes);
 router.use("/subscriptions", subscriptionRoutes);
+router.use("/organizations", organizationRoutes);
 
 export default router;
