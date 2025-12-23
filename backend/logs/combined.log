@@ -6008,3 +6008,133 @@
 {"duration":"20ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2025-12-23T17:17:47.716Z","url":"/plans","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"}
 {"duration":"1ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2025-12-23T17:17:47.718Z","url":"/","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"}
 {"duration":"2ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2025-12-23T17:17:47.719Z","url":"/plans","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"}
+{"duration":"66ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2025-12-23T17:20:45.332Z","url":"/","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"}
+{"duration":"78ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2025-12-23T17:20:45.338Z","url":"/plans","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-23T17:28:29.522Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-23T17:28:31.849Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-23T17:28:31.861Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-23T17:28:31.862Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-23T17:28:31.862Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-23T17:28:31.863Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-23T17:28:31.864Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-23T17:28:31.867Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2025-12-23T17:28:31.867Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2025-12-23T17:28:31.867Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2025-12-23T17:28:31.867Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-23T17:28:31.868Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2025-12-23T17:28:32.619Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-23T17:28:32.620Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-23T17:28:32.620Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2025-12-23T17:28:32.622Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-23T17:29:19.534Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-23T17:29:20.588Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-23T17:29:20.591Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-23T17:29:20.591Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-23T17:29:20.591Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-23T17:29:20.591Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-23T17:29:20.592Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-23T17:29:20.592Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2025-12-23T17:29:20.592Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2025-12-23T17:29:20.592Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2025-12-23T17:29:20.592Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-23T17:29:20.592Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2025-12-23T17:29:20.622Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-23T17:29:20.623Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-23T17:29:20.623Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2025-12-23T17:29:20.625Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-23T17:29:49.161Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-23T17:29:50.334Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-23T17:29:50.336Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-23T17:29:50.336Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-23T17:29:50.337Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-23T17:29:50.337Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-23T17:29:50.337Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-23T17:29:50.337Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2025-12-23T17:29:50.337Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2025-12-23T17:29:50.337Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2025-12-23T17:29:50.337Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-23T17:29:50.337Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2025-12-23T17:29:50.365Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-23T17:29:50.365Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-23T17:29:50.365Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2025-12-23T17:29:50.367Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-23T17:30:13.292Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-23T17:30:14.466Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-23T17:30:14.468Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-23T17:30:14.468Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-23T17:30:14.468Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-23T17:30:14.469Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-23T17:30:14.469Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-23T17:30:14.469Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2025-12-23T17:30:14.469Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2025-12-23T17:30:14.469Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2025-12-23T17:30:14.469Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-23T17:30:14.469Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2025-12-23T17:30:14.501Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-23T17:30:14.502Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-23T17:30:14.502Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2025-12-23T17:30:14.504Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-23T17:30:42.929Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-23T17:30:44.102Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-23T17:30:44.104Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-23T17:30:44.104Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-23T17:30:44.104Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-23T17:30:44.104Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-23T17:30:44.104Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-23T17:30:44.104Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2025-12-23T17:30:44.104Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2025-12-23T17:30:44.105Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2025-12-23T17:30:44.105Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-23T17:30:44.105Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2025-12-23T17:30:44.157Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-23T17:30:44.159Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-23T17:30:44.159Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2025-12-23T17:30:44.162Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-23T17:31:09.499Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-23T17:31:10.892Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-23T17:31:10.894Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-23T17:31:10.895Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-23T17:31:10.895Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-23T17:31:10.895Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-23T17:31:10.895Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-23T17:31:10.895Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2025-12-23T17:31:10.895Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2025-12-23T17:31:10.895Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2025-12-23T17:31:10.896Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-23T17:31:10.896Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2025-12-23T17:31:10.920Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-23T17:31:10.920Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-23T17:31:10.921Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2025-12-23T17:31:10.923Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-23T17:31:37.210Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-23T17:31:38.323Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-23T17:31:38.326Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-23T17:31:38.326Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-23T17:31:38.327Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-23T17:31:38.327Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-23T17:31:38.327Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-23T17:31:38.327Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2025-12-23T17:31:38.327Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2025-12-23T17:31:38.327Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2025-12-23T17:31:38.328Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-23T17:31:38.328Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2025-12-23T17:31:38.357Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-23T17:31:38.358Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-23T17:31:38.358Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2025-12-23T17:31:38.360Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-12-23T17:32:05.645Z"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2025-12-23T17:32:07.054Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2025-12-23T17:32:07.056Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2025-12-23T17:32:07.056Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2025-12-23T17:32:07.056Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2025-12-23T17:32:07.056Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2025-12-23T17:32:07.057Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2025-12-23T17:32:07.057Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2025-12-23T17:32:07.057Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2025-12-23T17:32:07.057Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2025-12-23T17:32:07.057Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2025-12-23T17:32:07.057Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2025-12-23T17:32:07.092Z"}
+{"level":"info","message":"Processamento concluído: 0 transações criadas","timestamp":"2025-12-23T17:32:07.092Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2025-12-23T17:32:07.092Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2025-12-23T17:32:07.094Z"}

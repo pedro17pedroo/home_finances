@@ -206,6 +206,11 @@ class SubscriptionService {
         })
         .where(eq(users.id, userId));
 
+      // Sync all organization members with the new plan
+      if (user.organizationId) {
+        await this.syncOrganizationMembers(user.organizationId, plan.type, 'active');
+      }
+
       return { subscription, payment: null, plan };
     }
 
@@ -240,6 +245,11 @@ class SubscriptionService {
           trialEndsAt,
         })
         .where(eq(users.id, userId));
+
+      // Sync all organization members with the trial status
+      if (user.organizationId) {
+        await this.syncOrganizationMembers(user.organizationId, plan.type, 'trial');
+      }
 
       console.log(`[createSubscription] Trial subscription created:`, {
         subscriptionId: subscription.id,
@@ -340,6 +350,11 @@ class SubscriptionService {
           subscriptionStatus: 'active',
         })
         .where(eq(users.id, userId));
+
+      // Sync all organization members with the new plan
+      if (user.organizationId) {
+        await this.syncOrganizationMembers(user.organizationId, plan.type, 'active');
+      }
     }
 
     console.log(`[createSubscription] Payment record created:`, {
@@ -460,6 +475,11 @@ class SubscriptionService {
               subscriptionStatus: 'active',
             })
             .where(eq(users.id, payment.userId));
+
+          // Sync all organization members with the new plan
+          if (subscription.organizationId) {
+            await this.syncOrganizationMembers(subscription.organizationId, plan.type, 'active');
+          }
 
           // Send subscription confirmation email
           const [user] = await db.select().from(users).where(eq(users.id, payment.userId));
@@ -726,6 +746,12 @@ class SubscriptionService {
       .set({ subscriptionStatus: 'active' })
       .where(eq(users.id, subscription.userId));
 
+    // Sync all organization members with active status
+    if (subscription.organizationId) {
+      const plan = await this.getPlanById(parseInt(subscription.planId));
+      await this.syncOrganizationMembers(subscription.organizationId, plan?.type || 'basic', 'active');
+    }
+
     return this.getSubscriptionDetails(subscriptionId);
   }
 
@@ -756,6 +782,12 @@ class SubscriptionService {
       .update(users)
       .set({ subscriptionStatus: userStatus as any })
       .where(eq(users.id, subscription.userId));
+
+    // Sync all organization members with the new status
+    if (subscription.organizationId) {
+      const plan = await this.getPlanById(parseInt(subscription.planId));
+      await this.syncOrganizationMembers(subscription.organizationId, plan?.type || 'basic', status);
+    }
 
     return this.getSubscriptionDetails(subscriptionId);
   }
@@ -917,11 +949,71 @@ class SubscriptionService {
           .set({ subscriptionStatus: 'past_due' })
           .where(eq(users.id, sub.userId));
 
+        // Sync all organization members with expired status
+        if (sub.organizationId) {
+          // Get the plan to know the type
+          const plan = await this.getPlanById(parseInt(sub.planId));
+          await this.syncOrganizationMembers(sub.organizationId, plan?.type || 'basic', 'expired');
+        }
+
         expiredCount++;
       }
     }
 
     return expiredCount;
+  }
+
+  /**
+   * Sync organization members with the organization's subscription status
+   * This should be called whenever a subscription is activated, updated, or expires
+   */
+  async syncOrganizationMembers(organizationId: number, planType: string, subscriptionStatus: string): Promise<void> {
+    // Map subscription status to user subscription status
+    let userSubscriptionStatus: 'active' | 'trialing' | 'past_due' | 'canceled' = 'active';
+    if (subscriptionStatus === 'active') {
+      userSubscriptionStatus = 'active';
+    } else if (subscriptionStatus === 'trial') {
+      userSubscriptionStatus = 'trialing';
+    } else if (subscriptionStatus === 'expired') {
+      userSubscriptionStatus = 'past_due';
+    } else if (subscriptionStatus === 'cancelled') {
+      userSubscriptionStatus = 'canceled';
+    }
+
+    // Update all members of the organization
+    await db
+      .update(users)
+      .set({
+        planType: planType as any,
+        subscriptionStatus: userSubscriptionStatus,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.organizationId, organizationId));
+
+    // Also update the organization itself
+    const { organizations } = await import('../../core/database/schema.js');
+    await db
+      .update(organizations)
+      .set({
+        planType: planType as any,
+        subscriptionStatus: userSubscriptionStatus,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, organizationId));
+
+    console.log(`[syncOrganizationMembers] Synced organization ${organizationId} members with plan ${planType} and status ${subscriptionStatus}`);
+  }
+
+  /**
+   * Get the count of members in an organization
+   */
+  async getOrganizationMemberCount(organizationId: number): Promise<number> {
+    const result = await db
+      .select({ count: count() })
+      .from(users)
+      .where(eq(users.organizationId, organizationId));
+    
+    return result[0]?.count || 0;
   }
 
   private calculateEndDate(startDate: Date): Date {

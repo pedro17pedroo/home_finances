@@ -258,6 +258,38 @@ export class OrganizationService {
       throw new NotFoundError("Convite inválido ou expirado");
     }
 
+    // Get organization to inherit plan info
+    const organization = await this.getOrganization(invitation.organizationId);
+    
+    // Get organization's subscription status
+    const { db } = await import("../../core/database/db.js");
+    const { subscriptions } = await import("../../core/database/schema.js");
+    const { desc, eq } = await import("drizzle-orm");
+    
+    const [orgSubscription] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, invitation.organizationId))
+      .orderBy(desc(subscriptions.createdAt))
+      .limit(1);
+    
+    // Determine subscription status from organization's subscription
+    let memberSubscriptionStatus: 'active' | 'trialing' | 'past_due' | 'canceled' = 'active';
+    if (orgSubscription) {
+      if (orgSubscription.status === 'active') {
+        memberSubscriptionStatus = 'active';
+      } else if (orgSubscription.status === 'trial') {
+        memberSubscriptionStatus = 'trialing';
+      } else if (orgSubscription.status === 'expired') {
+        memberSubscriptionStatus = 'past_due';
+      } else if (orgSubscription.status === 'cancelled') {
+        memberSubscriptionStatus = 'canceled';
+      }
+    } else {
+      // Use organization's status if no subscription found
+      memberSubscriptionStatus = organization.subscriptionStatus || 'active';
+    }
+
     // Check if email is already registered
     const existingUser = await UserRepository.findByEmail(invitation.email);
     if (existingUser) {
@@ -269,11 +301,13 @@ export class OrganizationService {
       await UserRepository.update(existingUser.id, {
         organizationId: invitation.organizationId,
         role: invitation.role || 'member',
+        // Inherit organization's plan
+        planType: organization.planType || 'basic',
+        subscriptionStatus: memberSubscriptionStatus,
       });
 
       await OrganizationRepository.acceptInvitation(invitation.id);
 
-      const organization = await this.getOrganization(invitation.organizationId);
       return { user: existingUser, organization };
     }
 
@@ -288,8 +322,9 @@ export class OrganizationService {
       lastName: data.lastName,
       organizationId: invitation.organizationId,
       role: invitation.role || 'member',
-      planType: 'basic',
-      subscriptionStatus: 'active', // Members inherit org subscription
+      // Inherit organization's plan
+      planType: organization.planType || 'basic',
+      subscriptionStatus: memberSubscriptionStatus,
     });
 
     // Create default categories for the new user
@@ -301,7 +336,6 @@ export class OrganizationService {
 
     await OrganizationRepository.acceptInvitation(invitation.id);
 
-    const organization = await this.getOrganization(invitation.organizationId);
     return { user: newUser, organization };
   }
 
