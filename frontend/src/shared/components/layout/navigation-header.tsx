@@ -3,17 +3,61 @@ import { Link, useLocation } from 'wouter';
 import { ChevronDown, Moon, Sun, User, LogOut, Menu, X, Users } from 'lucide-react';
 import { useTheme } from '../../contexts/theme-context';
 import { useAuth } from '../../contexts/auth-context';
+import { useMySubscription } from '../../hooks/use-subscription';
+
+// Badge configuration based on subscription status
+const getSubscriptionBadge = (subscription: any) => {
+  if (!subscription) {
+    return { label: 'Grátis', color: 'bg-gray-500' };
+  }
+  
+  const { status, plan } = subscription;
+  
+  if (status === 'trial') {
+    return { label: 'Teste', color: 'bg-blue-500' };
+  }
+  
+  if (status === 'active' && plan) {
+    const planType = plan.type?.toLowerCase();
+    if (planType === 'enterprise') {
+      return { label: 'Enterprise', color: 'bg-purple-500' };
+    }
+    if (planType === 'premium') {
+      return { label: 'Premium', color: 'bg-yellow-500' };
+    }
+    if (planType === 'basic') {
+      return { label: 'Básico', color: 'bg-green-500' };
+    }
+    return { label: plan.name, color: 'bg-green-500' };
+  }
+  
+  if (status === 'expired') {
+    return { label: 'Expirado', color: 'bg-red-500' };
+  }
+  
+  if (status === 'cancelled') {
+    return { label: 'Cancelado', color: 'bg-gray-500' };
+  }
+  
+  if (status === 'pending') {
+    return { label: 'Pendente', color: 'bg-yellow-500' };
+  }
+  
+  return { label: 'Grátis', color: 'bg-gray-500' };
+};
 
 export function NavigationHeader() {
   const [location] = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { logout, user } = useAuth();
+  const { data: subscription } = useMySubscription();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showFinanceiroMenu, setShowFinanceiroMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showMobileFinanceiro, setShowMobileFinanceiro] = useState(false);
 
   const headerRef = useRef<HTMLDivElement>(null);
+  const badge = getSubscriptionBadge(subscription);
 
   const isActive = (path: string) => location === path;
   const isFinanceiroActive = () =>
@@ -59,8 +103,8 @@ export function NavigationHeader() {
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
                   FinanceControl
                 </span>
-                <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                  Teste
+                <span className={`ml-2 ${badge.color} text-white text-xs px-2 py-1 rounded-full`}>
+                  {badge.label}
                 </span>
               </div>
             </Link>

@@ -9,6 +9,20 @@ export interface User {
   subscriptionStatus: string;
   trialEndsAt?: string;
   createdAt?: string;
+  organizationId?: number;
+  role?: string; // 'owner', 'admin', 'member'
+}
+
+// Organization types
+export interface Organization {
+  id: number;
+  name: string;
+  ownerId: number;
+  planType: string;
+  subscriptionStatus: string;
+  maxUsers: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Auth types
@@ -42,6 +56,8 @@ export interface Transaction {
   type: 'receita' | 'despesa';
   accountId?: number;
   date: string;
+  balanceBefore?: string;
+  balanceAfter?: string;
   isRecurring?: boolean;
   recurringFrequency?: string;
   createdAt: string;
@@ -150,29 +166,36 @@ export interface TransferSummary {
 export interface SavingsGoal {
   id: number;
   userId: number;
+  accountId?: number;
   name: string;
   targetAmount: string;
   currentAmount: string;
-  targetDate: string;
+  targetDate?: string;
   description?: string;
   isActive?: boolean;
   createdAt: string;
   updatedAt: string;
+  // Account info (from join)
+  accountName?: string;
+  accountBalance?: string;
+  accountBank?: string;
 }
 
 export interface CreateSavingsGoalRequest {
   name: string;
+  accountId: number;
   targetAmount: number;
   currentAmount?: number;
-  targetDate: string;
+  targetDate?: string;
   description?: string;
 }
 
 export interface UpdateSavingsGoalRequest {
   name?: string;
+  accountId?: number;
   targetAmount?: number;
   currentAmount?: number;
-  targetDate?: string;
+  targetDate?: string | null;
   description?: string;
 }
 
@@ -201,6 +224,9 @@ export interface GoalProgress {
   monthlyTarget: number;
   isCompleted: boolean;
   isOverdue: boolean;
+  accountId?: number;
+  accountName?: string;
+  accountBank?: string;
 }
 
 // Loan types
@@ -209,11 +235,13 @@ export interface Loan {
   userId: number;
   accountId: number;
   amount: string;
+  paidAmount: string;
   borrower: string;
   interestRate?: string;
   dueDate?: string;
   status: 'pendente' | 'pago' | 'cancelado';
   description?: string;
+  cancelReason?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -224,15 +252,6 @@ export interface CreateLoanRequest {
   borrower: string;
   interestRate?: number;
   dueDate?: string;
-  description?: string;
-}
-
-export interface UpdateLoanRequest {
-  amount?: number;
-  borrower?: string;
-  interestRate?: number;
-  dueDate?: string;
-  status?: 'pendente' | 'pago' | 'cancelado';
   description?: string;
 }
 
@@ -252,11 +271,13 @@ export interface Debt {
   userId: number;
   accountId: number;
   amount: string;
+  paidAmount: string;
   creditor: string;
   interestRate?: string;
   dueDate?: string;
   status: 'pendente' | 'pago' | 'cancelado';
   description?: string;
+  cancelReason?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -267,15 +288,6 @@ export interface CreateDebtRequest {
   creditor: string;
   interestRate?: number;
   dueDate?: string;
-  description?: string;
-}
-
-export interface UpdateDebtRequest {
-  amount?: number;
-  creditor?: string;
-  interestRate?: number;
-  dueDate?: string;
-  status?: 'pendente' | 'pago' | 'cancelado';
   description?: string;
 }
 

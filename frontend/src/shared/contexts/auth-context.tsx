@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { apiClient } from '../api/client';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -7,6 +8,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (user: User, token: string) => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,12 +49,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('refreshToken');
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await apiClient.get('/auth/me');
+      if (response.data?.status === 'success' && response.data?.data) {
+        const userData = response.data.data;
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  };
+
   const value = {
     user,
     isAuthenticated: !!user,
     isLoading,
     login,
     logout,
+    refreshUser,
   };
 
   return (

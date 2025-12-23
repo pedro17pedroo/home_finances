@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { DebtController } from "../controllers/debt.controller.js";
 import { authenticate } from "../middlewares/auth.js";
+import { organizationContext } from "../middlewares/organization.js";
 import { validate } from "../middlewares/validate.js";
 import { 
   createDebtSchema, 
-  updateDebtSchema, 
   debtIdSchema,
   debtFiltersSchema 
 } from "../validators/debt.validator.js";
@@ -13,6 +13,7 @@ const router = Router();
 
 // Todas as rotas requerem autenticação
 router.use(authenticate);
+router.use(organizationContext);
 
 // GET /api/debts - Listar dívidas
 router.get("/", validate(debtFiltersSchema), DebtController.getAll);
@@ -29,10 +30,10 @@ router.get("/:id", validate(debtIdSchema), DebtController.getById);
 // POST /api/debts - Criar dívida
 router.post("/", validate(createDebtSchema), DebtController.create);
 
-// PUT /api/debts/:id - Atualizar dívida
-router.put("/:id", validate(debtIdSchema), validate(updateDebtSchema), DebtController.update);
+// POST /api/debts/:id/payment - Registar pagamento
+router.post("/:id/payment", validate(debtIdSchema), DebtController.makePayment);
 
-// DELETE /api/debts/:id - Remover dívida
-router.delete("/:id", validate(debtIdSchema), DebtController.delete);
+// POST /api/debts/:id/cancel - Cancelar dívida
+router.post("/:id/cancel", validate(debtIdSchema), DebtController.cancel);
 
 export default router;

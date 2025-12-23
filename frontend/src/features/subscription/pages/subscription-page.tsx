@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearch } from 'wouter';
 import {
   CreditCard,
   Star,
@@ -36,7 +37,12 @@ import {
 type TabType = 'assinatura' | 'planos' | 'transacoes';
 
 export function SubscriptionPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('assinatura');
+  // Get tab from URL query parameter
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const tabFromUrl = searchParams.get('tab') as TabType | null;
+  
+  const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl || 'assinatura');
   const [plans, setPlans] = useState<Plan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
@@ -478,31 +484,133 @@ export function SubscriptionPage() {
               </p>
 
               {payments.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {payments.map((payment) => (
                     <div
                       key={payment.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
                     >
-                      <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                          <Receipt className="w-5 h-5 text-blue-600" />
+                      {/* Header do pagamento */}
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50">
+                        <div className="flex items-center space-x-3">
+                          <div className={`p-2 rounded-lg ${
+                            payment.status === 'paid' 
+                              ? 'bg-green-100 dark:bg-green-900/30' 
+                              : payment.status === 'pending'
+                              ? 'bg-yellow-100 dark:bg-yellow-900/30'
+                              : 'bg-red-100 dark:bg-red-900/30'
+                          }`}>
+                            <Receipt className={`w-5 h-5 ${
+                              payment.status === 'paid' 
+                                ? 'text-green-600' 
+                                : payment.status === 'pending'
+                                ? 'text-yellow-600'
+                                : 'text-red-600'
+                            }`} />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {payment.plan?.name || 'Assinatura'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              #{payment.id} • {new Date(payment.createdAt).toLocaleDateString('pt-AO', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
                         </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900 dark:text-white">
+                            {formatCurrency(payment.amount)}
+                          </p>
+                          {getStatusBadge(payment.status)}
+                        </div>
+                      </div>
+                      
+                      {/* Detalhes do pagamento */}
+                      <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
+                          <p className="text-gray-500 text-xs mb-1">Método de Pagamento</p>
                           <p className="font-medium text-gray-900 dark:text-white">
                             {paymentMethodNames[payment.paymentMethod]}
                           </p>
-                          <p className="text-sm text-gray-500">
-                            {new Date(payment.createdAt).toLocaleDateString('pt-AO')}
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs mb-1">Tipo</p>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {payment.subscription?.paymentType === 'recurring' ? 'Recorrente' : 'Único'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs mb-1">
+                            {payment.status === 'paid' ? 'Pago em' : 'Criado em'}
+                          </p>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {payment.paidAt 
+                              ? new Date(payment.paidAt).toLocaleDateString('pt-AO', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })
+                              : new Date(payment.createdAt).toLocaleDateString('pt-AO', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })
+                            }
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs mb-1">Período</p>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {payment.subscription?.startDate && payment.subscription?.endDate
+                              ? `${new Date(payment.subscription.startDate).toLocaleDateString('pt-AO', { day: '2-digit', month: 'short' })} - ${new Date(payment.subscription.endDate).toLocaleDateString('pt-AO', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                              : payment.subscription?.startDate
+                              ? `Desde ${new Date(payment.subscription.startDate).toLocaleDateString('pt-AO', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                              : '-'
+                            }
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900 dark:text-white">
-                          {formatCurrency(payment.amount)}
-                        </p>
-                        {getStatusBadge(payment.status)}
-                      </div>
+
+                      {/* Referência (se existir) */}
+                      {payment.referenceCode && (
+                        <div className="px-4 pb-4">
+                          <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Referência de Pagamento</p>
+                              <p className="font-mono font-medium text-gray-900 dark:text-white">
+                                {payment.referenceCode}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => copyToClipboard(payment.referenceCode!)}
+                              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                              title="Copiar referência"
+                            >
+                              {copied ? (
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4 text-gray-400" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Estado da assinatura associada */}
+                      {payment.subscription && (
+                        <div className="px-4 pb-4">
+                          <div className="flex items-center space-x-2 text-xs">
+                            <span className="text-gray-500">Estado da assinatura:</span>
+                            {getStatusBadge(payment.subscription.status)}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -510,6 +618,9 @@ export function SubscriptionPage() {
                 <div className="text-center py-12">
                   <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">Nenhuma transação encontrada</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    As transações aparecerão aqui quando você fizer uma assinatura
+                  </p>
                 </div>
               )}
             </CardContent>

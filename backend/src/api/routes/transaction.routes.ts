@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { TransactionController } from "../controllers/transaction.controller.js";
 import { authenticate, requireActiveSubscription } from "../middlewares/auth.js";
+import { organizationContext } from "../middlewares/organization.js";
 import { validate } from "../middlewares/validate.js";
 import {
   createTransactionSchema,
@@ -13,6 +14,7 @@ const router = Router();
 
 // All routes require authentication and active subscription
 router.use(authenticate);
+router.use(organizationContext);
 router.use(requireActiveSubscription);
 
 router.get(

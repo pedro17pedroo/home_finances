@@ -2,10 +2,18 @@ import { apiClient } from './client';
 import type { 
   ApiResponse, 
   Debt, 
-  CreateDebtRequest, 
-  UpdateDebtRequest,
+  CreateDebtRequest,
   DebtSummary 
 } from '../types';
+
+export interface MakePaymentRequest {
+  amount: number;
+  description?: string;
+}
+
+export interface CancelRequest {
+  reason: string;
+}
 
 export const debtsApi = {
   // Get all user debts
@@ -32,18 +40,22 @@ export const debtsApi = {
     return response.data.data.debt;
   },
 
-  // Update debt
-  updateDebt: async (id: number, data: UpdateDebtRequest): Promise<Debt> => {
-    const response = await apiClient.put<ApiResponse<{ debt: Debt }>>(`/debts/${id}`, data);
+  // Make payment (partial or full)
+  makePayment: async (id: number, data: MakePaymentRequest): Promise<Debt> => {
+    const response = await apiClient.post<ApiResponse<{ debt: Debt }>>(`/debts/${id}/payment`, data);
     if (!response.data.data?.debt) {
-      throw new Error('Erro ao atualizar dívida');
+      throw new Error('Erro ao registar pagamento');
     }
     return response.data.data.debt;
   },
 
-  // Delete debt
-  deleteDebt: async (id: number): Promise<void> => {
-    await apiClient.delete(`/debts/${id}`);
+  // Cancel debt
+  cancelDebt: async (id: number, data: CancelRequest): Promise<Debt> => {
+    const response = await apiClient.post<ApiResponse<{ debt: Debt }>>(`/debts/${id}/cancel`, data);
+    if (!response.data.data?.debt) {
+      throw new Error('Erro ao cancelar dívida');
+    }
+    return response.data.data.debt;
   },
 
   // Get debts summary

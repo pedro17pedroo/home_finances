@@ -1,7 +1,25 @@
 import { apiClient } from './client';
 
-export type PaymentMethod = 'ekwanza' | 'gpo' | 'ref';
+export type PaymentMethod = 'ekwanza' | 'gpo' | 'ref' | 'bank_transfer';
 export type PaymentType = 'one_time' | 'recurring';
+
+// Payment method configuration from backend
+export interface PaymentMethodConfig {
+  id: number;
+  code: string;
+  name: string;
+  displayName: string;
+  description: string;
+  isInstant: boolean;
+  waitTimeSeconds: number;
+  maxWaitTimeSeconds: number;
+  requiresPhone: boolean;
+  requiresEmail: boolean;
+  requiresReference: boolean;
+  processingTime: string;
+  icon: string;
+  displayOrder: number;
+}
 
 export interface Plan {
   id: number;
@@ -11,7 +29,13 @@ export interface Plan {
   features: string[];
   maxAccounts: number;
   maxTransactions: number;
+  maxUsers: number;
   isActive: boolean;
+  trialDays?: number;
+  trialOneTimeOnly?: boolean;
+  maxFreeDays?: number;
+  billingCycle?: string;
+  durationDays?: number;
 }
 
 export interface Subscription {
@@ -23,7 +47,17 @@ export interface Subscription {
   paymentMethod?: PaymentMethod;
   startDate: string;
   endDate?: string;
+  trialEndsAt?: string;
+  nextBillingDate?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
   createdAt: string;
+}
+
+export interface SubscriptionDetails extends Subscription {
+  plan?: Plan;
+  daysRemaining?: number;
+  isTrialActive?: boolean;
 }
 
 export interface SubscriptionPayment {
@@ -38,6 +72,20 @@ export interface SubscriptionPayment {
   paidAt?: string;
   createdAt: string;
   paymentData?: any;
+  // Enriched data from backend
+  subscription?: {
+    id: number;
+    status: string;
+    paymentType: string;
+    startDate: string;
+    endDate?: string;
+  };
+  plan?: {
+    id: number;
+    name: string;
+    type: string;
+    price: number;
+  };
 }
 
 export interface SubscribeRequest {
@@ -55,6 +103,13 @@ export interface SubscribeResponse {
   payment: SubscriptionPayment | null;
   plan: Plan;
   message: string;
+  isTrial?: boolean;
+}
+
+// Get active payment methods (public)
+export async function getPaymentMethods(): Promise<PaymentMethodConfig[]> {
+  const response = await apiClient.get('/subscriptions/payment-methods');
+  return response.data.paymentMethods;
 }
 
 // Get all available plans (public)
@@ -75,6 +130,23 @@ export async function getCurrentSubscription(): Promise<{
   plan: Plan | null;
 }> {
   const response = await apiClient.get('/subscriptions/current');
+  return response.data;
+}
+
+// Get my subscription details (with days remaining, trial info, etc.)
+export async function getMySubscription(): Promise<SubscriptionDetails | null> {
+  const response = await apiClient.get('/subscriptions/my-subscription');
+  return response.data.subscription;
+}
+
+// Renew subscription
+export async function renewSubscription(data: {
+  paymentMethod: PaymentMethod;
+  payerPhone?: string;
+  payerName?: string;
+  payerEmail?: string;
+}): Promise<SubscribeResponse> {
+  const response = await apiClient.post('/subscriptions/renew', data);
   return response.data;
 }
 

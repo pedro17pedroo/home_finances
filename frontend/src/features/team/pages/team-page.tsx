@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/compon
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
 import { Select } from '../../../shared/components/ui/select';
+import { useAuth } from '../../../shared/contexts/auth-context';
 import {
   useOrganization,
   useOrganizationMembers,
@@ -18,6 +19,7 @@ import { showDeleteConfirm, showSuccessToast, showErrorToast, showConfirm } from
 import type { OrganizationMember, TeamInvitation } from '../../../shared/api/organization';
 
 export function TeamPage() {
+  const { user } = useAuth();
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
@@ -25,16 +27,19 @@ export function TeamPage() {
 
   const { data: organization, isLoading: orgLoading } = useOrganization();
   const { data: members, isLoading: membersLoading } = useOrganizationMembers(organization?.id);
-  const { data: invitations, isLoading: invitationsLoading } = usePendingInvitations(organization?.id);
+  const { data: invitations } = usePendingInvitations(organization?.id);
 
   const inviteMemberMutation = useInviteMember();
   const cancelInvitationMutation = useCancelInvitation();
   const removeMemberMutation = useRemoveMember();
   const updateRoleMutation = useUpdateMemberRole();
 
+  // Check if current user is the owner
+  const isOwner = user?.role === 'owner' || (organization && user?.id === organization.ownerId);
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!organization) return;
+    if (!organization || !isOwner) return;
 
     try {
       await inviteMemberMutation.mutateAsync({
@@ -52,6 +57,8 @@ export function TeamPage() {
   };
 
   const handleCancelInvitation = async (invitation: TeamInvitation) => {
+    if (!isOwner) return;
+    
     const confirmed = await showDeleteConfirm('este convite');
     if (confirmed) {
       try {
@@ -64,7 +71,7 @@ export function TeamPage() {
   };
 
   const handleRemoveMember = async (member: OrganizationMember) => {
-    if (!organization) return;
+    if (!organization || !isOwner) return;
     
     const confirmed = await showDeleteConfirm(`${member.firstName} ${member.lastName} da equipe`);
     if (confirmed) {
@@ -81,7 +88,7 @@ export function TeamPage() {
   };
 
   const handleUpdateRole = async (member: OrganizationMember, newRole: 'admin' | 'member') => {
-    if (!organization) return;
+    if (!organization || !isOwner) return;
 
     const roleLabel = newRole === 'admin' ? 'Administrador' : 'Membro';
     const confirmed = await showConfirm(
@@ -133,9 +140,6 @@ export function TeamPage() {
     }
   };
 
-  const isOwner = members?.some(m => m.role === 'owner' && m.id === organization?.ownerId);
-  const currentUserIsOwner = organization?.ownerId === members?.find(m => m.role === 'owner')?.id;
-
   if (orgLoading) {
     return (
       <AppLayout>
@@ -174,16 +178,20 @@ export function TeamPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Equipe</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
-              Gerencie os membros que têm acesso à sua conta
+              {isOwner 
+                ? 'Gerencie os membros que têm acesso à sua conta'
+                : 'Visualize os membros da sua equipe'}
             </p>
           </div>
-          <Button
-            onClick={() => setShowInviteForm(true)}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Convidar Membro
-          </Button>
+          {isOwner && (
+            <Button
+              onClick={() => setShowInviteForm(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Convidar Membro
+            </Button>
+          )}
         </div>
 
         {/* Organization Info */}
@@ -198,7 +206,9 @@ export function TeamPage() {
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 <span className="font-medium">{members?.length || 0}</span> de{' '}
-                <span className="font-medium">{organization.maxUsers}</span> membros
+                <span className="font-medium">
+                  {organization.maxUsers === -1 ? '∞' : organization.maxUsers}
+                </span> membros
               </div>
               <div className="text-sm">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -208,7 +218,10 @@ export function TeamPage() {
                     ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
                     : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                 }`}>
-                  Plano {organization.planType.charAt(0).toUpperCase() + organization.planType.slice(1)}
+                  Plano {organization.planType === 'basic' ? 'Base' : 
+                         organization.planType === 'premium' ? 'Premium' :
+                         organization.planType === 'enterprise' ? 'Empresarial' :
+                         organization.planType.charAt(0).toUpperCase() + organization.planType.slice(1)}
                 </span>
               </div>
             </div>
@@ -254,7 +267,8 @@ export function TeamPage() {
                           {getRoleLabel(member.role)}
                         </span>
                       </div>
-                      {member.role !== 'owner' && currentUserIsOwner && (
+                      {/* Only owner can change roles and remove members */}
+                      {member.role !== 'owner' && isOwner && (
                         <>
                           <Select
                             value={member.role || 'member'}
@@ -267,6 +281,7 @@ export function TeamPage() {
                           <button
                             onClick={() => handleRemoveMember(member)}
                             className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                            title="Remover membro"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -284,8 +299,8 @@ export function TeamPage() {
           </CardContent>
         </Card>
 
-        {/* Pending Invitations */}
-        {invitations && invitations.length > 0 && (
+        {/* Pending Invitations - Only visible to owner */}
+        {isOwner && invitations && invitations.length > 0 && (
           <Card className="bg-white dark:bg-gray-800">
             <CardHeader>
               <CardTitle className="text-gray-900 dark:text-white flex items-center">
@@ -341,8 +356,19 @@ export function TeamPage() {
           </Card>
         )}
 
-        {/* Invite Modal */}
-        {showInviteForm && (
+        {/* Info message for non-owners */}
+        {!isOwner && (
+          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <CardContent className="p-4">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                Apenas o proprietário da organização pode convidar novos membros, alterar funções ou remover membros.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Invite Modal - Only for owner */}
+        {showInviteForm && isOwner && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
               <div className="flex justify-between items-center mb-4">

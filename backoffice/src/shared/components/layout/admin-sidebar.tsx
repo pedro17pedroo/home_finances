@@ -12,6 +12,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Repeat,
+  Tag,
 } from 'lucide-react';
 import { useAdminAuth } from '../../contexts/admin-auth-context';
 import { useState } from 'react';
@@ -28,6 +30,8 @@ const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/' },
   { id: 'users', label: 'Usuários', icon: <Users className="w-5 h-5" />, path: '/users' },
   { id: 'plans', label: 'Planos', icon: <Package className="w-5 h-5" />, path: '/plans' },
+  { id: 'subscriptions', label: 'Assinaturas', icon: <Repeat className="w-5 h-5" />, path: '/subscriptions' },
+  { id: 'campaigns', label: 'Campanhas', icon: <Tag className="w-5 h-5" />, path: '/campaigns' },
   { id: 'payments', label: 'Pagamentos', icon: <CreditCard className="w-5 h-5" />, path: '/payments' },
   { id: 'reports', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, path: '/reports' },
   { id: 'content', label: 'Conteúdo', icon: <FileText className="w-5 h-5" />, path: '/content' },

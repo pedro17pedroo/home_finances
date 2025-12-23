@@ -8,6 +8,7 @@ import {
   ConflictError
 } from "../../core/errors/app-error.js";
 import { hashPassword } from "../../api/middlewares/auth.js";
+import emailService from "../../infrastructure/email/email.service.js";
 import crypto from "crypto";
 import type { Organization, TeamInvitation, User, InsertOrganization } from "../../core/database/schema.js";
 
@@ -142,20 +143,28 @@ export class OrganizationService {
   ): Promise<TeamInvitation> {
     const organization = await this.getOrganization(organizationId);
     
-    // Check if inviter is owner or admin
+    // Check if inviter is owner (only owner can invite)
     const inviter = await UserRepository.findById(inviterId);
     if (!inviter || inviter.organizationId !== organizationId) {
       throw new ForbiddenError("Você não tem acesso a esta organização");
     }
     
-    if (inviter.role !== 'owner' && inviter.role !== 'admin') {
-      throw new ForbiddenError("Apenas proprietários e administradores podem convidar membros");
+    if (inviter.role !== 'owner') {
+      throw new ForbiddenError("Apenas o proprietário pode convidar membros");
     }
 
-    // Check member limit
+    // Check member limit using plan access service
+    const { PlanAccessService } = await import('./plan-access.service.js');
+    const limits = await PlanAccessService.getOrganizationPlanLimits(organizationId);
+    
     const currentMembers = await OrganizationRepository.getMembers(organizationId);
-    if (currentMembers.length >= (organization.maxUsers || 1)) {
-      throw new BadRequestError("Limite de membros atingido. Faça upgrade do plano para adicionar mais membros.");
+    const pendingInvitations = await OrganizationRepository.findPendingInvitations(organizationId);
+    const totalUsersAndInvites = currentMembers.length + pendingInvitations.length;
+    const maxUsers = (limits as any).maxUsers || organization.maxUsers || 1;
+    
+    // -1 means unlimited
+    if (maxUsers !== -1 && totalUsersAndInvites >= maxUsers) {
+      throw new BadRequestError(`Limite de membros atingido (${totalUsersAndInvites}/${maxUsers}). Faça upgrade do plano para adicionar mais membros.`);
     }
 
     // Check if email is already a member
@@ -186,10 +195,17 @@ export class OrganizationService {
       expiresAt,
     });
 
-    // TODO: Send invitation email
-    // For now, we'll just return the invitation with the token
-    // In production, you'd send an email with a link like:
-    // ${FRONTEND_URL}/accept-invitation?token=${token}
+    // Send invitation email
+    const inviterName = `${inviter.firstName || ''} ${inviter.lastName || ''}`.trim() || 'Um administrador';
+    emailService.sendTeamInvitationEmail(
+      data.email,
+      inviterName,
+      organization.name,
+      token,
+      data.role || 'member'
+    ).catch(err => {
+      console.error('Error sending invitation email:', err);
+    });
 
     return invitation;
   }
@@ -198,14 +214,14 @@ export class OrganizationService {
    * Get pending invitations for an organization
    */
   static async getPendingInvitations(organizationId: number, userId: number): Promise<TeamInvitation[]> {
-    // Verify user belongs to organization and is owner/admin
+    // Verify user belongs to organization and is owner
     const user = await UserRepository.findById(userId);
     if (!user || user.organizationId !== organizationId) {
       throw new ForbiddenError("Você não tem acesso a esta organização");
     }
 
-    if (user.role !== 'owner' && user.role !== 'admin') {
-      throw new ForbiddenError("Apenas proprietários e administradores podem ver convites");
+    if (user.role !== 'owner') {
+      throw new ForbiddenError("Apenas o proprietário pode ver convites");
     }
 
     return OrganizationRepository.findPendingInvitations(organizationId);
@@ -220,14 +236,14 @@ export class OrganizationService {
       throw new NotFoundError("Convite");
     }
 
-    // Verify user is owner/admin of the organization
+    // Verify user is owner of the organization
     const user = await UserRepository.findById(userId);
     if (!user || user.organizationId !== invitation.organizationId) {
       throw new ForbiddenError("Você não tem acesso a este convite");
     }
 
-    if (user.role !== 'owner' && user.role !== 'admin') {
-      throw new ForbiddenError("Apenas proprietários e administradores podem cancelar convites");
+    if (user.role !== 'owner') {
+      throw new ForbiddenError("Apenas o proprietário pode cancelar convites");
     }
 
     await OrganizationRepository.deleteInvitation(invitationId);
@@ -300,24 +316,20 @@ export class OrganizationService {
       throw new BadRequestError("Não é possível remover o proprietário da organização");
     }
 
-    // Verify requester is owner or admin
+    // Verify requester is owner (only owner can remove members)
     const requester = await UserRepository.findById(requesterId);
     if (!requester || requester.organizationId !== organizationId) {
       throw new ForbiddenError("Você não tem acesso a esta organização");
     }
 
-    if (requester.role !== 'owner' && requester.role !== 'admin') {
-      throw new ForbiddenError("Apenas proprietários e administradores podem remover membros");
+    if (requester.role !== 'owner') {
+      throw new ForbiddenError("Apenas o proprietário pode remover membros");
     }
 
-    // Admins can't remove other admins (only owner can)
+    // Verify member exists in organization
     const member = await UserRepository.findById(memberId);
     if (!member || member.organizationId !== organizationId) {
       throw new NotFoundError("Membro");
-    }
-
-    if (member.role === 'admin' && requester.role !== 'owner') {
-      throw new ForbiddenError("Apenas o proprietário pode remover administradores");
     }
 
     // Remove member from organization

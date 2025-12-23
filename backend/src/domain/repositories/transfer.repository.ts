@@ -1,4 +1,4 @@
-import { eq, sql, and, or, desc } from "drizzle-orm";
+import { eq, sql, and, or, desc, gte, lte } from "drizzle-orm";
 import { db } from "../../core/database/db.js";
 import { transfers, accounts, type Transfer, type InsertTransfer } from "../../core/database/schema.js";
 
@@ -20,56 +20,62 @@ export class TransferRepository {
   }
 
   static async findByUserId(userId: number, filters?: TransferFilters): Promise<Transfer[]> {
-    let query = db
-      .select({
-        id: transfers.id,
-        userId: transfers.userId,
-        fromAccountId: transfers.fromAccountId,
-        toAccountId: transfers.toAccountId,
-        amount: transfers.amount,
-        description: transfers.description,
-        createdAt: transfers.createdAt,
-        updatedAt: transfers.updatedAt,
-        fromAccountName: sql<string>`from_account.name`,
-        toAccountName: sql<string>`to_account.name`,
-      })
-      .from(transfers)
-      .leftJoin(
-        sql`${accounts} as from_account`,
-        eq(transfers.fromAccountId, sql`from_account.id`)
-      )
-      .leftJoin(
-        sql`${accounts} as to_account`,
-        eq(transfers.toAccountId, sql`to_account.id`)
-      )
-      .where(eq(transfers.userId, userId));
+    const conditions = [eq(transfers.userId, userId)];
 
-    // Apply filters
     if (filters?.startDate) {
-      query = query.where(and(
-        eq(transfers.userId, userId),
-        sql`${transfers.createdAt} >= ${filters.startDate}`
-      ));
+      conditions.push(gte(transfers.createdAt, filters.startDate));
     }
-
     if (filters?.endDate) {
-      query = query.where(and(
-        eq(transfers.userId, userId),
-        sql`${transfers.createdAt} <= ${filters.endDate}`
-      ));
+      conditions.push(lte(transfers.createdAt, filters.endDate));
     }
-
     if (filters?.accountId) {
-      query = query.where(and(
-        eq(transfers.userId, userId),
+      conditions.push(
         or(
           eq(transfers.fromAccountId, filters.accountId),
           eq(transfers.toAccountId, filters.accountId)
-        )
-      ));
+        )!
+      );
     }
 
-    return query.orderBy(desc(transfers.createdAt));
+    return db
+      .select()
+      .from(transfers)
+      .where(and(...conditions))
+      .orderBy(desc(transfers.createdAt));
+  }
+
+  // Find by organization ID (multi-tenant)
+  static async findByOrganizationId(organizationId: number, filters?: TransferFilters): Promise<Transfer[]> {
+    const conditions = [eq(transfers.organizationId, organizationId)];
+
+    if (filters?.startDate) {
+      conditions.push(gte(transfers.createdAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(transfers.createdAt, filters.endDate));
+    }
+    if (filters?.accountId) {
+      conditions.push(
+        or(
+          eq(transfers.fromAccountId, filters.accountId),
+          eq(transfers.toAccountId, filters.accountId)
+        )!
+      );
+    }
+
+    return db
+      .select()
+      .from(transfers)
+      .where(and(...conditions))
+      .orderBy(desc(transfers.createdAt));
+  }
+
+  // Find by organization or user (for migration period)
+  static async findByOrganizationOrUser(organizationId: number | null, userId: number, filters?: TransferFilters): Promise<Transfer[]> {
+    if (organizationId) {
+      return this.findByOrganizationId(organizationId, filters);
+    }
+    return this.findByUserId(userId, filters);
   }
 
   static async findByAccountId(accountId: number): Promise<Transfer[]> {
@@ -111,11 +117,31 @@ export class TransferRepository {
     return Number(result[0]?.count || 0);
   }
 
+  // Count by organization
+  static async countByOrganizationId(organizationId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(transfers)
+      .where(eq(transfers.organizationId, organizationId));
+    
+    return Number(result[0]?.count || 0);
+  }
+
   static async getTotalAmountByUserId(userId: number): Promise<number> {
     const result = await db
       .select({ total: sql<number>`sum(${transfers.amount})` })
       .from(transfers)
       .where(eq(transfers.userId, userId));
+    
+    return Number(result[0]?.total || 0);
+  }
+
+  // Get total amount by organization
+  static async getTotalAmountByOrganizationId(organizationId: number): Promise<number> {
+    const result = await db
+      .select({ total: sql<number>`sum(${transfers.amount})` })
+      .from(transfers)
+      .where(eq(transfers.organizationId, organizationId));
     
     return Number(result[0]?.total || 0);
   }

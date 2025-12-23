@@ -96,7 +96,9 @@ export const SavingsGoalsScreen: React.FC<SavingsGoalsScreenProps> = ({ navigati
 
   const getTotalSaved = () => {
     return getActiveGoals().reduce((total, goal) => {
-      return total + parseFloat(goal.currentAmount);
+      // Use account balance if available
+      const amount = goal.accountBalance ? parseFloat(goal.accountBalance) : parseFloat(goal.currentAmount);
+      return total + amount;
     }, 0);
   };
 
@@ -107,9 +109,15 @@ export const SavingsGoalsScreen: React.FC<SavingsGoalsScreenProps> = ({ navigati
   };
 
   const getProgress = (goal: SavingsGoal) => {
-    const current = parseFloat(goal.currentAmount);
+    // Use account balance if available, otherwise use currentAmount
+    const current = goal.accountBalance ? parseFloat(goal.accountBalance) : parseFloat(goal.currentAmount);
     const target = parseFloat(goal.targetAmount);
     return Math.min((current / target) * 100, 100);
+  };
+
+  const getCurrentAmount = (goal: SavingsGoal) => {
+    // Use account balance if available, otherwise use currentAmount
+    return goal.accountBalance ? parseFloat(goal.accountBalance) : parseFloat(goal.currentAmount);
   };
 
   const getProgressColor = (progress: number) => {
@@ -221,13 +229,19 @@ export const SavingsGoalsScreen: React.FC<SavingsGoalsScreenProps> = ({ navigati
             getActiveGoals().map((goal) => {
               const progress = getProgress(goal);
               const progressColor = getProgressColor(progress);
-              const remaining = parseFloat(goal.targetAmount) - parseFloat(goal.currentAmount);
+              const currentAmount = getCurrentAmount(goal);
+              const remaining = parseFloat(goal.targetAmount) - currentAmount;
               
               return (
                 <Card key={goal.id} style={styles.goalCard}>
                   <View style={styles.goalHeader}>
                     <View style={styles.goalInfo}>
                       <Text style={styles.goalName}>{goal.name}</Text>
+                      {goal.accountName && (
+                        <Text style={styles.goalAccount}>
+                          💳 {goal.accountName} {goal.accountBank && `(${goal.accountBank})`}
+                        </Text>
+                      )}
                       {goal.description && (
                         <Text style={styles.goalDescription}>{goal.description}</Text>
                       )}
@@ -249,7 +263,7 @@ export const SavingsGoalsScreen: React.FC<SavingsGoalsScreenProps> = ({ navigati
                   <View style={styles.goalProgress}>
                     <View style={styles.goalAmounts}>
                       <Text style={styles.goalCurrent}>
-                        {formatCurrency(parseFloat(goal.currentAmount))}
+                        {formatCurrency(currentAmount)}
                       </Text>
                       <Text style={styles.goalTarget}>
                         de {formatCurrency(parseFloat(goal.targetAmount))}
@@ -461,6 +475,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  goalAccount: {
+    fontSize: 12,
+    color: COLORS.primary,
     marginBottom: SPACING.xs,
   },
   goalDescription: {

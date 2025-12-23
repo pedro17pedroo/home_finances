@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { CategoryService } from "../../domain/services/category.service.js";
-import type { AuthenticatedRequest } from "../middlewares/auth.js";
+import { getOrganizationId } from "../middlewares/organization.js";
 
 export class CategoryController {
-  static async getCategories(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getCategories(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const categories = await CategoryService.getAllCategories(userId);
+      const organizationId = getOrganizationId(req);
+      const categories = await CategoryService.getCategories(organizationId, userId);
       
       res.json({
         status: 'success',
@@ -17,9 +18,10 @@ export class CategoryController {
     }
   }
 
-  static async getCategoriesByType(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getCategoriesByType(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const { type } = req.params;
       
       if (type !== 'receita' && type !== 'despesa') {
@@ -29,7 +31,12 @@ export class CategoryController {
         });
       }
 
-      const categories = await CategoryService.getCategoriesByType(type, userId);
+      let categories;
+      if (organizationId) {
+        categories = await CategoryService.getCategoriesByTypeAndOrganization(type, organizationId);
+      } else {
+        categories = await CategoryService.getCategoriesByType(type, userId);
+      }
       
       res.json({
         status: 'success',
@@ -40,9 +47,10 @@ export class CategoryController {
     }
   }
 
-  static async getCategoryById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getCategoryById(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const categoryId = parseInt(req.params.id);
       
       if (isNaN(categoryId)) {
@@ -52,7 +60,7 @@ export class CategoryController {
         });
       }
 
-      const category = await CategoryService.getCategoryById(categoryId, userId);
+      const category = await CategoryService.getCategoryById(categoryId, userId, organizationId);
       
       res.json({
         status: 'success',
@@ -63,9 +71,10 @@ export class CategoryController {
     }
   }
 
-  static async createCategory(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async createCategory(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const { name, type, color, icon } = req.body;
       
       if (!name || !type) {
@@ -82,7 +91,7 @@ export class CategoryController {
         });
       }
 
-      const category = await CategoryService.createCategory({ name, type, color, icon }, userId);
+      const category = await CategoryService.createCategory({ name, type, color, icon }, userId, organizationId);
       
       res.status(201).json({
         status: 'success',
@@ -94,9 +103,10 @@ export class CategoryController {
     }
   }
 
-  static async deleteCategory(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async deleteCategory(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const categoryId = parseInt(req.params.id);
       
       if (isNaN(categoryId)) {
@@ -106,7 +116,7 @@ export class CategoryController {
         });
       }
 
-      await CategoryService.deleteCategory(categoryId, userId);
+      await CategoryService.deleteCategory(categoryId, userId, organizationId);
       
       res.json({
         status: 'success',
@@ -117,10 +127,11 @@ export class CategoryController {
     }
   }
 
-  static async getCategorySummary(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getCategorySummary(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const summary = await CategoryService.getCategorySummary(userId);
+      const organizationId = getOrganizationId(req);
+      const summary = await CategoryService.getCategorySummary(userId, organizationId);
       
       res.json({
         status: 'success',
@@ -131,7 +142,7 @@ export class CategoryController {
     }
   }
 
-  static async getDefaultCategories(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getDefaultCategories(req: Request, res: Response, next: NextFunction) {
     try {
       const defaults = CategoryService.getDefaultCategoryNames();
       
@@ -144,10 +155,11 @@ export class CategoryController {
     }
   }
 
-  static async createDefaultCategories(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async createDefaultCategories(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const categories = await CategoryService.createDefaultCategoriesForUser(userId);
+      const organizationId = getOrganizationId(req);
+      const categories = await CategoryService.createDefaultCategories(userId, organizationId);
       
       res.json({
         status: 'success',

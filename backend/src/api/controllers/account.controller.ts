@@ -1,12 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import { AccountService } from "../../domain/services/account.service.js";
-import type { AuthenticatedRequest } from "../middlewares/auth.js";
+import { getOrganizationId } from "../middlewares/organization.js";
 
 export class AccountController {
-  static async getAccounts(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getAccounts(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const accounts = await AccountService.getUserAccounts(userId);
+      const organizationId = getOrganizationId(req);
+      
+      const accounts = organizationId 
+        ? await AccountService.getAccounts({ userId, organizationId })
+        : await AccountService.getUserAccounts(userId);
       
       res.json({
         status: 'success',
@@ -17,10 +21,11 @@ export class AccountController {
     }
   }
 
-  static async getSavingsAccounts(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getSavingsAccounts(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const accounts = await AccountService.getSavingsAccounts(userId);
+      const organizationId = getOrganizationId(req);
+      const accounts = await AccountService.getSavingsAccounts(userId, organizationId);
       
       res.json({
         status: 'success',
@@ -31,9 +36,10 @@ export class AccountController {
     }
   }
 
-  static async getAccountById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getAccountById(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const accountId = parseInt(req.params.id);
       
       if (isNaN(accountId)) {
@@ -43,7 +49,7 @@ export class AccountController {
         });
       }
 
-      const account = await AccountService.getAccountById(accountId, userId);
+      const account = await AccountService.getAccountById(accountId, userId, organizationId);
       
       res.json({
         status: 'success',
@@ -54,10 +60,11 @@ export class AccountController {
     }
   }
 
-  static async createAccount(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async createAccount(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const account = await AccountService.createAccount(req.body, userId);
+      const organizationId = getOrganizationId(req);
+      const account = await AccountService.createAccount(req.body, userId, organizationId);
       
       res.status(201).json({
         status: 'success',
@@ -69,9 +76,10 @@ export class AccountController {
     }
   }
 
-  static async updateAccount(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async updateAccount(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const accountId = parseInt(req.params.id);
       
       if (isNaN(accountId)) {
@@ -81,7 +89,7 @@ export class AccountController {
         });
       }
 
-      const account = await AccountService.updateAccount(accountId, req.body, userId);
+      const account = await AccountService.updateAccount(accountId, req.body, userId, organizationId);
       
       res.json({
         status: 'success',
@@ -93,9 +101,10 @@ export class AccountController {
     }
   }
 
-  static async deleteAccount(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async deleteAccount(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const accountId = parseInt(req.params.id);
       
       if (isNaN(accountId)) {
@@ -105,7 +114,7 @@ export class AccountController {
         });
       }
 
-      await AccountService.deleteAccount(accountId, userId);
+      await AccountService.deleteAccount(accountId, userId, organizationId);
       
       res.json({
         status: 'success',
@@ -116,10 +125,11 @@ export class AccountController {
     }
   }
 
-  static async getAccountSummary(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getAccountSummary(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const summary = await AccountService.getAccountSummary(userId);
+      const organizationId = getOrganizationId(req);
+      const summary = await AccountService.getAccountSummary(userId, organizationId);
       
       res.json({
         status: 'success',

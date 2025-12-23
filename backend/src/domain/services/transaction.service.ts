@@ -1,6 +1,7 @@
 import { TransactionRepository } from "../repositories/transaction.repository.js";
 import { AccountRepository } from "../repositories/account.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
+import { PlanAccessService } from "./plan-access.service.js";
 import { 
   NotFoundError, 
   BadRequestError, 
@@ -32,6 +33,37 @@ export interface TransactionFilters {
 }
 
 export class TransactionService {
+  // Get transactions by organization (multi-tenant)
+  static async getOrganizationTransactions(
+    organizationId: number,
+    filters?: TransactionFilters
+  ): Promise<Transaction[]> {
+    const parsedFilters = {
+      startDate: filters?.startDate ? new Date(filters.startDate) : undefined,
+      endDate: filters?.endDate ? new Date(filters.endDate) : undefined,
+      type: filters?.type,
+      accountId: filters?.accountId,
+    };
+
+    return TransactionRepository.findByOrganizationId(organizationId, parsedFilters);
+  }
+
+  // Get transactions by organization or user (for migration period)
+  static async getTransactions(
+    organizationId: number | null,
+    userId: number,
+    filters?: TransactionFilters
+  ): Promise<Transaction[]> {
+    const parsedFilters = {
+      startDate: filters?.startDate ? new Date(filters.startDate) : undefined,
+      endDate: filters?.endDate ? new Date(filters.endDate) : undefined,
+      type: filters?.type,
+      accountId: filters?.accountId,
+    };
+
+    return TransactionRepository.findByOrganizationOrUser(organizationId, userId, parsedFilters);
+  }
+
   static async getUserTransactions(
     userId: number,
     filters?: TransactionFilters
@@ -48,7 +80,8 @@ export class TransactionService {
 
   static async getTransactionById(
     id: number,
-    userId: number
+    userId: number,
+    organizationId?: number | null
   ): Promise<Transaction> {
     const transaction = await TransactionRepository.findById(id);
     
@@ -56,7 +89,12 @@ export class TransactionService {
       throw new NotFoundError("Transaction");
     }
     
-    if (transaction.userId !== userId) {
+    // Check access by organization or user
+    if (organizationId) {
+      if (transaction.organizationId !== organizationId) {
+        throw new ForbiddenError("Access denied to this transaction");
+      }
+    } else if (transaction.userId !== userId) {
       throw new ForbiddenError("Access denied to this transaction");
     }
     
@@ -65,41 +103,64 @@ export class TransactionService {
 
   static async createTransaction(
     data: CreateTransactionRequest,
-    userId: number
+    userId: number,
+    organizationId?: number | null
   ): Promise<Transaction> {
-    // Verify account exists and belongs to user
+    // Verify account exists and belongs to user/organization
     const account = await AccountRepository.findById(data.accountId);
     
     if (!account) {
       throw new NotFoundError("Account");
     }
     
-    if (account.userId !== userId) {
+    // Check access by organization or user
+    if (organizationId) {
+      if (account.organizationId !== organizationId) {
+        throw new ForbiddenError("Access denied to this account");
+      }
+    } else if (account.userId !== userId) {
       throw new ForbiddenError("Access denied to this account");
     }
 
-    // Check plan limits
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new NotFoundError("User");
+    // Check plan limits using PlanAccessService
+    if (organizationId) {
+      const canCreate = await PlanAccessService.canCreateTransaction(organizationId);
+      if (!canCreate) {
+        throw new BadRequestError("Limite de transações do mês atingido para o seu plano. Faça upgrade para continuar.");
+      }
+    } else {
+      // Fallback to old logic for backward compatibility
+      const user = await UserRepository.findById(userId);
+      if (!user) {
+        throw new NotFoundError("User");
+      }
+
+      const transactionCount = await TransactionRepository.countByUserId(userId);
+      
+      // Basic plan limit: 1000 transactions per month
+      if (user.planType === 'basic' && transactionCount >= 1000) {
+        throw new BadRequestError("Limite de transações atingido para o seu plano. Faça upgrade para continuar.");
+      }
     }
 
-    const transactionCount = await TransactionRepository.countByUserId(userId);
-    
-    // Basic plan limit: 1000 transactions per month
-    if (user.planType === 'basic' && transactionCount >= 1000) {
-      throw new BadRequestError("Transaction limit reached for your plan. Upgrade to continue.");
-    }
+    // Calculate balance before and after
+    const currentBalance = Number(account.balance);
+    const newBalance = data.type === 'receita'
+      ? currentBalance + data.amount
+      : currentBalance - data.amount;
 
-    // Create transaction
+    // Create transaction with balance info
     const transactionData: InsertTransaction = {
       userId,
+      organizationId: organizationId || undefined,
       accountId: data.accountId,
       amount: data.amount.toString(),
       type: data.type,
       category: data.category,
       description: data.description,
       date: new Date(data.date),
+      balanceBefore: currentBalance.toString(),
+      balanceAfter: newBalance.toString(),
       isRecurring: data.isRecurring || false,
       recurringFrequency: data.recurringFrequency,
       // Adicionar dados do recibo se fornecidos
@@ -112,11 +173,6 @@ export class TransactionService {
     const transaction = await TransactionRepository.create(transactionData);
 
     // Update account balance
-    const currentBalance = Number(account.balance);
-    const newBalance = data.type === 'receita'
-      ? currentBalance + data.amount
-      : currentBalance - data.amount;
-    
     await AccountRepository.updateBalance(account.id, newBalance);
 
     return transaction;
@@ -125,9 +181,10 @@ export class TransactionService {
   static async updateTransaction(
     id: number,
     data: Partial<CreateTransactionRequest>,
-    userId: number
+    userId: number,
+    organizationId?: number | null
   ): Promise<Transaction> {
-    const transaction = await this.getTransactionById(id, userId);
+    const transaction = await this.getTransactionById(id, userId, organizationId);
     
     // If amount or type changed, update account balance
     if (data.amount !== undefined || data.type !== undefined) {
@@ -174,9 +231,10 @@ export class TransactionService {
 
   static async deleteTransaction(
     id: number,
-    userId: number
+    userId: number,
+    organizationId?: number | null
   ): Promise<void> {
-    const transaction = await this.getTransactionById(id, userId);
+    const transaction = await this.getTransactionById(id, userId, organizationId);
     
     // Revert transaction from account balance
     const account = await AccountRepository.findById(transaction.accountId!);
@@ -197,10 +255,19 @@ export class TransactionService {
   static async getTransactionSummary(
     userId: number,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    organizationId?: number | null
   ) {
     const parsedStartDate = startDate ? new Date(startDate) : undefined;
     const parsedEndDate = endDate ? new Date(endDate) : undefined;
+
+    if (organizationId) {
+      return TransactionRepository.getSummaryByOrganizationId(
+        organizationId,
+        parsedStartDate,
+        parsedEndDate
+      );
+    }
 
     return TransactionRepository.getSummaryByUserId(
       userId,

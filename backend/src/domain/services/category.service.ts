@@ -2,7 +2,6 @@ import { CategoryRepository } from "../repositories/category.repository.js";
 import { 
   NotFoundError, 
   BadRequestError, 
-  ForbiddenError 
 } from "../../core/errors/app-error.js";
 import type { Category, InsertCategory } from "../../core/database/schema.js";
 
@@ -47,10 +46,24 @@ const DEFAULT_CATEGORIES = {
 
 export class CategoryService {
   /**
-   * Get all categories for a user
+   * Get all categories for a user (backward compatibility)
    */
   static async getAllCategories(userId: number): Promise<Category[]> {
     return CategoryRepository.findAllByUser(userId);
+  }
+
+  /**
+   * Get all categories for an organization (multi-tenant)
+   */
+  static async getAllCategoriesByOrganization(organizationId: number): Promise<Category[]> {
+    return CategoryRepository.findAllByOrganization(organizationId);
+  }
+
+  /**
+   * Get categories by organization or user (for migration period)
+   */
+  static async getCategories(organizationId: number | null, userId: number): Promise<Category[]> {
+    return CategoryRepository.findByOrganizationOrUser(organizationId, userId);
   }
 
   /**
@@ -64,10 +77,26 @@ export class CategoryService {
   }
 
   /**
+   * Get categories by type for an organization
+   */
+  static async getCategoriesByTypeAndOrganization(
+    type: 'receita' | 'despesa',
+    organizationId: number
+  ): Promise<Category[]> {
+    return CategoryRepository.findByTypeAndOrganization(type, organizationId);
+  }
+
+  /**
    * Get a specific category by ID
    */
-  static async getCategoryById(id: number, userId: number): Promise<Category> {
-    const category = await CategoryRepository.findByIdAndUser(id, userId);
+  static async getCategoryById(id: number, userId: number, organizationId?: number | null): Promise<Category> {
+    let category: Category | null = null;
+    
+    if (organizationId) {
+      category = await CategoryRepository.findByIdAndOrganization(id, organizationId);
+    } else {
+      category = await CategoryRepository.findByIdAndUser(id, userId);
+    }
     
     if (!category) {
       throw new NotFoundError("Category");
@@ -77,17 +106,25 @@ export class CategoryService {
   }
 
   /**
-   * Create a new category for a user
+   * Create a new category for a user/organization
    */
-  static async createCategory(data: CreateCategoryRequest, userId: number): Promise<Category> {
-    // Check if category name already exists for this user
-    const existingCategory = await CategoryRepository.findByNameAndUser(data.name, userId);
+  static async createCategory(data: CreateCategoryRequest, userId: number, organizationId?: number | null): Promise<Category> {
+    // Check if category name already exists
+    let existingCategory: Category | null = null;
+    
+    if (organizationId) {
+      existingCategory = await CategoryRepository.findByNameAndOrganization(data.name, organizationId);
+    } else {
+      existingCategory = await CategoryRepository.findByNameAndUser(data.name, userId);
+    }
+    
     if (existingCategory) {
       throw new BadRequestError("Categoria com este nome já existe");
     }
 
     const categoryData: InsertCategory = {
       userId,
+      organizationId: organizationId || undefined,
       name: data.name,
       type: data.type,
       color: data.color || '#6B7280',
@@ -104,14 +141,22 @@ export class CategoryService {
   static async updateCategory(
     id: number,
     data: UpdateCategoryRequest,
-    userId: number
+    userId: number,
+    organizationId?: number | null
   ): Promise<Category> {
-    // Verify category exists and belongs to user
-    await this.getCategoryById(id, userId);
+    // Verify category exists and belongs to user/organization
+    await this.getCategoryById(id, userId, organizationId);
 
-    // Check if new name already exists for this user
+    // Check if new name already exists
     if (data.name) {
-      const existingCategory = await CategoryRepository.findByNameAndUser(data.name, userId);
+      let existingCategory: Category | null = null;
+      
+      if (organizationId) {
+        existingCategory = await CategoryRepository.findByNameAndOrganization(data.name, organizationId);
+      } else {
+        existingCategory = await CategoryRepository.findByNameAndUser(data.name, userId);
+      }
+      
       if (existingCategory && existingCategory.id !== id) {
         throw new BadRequestError("Categoria com este nome já existe");
       }
@@ -130,12 +175,19 @@ export class CategoryService {
   /**
    * Delete a category
    */
-  static async deleteCategory(id: number, userId: number): Promise<void> {
-    // Verify category exists and belongs to user
-    const category = await this.getCategoryById(id, userId);
+  static async deleteCategory(id: number, userId: number, organizationId?: number | null): Promise<void> {
+    // Verify category exists and belongs to user/organization
+    const category = await this.getCategoryById(id, userId, organizationId);
     
     // Check if category is being used in transactions
-    const transactionCount = await CategoryRepository.getTransactionCountByUser(category.name, userId);
+    let transactionCount: number;
+    
+    if (organizationId) {
+      transactionCount = await CategoryRepository.getTransactionCountByOrganization(category.name, organizationId);
+    } else {
+      transactionCount = await CategoryRepository.getTransactionCountByUser(category.name, userId);
+    }
+    
     if (transactionCount > 0) {
       throw new BadRequestError("Não é possível excluir categoria que está sendo usada em transações");
     }
@@ -144,10 +196,16 @@ export class CategoryService {
   }
 
   /**
-   * Get category summary for a user
+   * Get category summary for a user/organization
    */
-  static async getCategorySummary(userId: number) {
-    const categories = await CategoryRepository.findAllByUser(userId);
+  static async getCategorySummary(userId: number, organizationId?: number | null) {
+    let categories: Category[];
+    
+    if (organizationId) {
+      categories = await CategoryRepository.findAllByOrganization(organizationId);
+    } else {
+      categories = await CategoryRepository.findAllByUser(userId);
+    }
     
     const summary = {
       totalCategories: categories.length,
@@ -183,16 +241,36 @@ export class CategoryService {
   }
 
   /**
-   * Create default categories for a new user
-   * This should be called when a user registers
+   * Create default categories for a new user (backward compatibility)
    */
   static async createDefaultCategoriesForUser(userId: number): Promise<Category[]> {
+    return this.createDefaultCategories(userId, null);
+  }
+
+  /**
+   * Create default categories for a new organization
+   */
+  static async createDefaultCategoriesForOrganization(organizationId: number, userId: number): Promise<Category[]> {
+    return this.createDefaultCategories(userId, organizationId);
+  }
+
+  /**
+   * Create default categories for a new user/organization
+   */
+  static async createDefaultCategories(userId: number, organizationId: number | null): Promise<Category[]> {
     const createdCategories: Category[] = [];
 
-    // Check if user already has categories
-    const existingCount = await CategoryRepository.countByUser(userId);
+    // Check if user/organization already has categories
+    let existingCount: number;
+    
+    if (organizationId) {
+      existingCount = await CategoryRepository.countByOrganization(organizationId);
+    } else {
+      existingCount = await CategoryRepository.countByUser(userId);
+    }
+    
     if (existingCount > 0) {
-      // User already has categories, skip
+      // Already has categories, skip
       return [];
     }
 
@@ -200,6 +278,7 @@ export class CategoryService {
     for (const cat of DEFAULT_CATEGORIES.receita) {
       const categoryData: InsertCategory = {
         userId,
+        organizationId: organizationId || undefined,
         name: cat.name,
         type: 'receita',
         color: cat.color,
@@ -213,6 +292,7 @@ export class CategoryService {
     for (const cat of DEFAULT_CATEGORIES.despesa) {
       const categoryData: InsertCategory = {
         userId,
+        organizationId: organizationId || undefined,
         name: cat.name,
         type: 'despesa',
         color: cat.color,

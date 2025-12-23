@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
+    "@types/nodemailer": "^7.0.4",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",
     "connect-pg-simple": "^10.0.0",
@@ -36,6 +37,7 @@
     "jsonwebtoken": "^9.0.2",
     "memorystore": "^1.6.7",
     "nanoid": "^5.1.5",
+    "nodemailer": "^7.0.12",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pg": "^8.16.3",

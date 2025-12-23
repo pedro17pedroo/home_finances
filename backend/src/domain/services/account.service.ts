@@ -22,18 +22,37 @@ export interface UpdateAccountRequest {
   interestRate?: number;
 }
 
+export interface AccountContext {
+  userId: number;
+  organizationId?: number | null;
+}
+
 export class AccountService {
+  // Get accounts by organization (preferred) or user (fallback)
+  static async getAccounts(ctx: AccountContext): Promise<Account[]> {
+    if (ctx.organizationId) {
+      return AccountRepository.findByOrganizationId(ctx.organizationId);
+    }
+    return AccountRepository.findByUserId(ctx.userId);
+  }
+
+  // Legacy method for backward compatibility
   static async getUserAccounts(userId: number): Promise<Account[]> {
     return AccountRepository.findByUserId(userId);
   }
 
-  static async getSavingsAccounts(userId: number): Promise<Account[]> {
+  // Get savings accounts by organization or user
+  static async getSavingsAccounts(userId: number, organizationId?: number | null): Promise<Account[]> {
+    if (organizationId) {
+      return AccountRepository.findByOrganizationIdAndType(organizationId, 'poupanca');
+    }
     return AccountRepository.findByUserIdAndType(userId, 'poupanca');
   }
 
   static async getAccountById(
     id: number,
-    userId: number
+    userId: number,
+    organizationId?: number | null
   ): Promise<Account> {
     const account = await AccountRepository.findById(id);
     
@@ -41,8 +60,15 @@ export class AccountService {
       throw new NotFoundError("Account");
     }
     
-    if (account.userId !== userId) {
-      throw new ForbiddenError("Access denied to this account");
+    // Check access: either by organization or by user
+    if (organizationId) {
+      if (account.organizationId !== organizationId) {
+        throw new ForbiddenError("Access denied to this account");
+      }
+    } else {
+      if (account.userId !== userId) {
+        throw new ForbiddenError("Access denied to this account");
+      }
     }
     
     return account;
@@ -50,24 +76,26 @@ export class AccountService {
 
   static async createAccount(
     data: CreateAccountRequest,
-    userId: number
+    userId: number,
+    organizationId?: number | null
   ): Promise<Account> {
-    // Check plan limits
+    // Check plan limits using dynamic plan access service
     const user = await UserRepository.findById(userId);
     if (!user) {
       throw new NotFoundError("User");
     }
 
-    const accountCount = await AccountRepository.countByUserId(userId);
+    // Count accounts by organization or user
+    const accountCount = organizationId 
+      ? await AccountRepository.countByOrganizationId(organizationId)
+      : await AccountRepository.countByUserId(userId);
     
-    // Basic plan limit: 5 accounts
-    if (user.planType === 'basic' && accountCount >= 5) {
-      throw new BadRequestError("Account limit reached for your plan. Upgrade to continue.");
-    }
-
-    // Premium plan limit: 20 accounts
-    if (user.planType === 'premium' && accountCount >= 20) {
-      throw new BadRequestError("Account limit reached for your plan. Upgrade to continue.");
+    // Use plan access service for dynamic limits
+    const { planAccessService } = await import('./plan-access.service.js');
+    const accessCheck = await planAccessService.canCreateAccount(userId, accountCount);
+    
+    if (!accessCheck.allowed) {
+      throw new BadRequestError(accessCheck.reason || "Limite de contas atingido para o seu plano. Faça upgrade para continuar.");
     }
 
     // Validate interest rate for savings accounts
@@ -79,6 +107,7 @@ export class AccountService {
 
     const accountData: InsertAccount = {
       userId,
+      organizationId: organizationId || user.organizationId || undefined,
       name: data.name,
       type: data.type,
       bank: data.bank,
@@ -92,10 +121,11 @@ export class AccountService {
   static async updateAccount(
     id: number,
     data: UpdateAccountRequest,
-    userId: number
+    userId: number,
+    organizationId?: number | null
   ): Promise<Account> {
-    // Verify account exists and belongs to user
-    await this.getAccountById(id, userId);
+    // Verify account exists and user has access
+    await this.getAccountById(id, userId, organizationId);
 
     // Validate interest rate for savings accounts
     if (data.interestRate !== undefined) {
@@ -116,24 +146,41 @@ export class AccountService {
 
   static async deleteAccount(
     id: number,
-    userId: number
+    userId: number,
+    organizationId?: number | null
   ): Promise<void> {
-    const account = await this.getAccountById(id, userId);
+    const account = await this.getAccountById(id, userId, organizationId);
     
     // Check if account has balance
     const balance = Number(account.balance);
     if (balance !== 0) {
-      throw new BadRequestError("Cannot delete account with non-zero balance");
+      throw new BadRequestError("Não é possível eliminar conta com saldo diferente de zero. Transfira ou ajuste o saldo primeiro.");
     }
-
-    // Check if account has transactions (should be handled by foreign key constraints)
-    // This is a business rule - we might want to allow deletion and cascade
+    
+    // Check if account has transactions
+    const { TransactionRepository } = await import("../repositories/transaction.repository.js");
+    const transactions = await TransactionRepository.findByUserId(userId, { accountId: id });
+    if (transactions.length > 0) {
+      throw new BadRequestError(`Esta conta possui ${transactions.length} transação(ões) associada(s). Elimine as transações primeiro ou transfira-as para outra conta.`);
+    }
+    
+    // Check if account is linked to savings goals
+    const { SavingsGoalRepository } = await import("../repositories/savings-goal.repository.js");
+    const goals = organizationId 
+      ? await SavingsGoalRepository.findByOrganizationId(organizationId)
+      : await SavingsGoalRepository.findByUserId(userId);
+    const linkedGoals = goals.filter(g => g.accountId === id);
+    if (linkedGoals.length > 0) {
+      throw new BadRequestError(`Esta conta está vinculada a ${linkedGoals.length} meta(s) de poupança. Desvincule as metas primeiro.`);
+    }
     
     await AccountRepository.delete(id);
   }
 
-  static async getAccountSummary(userId: number) {
-    const accounts = await AccountRepository.findByUserId(userId);
+  static async getAccountSummary(userId: number, organizationId?: number | null) {
+    const accounts = organizationId 
+      ? await AccountRepository.findByOrganizationId(organizationId)
+      : await AccountRepository.findByUserId(userId);
     
     const summary = {
       totalAccounts: accounts.length,

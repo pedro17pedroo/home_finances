@@ -45,6 +45,55 @@ export class TransactionRepository {
       .orderBy(desc(transactions.date));
   }
 
+  // Find by organization ID (multi-tenant)
+  static async findByOrganizationId(
+    organizationId: number,
+    filters?: {
+      startDate?: Date;
+      endDate?: Date;
+      type?: 'receita' | 'despesa';
+      accountId?: number;
+    }
+  ): Promise<Transaction[]> {
+    const conditions = [eq(transactions.organizationId, organizationId)];
+
+    if (filters?.startDate) {
+      conditions.push(gte(transactions.date, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(transactions.date, filters.endDate));
+    }
+    if (filters?.type) {
+      conditions.push(eq(transactions.type, filters.type));
+    }
+    if (filters?.accountId) {
+      conditions.push(eq(transactions.accountId, filters.accountId));
+    }
+
+    return db
+      .select()
+      .from(transactions)
+      .where(and(...conditions))
+      .orderBy(desc(transactions.date));
+  }
+
+  // Find by organization or user (for migration period)
+  static async findByOrganizationOrUser(
+    organizationId: number | null,
+    userId: number,
+    filters?: {
+      startDate?: Date;
+      endDate?: Date;
+      type?: 'receita' | 'despesa';
+      accountId?: number;
+    }
+  ): Promise<Transaction[]> {
+    if (organizationId) {
+      return this.findByOrganizationId(organizationId, filters);
+    }
+    return this.findByUserId(userId, filters);
+  }
+
   static async create(data: InsertTransaction): Promise<Transaction> {
     const result = await db
       .insert(transactions)
@@ -83,6 +132,52 @@ export class TransactionRepository {
       .select({ count: sql<number>`count(*)` })
       .from(transactions)
       .where(eq(transactions.userId, userId));
+    
+    return Number(result[0]?.count || 0);
+  }
+
+  // Count by organization
+  static async countByOrganizationId(organizationId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(transactions)
+      .where(eq(transactions.organizationId, organizationId));
+    
+    return Number(result[0]?.count || 0);
+  }
+
+  // Count this month by organization (for plan limits)
+  static async countThisMonthByOrganizationId(organizationId: number): Promise<number> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(transactions)
+      .where(and(
+        eq(transactions.organizationId, organizationId),
+        gte(transactions.date, startOfMonth),
+        lte(transactions.date, endOfMonth)
+      ));
+    
+    return Number(result[0]?.count || 0);
+  }
+
+  // Count this month by user (for plan limits - backward compatibility)
+  static async countThisMonthByUserId(userId: number): Promise<number> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(transactions)
+      .where(and(
+        eq(transactions.userId, userId),
+        gte(transactions.date, startOfMonth),
+        lte(transactions.date, endOfMonth)
+      ));
     
     return Number(result[0]?.count || 0);
   }
@@ -141,6 +236,61 @@ export class TransactionRepository {
     return summary;
   }
 
+  // Get summary by organization
+  static async getSummaryByOrganizationId(
+    organizationId: number,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<{
+    totalReceitas: number;
+    totalDespesas: number;
+    saldo: number;
+    transactionCount: number;
+  }> {
+    const conditions = [eq(transactions.organizationId, organizationId)];
+
+    if (startDate) {
+      conditions.push(gte(transactions.date, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(transactions.date, endDate));
+    }
+
+    const results = await db
+      .select({
+        type: transactions.type,
+        total: sql<number>`sum(${transactions.amount})`,
+        count: sql<number>`count(*)`,
+      })
+      .from(transactions)
+      .where(and(...conditions))
+      .groupBy(transactions.type);
+
+    const summary = {
+      totalReceitas: 0,
+      totalDespesas: 0,
+      saldo: 0,
+      transactionCount: 0,
+    };
+
+    results.forEach((result) => {
+      const total = Number(result.total || 0);
+      const count = Number(result.count || 0);
+      
+      if (result.type === 'receita') {
+        summary.totalReceitas = total;
+      } else if (result.type === 'despesa') {
+        summary.totalDespesas = total;
+      }
+      
+      summary.transactionCount += count;
+    });
+
+    summary.saldo = summary.totalReceitas - summary.totalDespesas;
+
+    return summary;
+  }
+
   static async findRecurring(): Promise<Transaction[]> {
     return await db
       .select()
@@ -154,6 +304,14 @@ export class TransactionRepository {
       .select()
       .from(transactions)
       .where(and(eq(transactions.userId, userId), eq(transactions.isRecurring, true)))
+      .orderBy(desc(transactions.createdAt));
+  }
+
+  static async findRecurringByOrganizationId(organizationId: number): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.organizationId, organizationId), eq(transactions.isRecurring, true)))
       .orderBy(desc(transactions.createdAt));
   }
 

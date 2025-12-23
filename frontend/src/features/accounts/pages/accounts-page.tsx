@@ -1,54 +1,67 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, CreditCard, PiggyBank, History, ArrowRightLeft } from 'lucide-react';
-import { useAccounts, useCreateAccount, useDeleteAccount } from '../hooks/use-accounts';
+import { Plus, Edit2, Trash2, CreditCard, PiggyBank, History, ArrowRightLeft, X, Building2, Wallet } from 'lucide-react';
+import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount, useAccountSummary } from '../hooks/use-accounts';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
-import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
 import { Select } from '../../../shared/components/ui/select';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
-import type { CreateAccountRequest } from '../../../shared/types';
-
-const accountTypeLabels = {
-  corrente: 'Conta Corrente',
-  poupanca: 'Poupança',
-};
+import type { CreateAccountRequest, Account } from '../../../shared/types';
+import { Link } from 'wouter';
 
 const angolaBanks = [
-  'BAI',
-  'BFA',
-  'BIC',
-  'Millennium Atlântico',
-  'Standard Bank',
-  'BPC',
-  'Banco Sol',
-  'Banco Económico',
-  'Outros',
+  'BAI', 'BFA', 'BIC', 'Millennium Atlântico', 'Standard Bank', 'BPC', 'Banco Sol', 'Banco Económico', 'Outros',
 ];
 
 export function AccountsPage() {
   const { data: accounts, isLoading } = useAccounts();
+  const { data: summary } = useAccountSummary();
   const createAccountMutation = useCreateAccount();
+  const updateAccountMutation = useUpdateAccount();
   const deleteAccountMutation = useDeleteAccount();
 
   const [showForm, setShowForm] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [formData, setFormData] = useState<CreateAccountRequest>({
-    name: '',
-    type: 'corrente',
-    bank: '',
-    balance: 0,
-    interestRate: undefined,
+    name: '', type: 'corrente', bank: '', balance: 0, interestRate: undefined,
   });
+
+  const openCreateForm = () => {
+    setEditingAccount(null);
+    setFormData({ name: '', type: 'corrente', bank: '', balance: 0, interestRate: undefined });
+    setShowForm(true);
+  };
+
+  const openEditForm = (account: Account) => {
+    setEditingAccount(account);
+    setFormData({
+      name: account.name,
+      type: account.type as 'corrente' | 'poupanca',
+      bank: account.bank,
+      balance: Number(account.balance),
+      interestRate: account.interestRate ? Number(account.interestRate) : undefined,
+    });
+    setShowForm(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createAccountMutation.mutateAsync(formData);
+      if (editingAccount) {
+        await updateAccountMutation.mutateAsync({
+          id: editingAccount.id,
+          data: { name: formData.name, type: formData.type, bank: formData.bank, interestRate: formData.interestRate },
+        });
+        showSuccessToast('Conta atualizada com sucesso!');
+      } else {
+        await createAccountMutation.mutateAsync(formData);
+        showSuccessToast('Conta criada com sucesso!');
+      }
       setShowForm(false);
-      setFormData({ name: '', type: 'corrente', bank: '', balance: 0, interestRate: undefined });
-    } catch (error) {
-      console.error('Error creating account:', error);
+      setEditingAccount(null);
+    } catch (error: any) {
+      showErrorToast(error?.response?.data?.message || 'Erro ao salvar conta');
     }
   };
 
@@ -57,30 +70,22 @@ export function AccountsPage() {
     if (confirmed) {
       try {
         await deleteAccountMutation.mutateAsync(id);
-        showSuccessToast('Conta excluída com sucesso');
-      } catch (error) {
-        console.error('Error deleting account:', error);
-        showErrorToast('Erro ao excluir conta');
+        showSuccessToast('Conta excluída com sucesso!');
+      } catch (error: any) {
+        showErrorToast(error?.response?.data?.message || 'Erro ao excluir conta');
       }
     }
-  };
-
-  // Simplificar nome do banco
-  const getBankName = (bank: string) => {
-    return bank
-      .replace('Banco Angolano de Investimentos (BAI)', 'BAI')
-      .replace('Banco de Fomento Angola (BFA)', 'BFA')
-      .replace('Banco BIC', 'BIC')
-      .replace('Banco de Poupança e Crédito (BPC)', 'BPC');
   };
 
   if (isLoading) {
     return (
       <AppLayout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4"></div>
-            <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+            <div className="grid grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => <div key={i} className="h-28 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>)}
+            </div>
           </div>
         </div>
       </AppLayout>
@@ -91,94 +96,157 @@ export function AccountsPage() {
     <AppLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
-        <div className="flex justify-between items-start mb-8">
+        <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Contas Bancárias</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm">Gerencie suas contas bancárias e carteiras</p>
           </div>
           <div className="flex items-center space-x-3">
-            <Button variant="outline" size="sm" className="flex items-center text-gray-600">
-              <History className="w-4 h-4 mr-2" />
-              Histórico
-            </Button>
-            <Button variant="outline" size="sm" className="flex items-center text-gray-600">
-              <ArrowRightLeft className="w-4 h-4 mr-2" />
-              Transferir
-            </Button>
-            <Button onClick={() => setShowForm(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Conta
+            <Link href="/transfers">
+              <Button variant="outline" size="sm"><History className="w-4 h-4 mr-2" />Histórico</Button>
+            </Link>
+            <Link href="/transfers">
+              <Button variant="outline" size="sm"><ArrowRightLeft className="w-4 h-4 mr-2" />Transferir</Button>
+            </Link>
+            <Button onClick={openCreateForm} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Plus className="w-4 h-4 mr-2" />Nova Conta
             </Button>
           </div>
         </div>
 
+        {/* Summary Cards */}
+        {summary && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-5 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm">Saldo Total</p>
+                  <p className="text-2xl font-bold mt-1">{formatCurrency(summary.totalBalance)}</p>
+                  <p className="text-blue-200 text-xs mt-1">{summary.totalAccounts} conta(s)</p>
+                </div>
+                <Wallet className="w-10 h-10 text-blue-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-xl p-5 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-emerald-100 text-sm">Poupança</p>
+                  <p className="text-2xl font-bold mt-1">{formatCurrency(summary.savingsBalance)}</p>
+                  <p className="text-emerald-200 text-xs mt-1">{summary.accountsByType?.poupanca || 0} conta(s)</p>
+                </div>
+                <PiggyBank className="w-10 h-10 text-emerald-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-violet-600 to-violet-700 rounded-xl p-5 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-violet-100 text-sm">Conta Corrente</p>
+                  <p className="text-2xl font-bold mt-1">{formatCurrency(summary.currentBalance)}</p>
+                  <p className="text-violet-200 text-xs mt-1">{summary.accountsByType?.corrente || 0} conta(s)</p>
+                </div>
+                <CreditCard className="w-10 h-10 text-violet-200" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Accounts List */}
-        {accounts && accounts.length > 0 ? (
-          <div className="space-y-4">
-            {accounts.map((account) => {
-              const bankName = getBankName(account.bank);
-              return (
-                <Card key={account.id} className="bg-white dark:bg-gray-800">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-4">
-                        <CreditCard className="w-5 h-5 text-gray-400 mt-1" />
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Minhas Contas</h2>
+          </div>
+          
+          {accounts && accounts.length > 0 ? (
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {accounts.map((account) => {
+                const isPoupanca = account.type === 'poupanca';
+                const Icon = isPoupanca ? PiggyBank : CreditCard;
+                const iconColor = isPoupanca ? 'text-emerald-600' : 'text-blue-600';
+                const bgColor = isPoupanca ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-blue-50 dark:bg-blue-900/20';
+                
+                return (
+                  <div key={account.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className={`p-3 rounded-xl ${bgColor}`}>
+                          <Icon className={`w-6 h-6 ${iconColor}`} />
+                        </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white">
-                            Banco {bankName}
-                          </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {bankName} • {accountTypeLabels[account.type as keyof typeof accountTypeLabels]}
-                          </p>
-                          <p className="text-xl font-bold text-gray-900 dark:text-white mt-2">
+                          <h3 className="font-semibold text-gray-900 dark:text-white">{account.name}</h3>
+                          <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                            <Building2 className="w-3.5 h-3.5" />
+                            <span>{account.bank}</span>
+                            <span>•</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs ${
+                              isPoupanca 
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' 
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                            }`}>
+                              {isPoupanca ? 'Poupança' : 'Corrente'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-6">
+                        <div className="text-right">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Saldo</p>
+                          <p className={`text-xl font-bold ${Number(account.balance) >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600'}`}>
                             {formatCurrency(Number(account.balance))}
                           </p>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(account.id)}
-                          disabled={deleteAccountMutation.isPending}
-                          className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => openEditForm(account)}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(account.id)}
+                            disabled={deleteAccountMutation.isPending}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <Card className="bg-white dark:bg-gray-800">
-            <CardContent className="p-12 text-center">
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="px-6 py-12 text-center">
               <CreditCard className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
-                Nenhuma conta encontrada
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-6">
-                Comece criando sua primeira conta bancária para controlar suas finanças.
-              </p>
-              <Button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Criar Primeira Conta
+              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Nenhuma conta encontrada</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">Comece criando sua primeira conta bancária.</p>
+              <Button onClick={openCreateForm} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />Criar Primeira Conta
               </Button>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
+        </div>
 
-        {/* Modal de criação */}
+        {/* Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Nova Conta</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  {editingAccount ? 'Editar Conta' : 'Nova Conta'}
+                </h2>
+                <button onClick={() => { setShowForm(false); setEditingAccount(null); }} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome da Conta</label>
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -186,45 +254,55 @@ export function AccountsPage() {
                     required
                   />
                 </div>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Banco</label>
-                  <Select
-                    value={formData.bank}
-                    onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
-                    required
-                  >
-                    <option value="">Selecione</option>
-                    {angolaBanks.map((bank) => (
-                      <option key={bank} value={bank}>{bank}</option>
-                    ))}
+                  <Select value={formData.bank} onChange={(e) => setFormData({ ...formData, bank: e.target.value })} required>
+                    <option value="">Selecione o banco</option>
+                    {angolaBanks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
                   </Select>
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
-                  <Select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'corrente' | 'poupanca' })}
-                  >
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Conta</label>
+                  <Select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as 'corrente' | 'poupanca' })}>
                     <option value="corrente">Conta Corrente</option>
                     <option value="poupanca">Poupança</option>
                   </Select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saldo Inicial</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.balance}
-                    onChange={(e) => setFormData({ ...formData, balance: Number(e.target.value) })}
-                    required
-                  />
-                </div>
+                
+                {!editingAccount && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saldo Inicial</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.balance}
+                      onChange={(e) => setFormData({ ...formData, balance: Number(e.target.value) })}
+                      required
+                    />
+                  </div>
+                )}
+                
+                {formData.type === 'poupanca' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Taxa de Juros (% ao ano)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.interestRate || ''}
+                      onChange={(e) => setFormData({ ...formData, interestRate: e.target.value ? Number(e.target.value) : undefined })}
+                      placeholder="Ex: 5.5"
+                    />
+                  </div>
+                )}
+                
                 <div className="flex space-x-3 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1">
+                  <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingAccount(null); }} className="flex-1">
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={createAccountMutation.isPending} className="flex-1 bg-blue-600 hover:bg-blue-700">
-                    {createAccountMutation.isPending ? 'Criando...' : 'Criar'}
+                  <Button type="submit" disabled={createAccountMutation.isPending || updateAccountMutation.isPending} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                    {(createAccountMutation.isPending || updateAccountMutation.isPending) ? 'Salvando...' : editingAccount ? 'Salvar' : 'Criar'}
                   </Button>
                 </div>
               </form>

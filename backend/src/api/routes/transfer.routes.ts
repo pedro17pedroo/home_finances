@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { TransferController } from "../controllers/transfer.controller.js";
 import { authenticate } from "../middlewares/auth.js";
+import { organizationContext } from "../middlewares/organization.js";
 import { validate } from "../middlewares/validate.js";
 import { 
   createTransferSchema, 
@@ -13,6 +14,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+router.use(organizationContext);
 
 // GET /api/transfers - Get all user transfers
 router.get("/", 

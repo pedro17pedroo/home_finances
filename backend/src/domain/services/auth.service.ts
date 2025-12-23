@@ -1,6 +1,7 @@
 import { UserRepository } from "../repositories/user.repository.js";
 import { CategoryService } from "./category.service.js";
 import { OrganizationService } from "./organization.service.js";
+import { eq } from "drizzle-orm";
 import { 
   hashPassword, 
   verifyPassword, 
@@ -13,6 +14,7 @@ import {
   UnauthorizedError, 
   ConflictError 
 } from "../../core/errors/app-error.js";
+import emailService from "../../infrastructure/email/email.service.js";
 import type { InsertUser } from "../../core/database/schema.js";
 
 export interface LoginRequest {
@@ -38,6 +40,8 @@ export interface AuthResponse {
     lastName?: string;
     planType: string;
     subscriptionStatus: string;
+    organizationId?: number;
+    role?: string;
   };
   token: string;
   refreshToken: string;
@@ -59,13 +63,51 @@ export class AuthService {
       throw new UnauthorizedError("Invalid credentials");
     }
 
+    // For members (non-owners), get plan info from organization
+    let planType = user.planType || "basic";
+    let subscriptionStatus = user.subscriptionStatus || "trialing";
+
+    if (user.organizationId && user.role !== 'owner') {
+      const { OrganizationRepository } = await import("../repositories/organization.repository.js");
+      const organization = await OrganizationRepository.findById(user.organizationId);
+      
+      if (organization) {
+        planType = organization.planType || planType;
+        subscriptionStatus = organization.subscriptionStatus || subscriptionStatus;
+        
+        // Check for active subscription on the organization
+        const { subscriptions } = await import("../../core/database/schema.js");
+        const { desc } = await import("drizzle-orm");
+        const { db } = await import("../../core/database/db.js");
+        
+        const [orgSubscription] = await db
+          .select()
+          .from(subscriptions)
+          .where(eq(subscriptions.organizationId, user.organizationId))
+          .orderBy(desc(subscriptions.createdAt))
+          .limit(1);
+        
+        if (orgSubscription) {
+          if (orgSubscription.status === 'active') {
+            subscriptionStatus = 'active';
+          } else if (orgSubscription.status === 'trial') {
+            subscriptionStatus = 'trialing';
+          } else if (orgSubscription.status === 'expired') {
+            subscriptionStatus = 'past_due';
+          } else if (orgSubscription.status === 'cancelled') {
+            subscriptionStatus = 'canceled';
+          }
+        }
+      }
+    }
+
     // Generate tokens
     const tokenPayload: JWTPayload = {
       userId: user.id,
       email: user.email || undefined,
       phone: user.phone || undefined,
-      planType: user.planType || "basic",
-      subscriptionStatus: user.subscriptionStatus || "trialing",
+      planType,
+      subscriptionStatus,
     };
 
     const token = generateToken(tokenPayload);
@@ -78,8 +120,10 @@ export class AuthService {
         phone: user.phone || undefined,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
-        planType: user.planType || "basic",
-        subscriptionStatus: user.subscriptionStatus || "trialing",
+        planType,
+        subscriptionStatus,
+        organizationId: user.organizationId || undefined,
+        role: user.role || undefined,
       },
       token,
       refreshToken,
@@ -130,24 +174,36 @@ export class AuthService {
 
     const user = await UserRepository.create(userData);
 
-    // Create default categories for the new user
+    // Create organization for the new user FIRST (they become the owner)
+    let organizationId: number | null = null;
     try {
-      await CategoryService.createDefaultCategoriesForUser(user.id);
+      const orgName = `${firstName} ${lastName}`.trim() || 'Minha Organização';
+      const organization = await OrganizationService.createOrganization({
+        name: orgName,
+        ownerId: user.id,
+      });
+      organizationId = organization.id;
+    } catch (error) {
+      // Log error but don't fail registration
+      console.error('Error creating organization for user:', error);
+    }
+
+    // Create default categories for the new user/organization
+    try {
+      await CategoryService.createDefaultCategories(user.id, organizationId);
     } catch (error) {
       // Log error but don't fail registration
       console.error('Error creating default categories for user:', error);
     }
 
-    // Create organization for the new user (they become the owner)
-    try {
-      const orgName = `${firstName} ${lastName}`.trim() || 'Minha Organização';
-      await OrganizationService.createOrganization({
-        name: orgName,
-        ownerId: user.id,
+    // Fetch updated user to get organizationId and role
+    const updatedUser = await UserRepository.findById(user.id);
+
+    // Send welcome email
+    if (user.email) {
+      emailService.sendWelcomeEmail(user.email, firstName).catch(err => {
+        console.error('Error sending welcome email:', err);
       });
-    } catch (error) {
-      // Log error but don't fail registration
-      console.error('Error creating organization for user:', error);
     }
 
     // Generate tokens
@@ -171,6 +227,8 @@ export class AuthService {
         lastName: user.lastName || undefined,
         planType: user.planType || "basic",
         subscriptionStatus: user.subscriptionStatus || "trialing",
+        organizationId: updatedUser?.organizationId || undefined,
+        role: updatedUser?.role || 'owner',
       },
       token,
       refreshToken,
@@ -183,15 +241,59 @@ export class AuthService {
       throw new UnauthorizedError("User not found");
     }
 
+    // For members (non-owners), get plan info from organization
+    let planType = user.planType || "basic";
+    let subscriptionStatus = user.subscriptionStatus || "trialing";
+    let trialEndsAt = user.trialEndsAt;
+
+    if (user.organizationId && user.role !== 'owner') {
+      // Import here to avoid circular dependency
+      const { OrganizationRepository } = await import("../repositories/organization.repository.js");
+      const organization = await OrganizationRepository.findById(user.organizationId);
+      
+      if (organization) {
+        planType = organization.planType || planType;
+        subscriptionStatus = organization.subscriptionStatus || subscriptionStatus;
+        
+        // Also check for active subscription on the organization
+        const { subscriptions } = await import("../../core/database/schema.js");
+        const { desc } = await import("drizzle-orm");
+        const { db } = await import("../../core/database/db.js");
+        
+        const [orgSubscription] = await db
+          .select()
+          .from(subscriptions)
+          .where(eq(subscriptions.organizationId, user.organizationId))
+          .orderBy(desc(subscriptions.createdAt))
+          .limit(1);
+        
+        if (orgSubscription) {
+          // Map subscription status to user subscription status
+          if (orgSubscription.status === 'active') {
+            subscriptionStatus = 'active';
+          } else if (orgSubscription.status === 'trial') {
+            subscriptionStatus = 'trialing';
+            trialEndsAt = orgSubscription.trialEndsAt;
+          } else if (orgSubscription.status === 'expired') {
+            subscriptionStatus = 'past_due';
+          } else if (orgSubscription.status === 'cancelled') {
+            subscriptionStatus = 'canceled';
+          }
+        }
+      }
+    }
+
     return {
       id: user.id,
       email: user.email || undefined,
       phone: user.phone || undefined,
       firstName: user.firstName || undefined,
       lastName: user.lastName || undefined,
-      planType: user.planType || "basic",
-      subscriptionStatus: user.subscriptionStatus || "trialing",
-      trialEndsAt: user.trialEndsAt,
+      planType,
+      subscriptionStatus,
+      trialEndsAt,
+      organizationId: user.organizationId || undefined,
+      role: user.role || undefined,
       createdAt: user.createdAt,
     };
   }

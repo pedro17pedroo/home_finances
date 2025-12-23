@@ -88,6 +88,8 @@ export function useAddToSavingsGoal() {
       queryClient.invalidateQueries({ queryKey: savingsGoalKeys.all });
       queryClient.invalidateQueries({ queryKey: savingsGoalKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: savingsGoalKeys.progress(id) });
+      // Also invalidate accounts since balance may have changed
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
 }

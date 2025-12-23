@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+// Custom date validator that accepts both ISO datetime and simple date formats
+const dateString = z.string().refine((val) => {
+  const isoDatetime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+  const simpleDate = /^\d{4}-\d{2}-\d{2}$/;
+  return isoDatetime.test(val) || simpleDate.test(val);
+}, { message: "Data inválida" });
+
 export const createTransferSchema = z.object({
   body: z.object({
     fromAccountId: z.number()
@@ -24,14 +31,8 @@ export const createTransferSchema = z.object({
 
 export const transferFiltersSchema = z.object({
   query: z.object({
-    startDate: z.string()
-      .datetime("Invalid start date format")
-      .optional(),
-    
-    endDate: z.string()
-      .datetime("Invalid end date format")
-      .optional(),
-    
+    startDate: dateString.optional(),
+    endDate: dateString.optional(),
     accountId: z.string()
       .regex(/^\d+$/, "Account ID must be a valid number")
       .optional(),

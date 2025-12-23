@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { DebtService } from "../../domain/services/debt.service.js";
+import { getOrganizationId } from "../middlewares/organization.js";
 
 export class DebtController {
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const debt = await DebtService.createDebt(userId, req.body);
+      const organizationId = getOrganizationId(req);
+      const debt = await DebtService.createDebt(userId, req.body, organizationId);
       
       res.status(201).json({
         status: "success",
@@ -20,7 +22,8 @@ export class DebtController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const debts = await DebtService.getDebtsByUserId(userId);
+      const organizationId = getOrganizationId(req);
+      const debts = await DebtService.getDebts(organizationId, userId);
       
       res.json({
         status: "success",
@@ -34,8 +37,9 @@ export class DebtController {
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const debtId = parseInt(req.params.id);
-      const debt = await DebtService.getDebtById(userId, debtId);
+      const debt = await DebtService.getDebtById(userId, debtId, organizationId);
       
       res.json({
         status: "success",
@@ -46,31 +50,34 @@ export class DebtController {
     }
   }
 
-  static async update(req: Request, res: Response, next: NextFunction) {
+  static async makePayment(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const debtId = parseInt(req.params.id);
-      const debt = await DebtService.updateDebt(userId, debtId, req.body);
+      const debt = await DebtService.makePayment(userId, debtId, req.body, organizationId);
       
       res.json({
         status: "success",
         data: { debt },
-        message: "Dívida atualizada com sucesso"
+        message: "Pagamento registado com sucesso"
       });
     } catch (error) {
       next(error);
     }
   }
 
-  static async delete(req: Request, res: Response, next: NextFunction) {
+  static async cancel(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const debtId = parseInt(req.params.id);
-      await DebtService.deleteDebt(userId, debtId);
+      const debt = await DebtService.cancelDebt(userId, debtId, req.body, organizationId);
       
       res.json({
         status: "success",
-        message: "Dívida removida com sucesso"
+        data: { debt },
+        message: "Dívida cancelada com sucesso"
       });
     } catch (error) {
       next(error);
@@ -80,7 +87,8 @@ export class DebtController {
   static async getSummary(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const summary = await DebtService.getDebtsSummary(userId);
+      const organizationId = getOrganizationId(req);
+      const summary = await DebtService.getDebtsSummary(userId, organizationId);
       
       res.json({
         status: "success",
@@ -94,7 +102,8 @@ export class DebtController {
   static async getOverdue(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const overdueDebts = await DebtService.getOverdueDebts(userId);
+      const organizationId = getOrganizationId(req);
+      const overdueDebts = await DebtService.getOverdueDebts(userId, organizationId);
       
       res.json({
         status: "success",

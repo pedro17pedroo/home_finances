@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { AccountController } from "../controllers/account.controller.js";
 import { authenticate } from "../middlewares/auth.js";
+import { organizationContext } from "../middlewares/organization.js";
 import { validate } from "../middlewares/validate.js";
 import { 
   createAccountSchema, 
@@ -10,8 +11,9 @@ import {
 
 const router = Router();
 
-// All routes require authentication
+// All routes require authentication and organization context
 router.use(authenticate);
+router.use(organizationContext);
 
 // GET /api/accounts - Get all user accounts
 router.get("/", AccountController.getAccounts);

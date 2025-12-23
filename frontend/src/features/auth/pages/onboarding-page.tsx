@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'wouter';
 import {
   Check,
   Loader2,
   Smartphone,
   Zap,
   Building2,
+  Landmark,
   Copy,
   CheckCircle,
   RefreshCw,
@@ -16,6 +17,15 @@ import {
   Phone,
   Lock,
   Receipt,
+  Clock,
+  AlertCircle,
+  Moon,
+  Sun,
+  Star,
+  Sparkles,
+  CreditCard,
+  Gift,
+  Shield,
 } from 'lucide-react';
 import { Button } from '../../../shared/components/ui/button';
 import { Card, CardContent } from '../../../shared/components/ui/card';
@@ -23,25 +33,31 @@ import { showInfo } from '../../../shared/lib/alerts';
 import {
   getPlans,
   getPlanById,
+  getPaymentMethods,
   Plan,
-  PaymentMethod,
+  PaymentMethodConfig,
   PaymentType,
-  paymentMethodNames,
-  paymentMethodDescriptions,
 } from '../../../shared/api/subscriptions';
 import { apiClient } from '../../../shared/api/client';
+import { useTheme } from '../../../shared/contexts/theme-context';
 
-type Step = 'plan' | 'register' | 'payment' | 'status';
+type Step = 'plan' | 'register' | 'payment' | 'payer' | 'processing' | 'status' | 'success';
+
+const iconMap: Record<string, React.ComponentType<any>> = {
+  Zap,
+  Smartphone,
+  Building2,
+  Landmark,
+};
 
 export function OnboardingPage() {
-  const [, setLocation] = useLocation();
+  const { darkMode, toggleTheme } = useTheme();
   const [currentStep, setCurrentStep] = useState<Step>('plan');
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Registration form
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -52,28 +68,92 @@ export function OnboardingPage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Payment
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gpo');
+  const [paymentMethodsConfig, setPaymentMethodsConfig] = useState<PaymentMethodConfig[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodConfig | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentType>('one_time');
 
-  // Payment status
   const [pendingPayment, setPendingPayment] = useState<any>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [copied, setCopied] = useState(false);
   
-  // Track if user is already registered
+  const [processingTime, setProcessingTime] = useState(0);
+  const [maxProcessingTime, setMaxProcessingTime] = useState(60);
+  
   const [isRegistered, setIsRegistered] = useState(false);
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
-  // Check for plan ID in URL
+  const [payerPhone, setPayerPhone] = useState('');
+  const [payerName, setPayerName] = useState('');
+  const [payerEmail, setPayerEmail] = useState('');
+
+  const [couponCode, setCouponCode] = useState('');
+  const [couponValidating, setCouponValidating] = useState(false);
+  const [couponResult, setCouponResult] = useState<{
+    valid: boolean;
+    message: string;
+    discountAmount?: number;
+    finalPrice?: number;
+  } | null>(null);
+
+  const [subscriptionDays, setSubscriptionDays] = useState<{
+    total: number;
+    billingCycle: number;
+    bonusTrial: number;
+    billingCycleName: string;
+  } | null>(null);
+
+  const [isTrialMode, setIsTrialMode] = useState(false);
+
+  const prefillPayerData = () => {
+    setPayerPhone(formData.phone || '');
+    setPayerName(`${formData.firstName} ${formData.lastName}`.trim());
+    setPayerEmail(formData.email || '');
+  };
+
+  const validatePayerData = (): boolean => {
+    if (!selectedPaymentMethod) return false;
+    if (selectedPaymentMethod.requiresPhone && !payerPhone.trim()) return false;
+    if (selectedPaymentMethod.requiresEmail && !payerEmail.trim()) return false;
+    if (payerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)) return false;
+    return true;
+  };
+
+  const validateCoupon = async () => {
+    if (!couponCode.trim() || !selectedPlan) return;
+    setCouponValidating(true);
+    try {
+      const response = await apiClient.post('/subscriptions/validate-coupon', {
+        couponCode: couponCode.trim(),
+        planId: selectedPlan.id,
+        amount: selectedPlan.price,
+      });
+      setCouponResult({
+        valid: response.data.valid,
+        message: response.data.message,
+        discountAmount: response.data.discountAmount,
+        finalPrice: response.data.finalPrice,
+      });
+    } catch (error: any) {
+      setCouponResult({
+        valid: false,
+        message: error.response?.data?.message || 'Erro ao validar cupão',
+      });
+    } finally {
+      setCouponValidating(false);
+    }
+  };
+
+  const clearCoupon = () => {
+    setCouponCode('');
+    setCouponResult(null);
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const planId = params.get('plan');
-
-    loadPlans().then(() => {
-      if (planId) {
-        loadSelectedPlan(parseInt(planId));
-      }
+    Promise.all([loadPlans(), loadPaymentMethods()]).then(() => {
+      if (planId) loadSelectedPlan(parseInt(planId));
     });
   }, []);
 
@@ -86,6 +166,16 @@ export function OnboardingPage() {
       console.error('Error loading plans:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPaymentMethods = async () => {
+    try {
+      const methods = await getPaymentMethods();
+      setPaymentMethodsConfig(methods);
+      if (methods.length > 0) setSelectedPaymentMethod(methods[0]);
+    } catch (error) {
+      console.error('Error loading payment methods:', error);
     }
   };
 
@@ -106,7 +196,6 @@ export function OnboardingPage() {
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
-
     if (!formData.firstName.trim()) errors.firstName = 'Nome é obrigatório';
     if (!formData.lastName.trim()) errors.lastName = 'Sobrenome é obrigatório';
     if (!formData.email.trim() && !formData.phone.trim()) {
@@ -121,27 +210,21 @@ export function OnboardingPage() {
     if (formData.password !== formData.confirmPassword) {
       errors.confirmPassword = 'Senhas não coincidem';
     }
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleRegisterSubmit = async () => {
     if (!validateForm()) return;
-
-    // For free plan, register and go to dashboard
     if (selectedPlan && selectedPlan.price === 0) {
       await handleFreeRegistration();
       return;
     }
-
-    // If user is already registered, just go to payment step
     if (isRegistered) {
+      prefillPayerData();
       setCurrentStep('payment');
       return;
     }
-
-    // Register user before going to payment
     setSubmitting(true);
     setFormErrors({});
     try {
@@ -152,54 +235,39 @@ export function OnboardingPage() {
         phone: formData.phone || undefined,
         password: formData.password,
       });
-
       if (registerResponse.data.status === 'success') {
-        // Login to get token
         const loginResponse = await apiClient.post('/auth/login', {
           emailOrPhone: formData.email || formData.phone,
           password: formData.password,
         });
-
         const token = loginResponse.data.data?.token || loginResponse.data.token;
         if (token) {
           localStorage.setItem('token', token);
-          setAuthToken(token);
           setIsRegistered(true);
-          setCurrentStep('payment');
+          prefillPayerData();
+          setRegistrationSuccess(true);
         }
       }
     } catch (error: any) {
-      console.error('Registration error:', error);
-      
-      // If user already exists, try to login
       if (error.response?.status === 409) {
         try {
           const loginResponse = await apiClient.post('/auth/login', {
             emailOrPhone: formData.email || formData.phone,
             password: formData.password,
           });
-
           const token = loginResponse.data.data?.token || loginResponse.data.token;
           if (token) {
             localStorage.setItem('token', token);
-            setAuthToken(token);
             setIsRegistered(true);
-            setCurrentStep('payment');
+            prefillPayerData();
+            setRegistrationSuccess(true);
             return;
-          } else {
-            setFormErrors({
-              general: 'Erro ao fazer login. Tente novamente.',
-            });
           }
-        } catch (loginError: any) {
-          setFormErrors({
-            general: 'Este email já está cadastrado. Verifique a senha ou faça login.',
-          });
+        } catch {
+          setFormErrors({ general: 'Este email já está cadastrado. Verifique a senha ou faça login.' });
         }
       } else {
-        setFormErrors({
-          general: error.response?.data?.message || 'Erro ao criar conta',
-        });
+        setFormErrors({ general: error.response?.data?.message || 'Erro ao criar conta' });
       }
     } finally {
       setSubmitting(false);
@@ -210,7 +278,6 @@ export function OnboardingPage() {
     setSubmitting(true);
     setFormErrors({});
     try {
-      // Register user
       const registerResponse = await apiClient.post('/auth/register', {
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -218,125 +285,122 @@ export function OnboardingPage() {
         phone: formData.phone || undefined,
         password: formData.password,
       });
-
       if (registerResponse.data.status === 'success') {
-        // Login
         const loginResponse = await apiClient.post('/auth/login', {
           emailOrPhone: formData.email || formData.phone,
           password: formData.password,
         });
-
         const token = loginResponse.data.data?.token || loginResponse.data.token;
         if (token) {
           localStorage.setItem('token', token);
-
-          // Subscribe to free plan
           await apiClient.post('/subscriptions/subscribe', {
             planId: selectedPlan!.id,
             paymentType: 'one_time',
             paymentMethod: 'gpo',
           });
-
-          // Redirect to dashboard
-          window.location.href = '/dashboard';
+          setCurrentStep('success');
         }
       }
     } catch (error: any) {
-      console.error('Registration error:', error);
-      setFormErrors({
-        general: error.response?.data?.message || 'Erro ao criar conta',
+      setFormErrors({ general: error.response?.data?.message || 'Erro ao criar conta' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStartTrial = async () => {
+    setSubmitting(true);
+    try {
+      const subscribeResponse = await apiClient.post('/subscriptions/subscribe', {
+        planId: selectedPlan!.id,
+        paymentType: 'one_time',
+        paymentMethod: selectedPaymentMethod?.code || 'gpo',
+        startTrial: true,
       });
+      if (subscribeResponse.data.success) {
+        setIsTrialMode(true);
+        setCurrentStep('success');
+      }
+    } catch (error: any) {
+      setFormErrors({ general: error.response?.data?.message || 'Erro ao iniciar período de teste' });
     } finally {
       setSubmitting(false);
     }
   };
 
   const handlePaymentSubmit = async () => {
+    if (!selectedPaymentMethod) return;
     setSubmitting(true);
     setFormErrors({});
-    
+    setCurrentStep('processing');
+    setProcessingTime(0);
+    setMaxProcessingTime(selectedPaymentMethod.waitTimeSeconds || 60);
     try {
-      // If not registered yet, register first
-      if (!isRegistered) {
-        const registerResponse = await apiClient.post('/auth/register', {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          password: formData.password,
-        });
-
-        if (registerResponse.data.status === 'success') {
-          // Login to get token
-          const loginResponse = await apiClient.post('/auth/login', {
-            emailOrPhone: formData.email || formData.phone,
-            password: formData.password,
-          });
-
-          const token = loginResponse.data.data?.token || loginResponse.data.token;
-          if (token) {
-            localStorage.setItem('token', token);
-            setAuthToken(token);
-            setIsRegistered(true);
-          }
-        }
-      }
-
-      // Create subscription with payment
       const subscribeResponse = await apiClient.post('/subscriptions/subscribe', {
         planId: selectedPlan!.id,
         paymentType,
-        paymentMethod,
+        paymentMethod: selectedPaymentMethod.code,
+        payerPhone: payerPhone || undefined,
+        payerName: payerName || undefined,
+        payerEmail: payerEmail || undefined,
+        couponCode: couponResult?.valid ? couponCode : undefined,
       });
-
+      if (subscribeResponse.data.subscriptionDays) {
+        setSubscriptionDays(subscribeResponse.data.subscriptionDays);
+      }
+      if (subscribeResponse.data.isTrial) {
+        setIsTrialMode(true);
+        setCurrentStep('success');
+        return;
+      }
       if (subscribeResponse.data.success && subscribeResponse.data.payment) {
+        if (subscribeResponse.data.payment.status === 'paid') {
+          setIsTrialMode(false);
+          setCurrentStep('success');
+          return;
+        }
         setPendingPayment(subscribeResponse.data.payment);
-        setCurrentStep('status');
+        if (selectedPaymentMethod.isInstant) {
+          startPaymentPolling(subscribeResponse.data.payment.id);
+        } else {
+          setCurrentStep('status');
+        }
+      } else if (subscribeResponse.data.success) {
+        setIsTrialMode(false);
+        setCurrentStep('success');
       }
     } catch (error: any) {
-      console.error('Payment error:', error);
-      
-      // If user already exists, try to login and continue
-      if (error.response?.status === 409) {
-        try {
-          const loginResponse = await apiClient.post('/auth/login', {
-            emailOrPhone: formData.email || formData.phone,
-            password: formData.password,
-          });
-
-          const token = loginResponse.data.data?.token || loginResponse.data.token;
-          if (token) {
-            localStorage.setItem('token', token);
-            setAuthToken(token);
-            setIsRegistered(true);
-            
-            // Retry subscription
-            const subscribeResponse = await apiClient.post('/subscriptions/subscribe', {
-              planId: selectedPlan!.id,
-              paymentType,
-              paymentMethod,
-            });
-
-            if (subscribeResponse.data.success && subscribeResponse.data.payment) {
-              setPendingPayment(subscribeResponse.data.payment);
-              setCurrentStep('status');
-              return;
-            }
-          }
-        } catch (loginError: any) {
-          setFormErrors({
-            general: 'Este email já está cadastrado. Verifique a senha ou faça login.',
-          });
-        }
-      } else {
-        setFormErrors({
-          general: error.response?.data?.message || 'Erro ao processar pagamento',
-        });
-      }
+      setCurrentStep('payer');
+      setFormErrors({ general: error.response?.data?.message || 'Erro ao processar pagamento' });
     } finally {
       setSubmitting(false);
     }
   };
+
+  const startPaymentPolling = useCallback(async (paymentId: number) => {
+    const maxTime = selectedPaymentMethod?.maxWaitTimeSeconds || 120;
+    const interval = 3000;
+    let elapsed = 0;
+    const poll = async () => {
+      try {
+        const response = await apiClient.get(`/subscriptions/payment/${paymentId}/status`);
+        if (response.data.isPaid) {
+          setCurrentStep('success');
+          return;
+        }
+      } catch (error) {
+        console.error('Poll error:', error);
+      }
+      elapsed += interval / 1000;
+      setProcessingTime(elapsed);
+      if (elapsed < maxTime) {
+        setTimeout(poll, interval);
+      } else {
+        setCurrentStep('status');
+      }
+    };
+    poll();
+  }, [selectedPaymentMethod]);
 
   const handleCheckStatus = async () => {
     if (!pendingPayment) return;
@@ -344,16 +408,24 @@ export function OnboardingPage() {
     try {
       const response = await apiClient.get(`/subscriptions/payment/${pendingPayment.id}/status`);
       if (response.data.isPaid) {
-        // Redirect to dashboard
-        window.location.href = '/dashboard';
+        setCurrentStep('success');
       } else {
-        await showInfo('Pagamento Pendente', 'O pagamento ainda está pendente. Tente novamente em alguns instantes.');
+        await showInfo('Pagamento Pendente', 'O pagamento ainda está pendente.');
       }
     } catch (error) {
       console.error('Check status error:', error);
     } finally {
       setCheckingStatus(false);
     }
+  };
+
+  const handleGoToDashboard = () => {
+    window.location.href = '/dashboard';
+  };
+
+  const handleContinueToPayment = () => {
+    setRegistrationSuccess(false);
+    setCurrentStep('payment');
   };
 
   const copyToClipboard = (text: string) => {
@@ -363,399 +435,680 @@ export function OnboardingPage() {
   };
 
   const formatCurrency = (value: number) => {
-    return (
-      new Intl.NumberFormat('pt-AO', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value) + ' Kz'
-    );
+    if (value === 0) return 'Grátis';
+    return new Intl.NumberFormat('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value) + ' Kz';
+  };
+
+  const getPaymentMethodIcon = (iconName: string) => {
+    return iconMap[iconName] || Zap;
+  };
+
+  const getStepNumber = () => {
+    switch (currentStep) {
+      case 'plan': return 1;
+      case 'register': return 2;
+      case 'payment':
+      case 'payer':
+      case 'processing':
+      case 'status': return 3;
+      case 'success': return 4;
+      default: return 1;
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:bg-gray-900">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Carregando planos...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen transition-colors duration-300 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+      <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
+        <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <span className="text-2xl font-bold text-blue-600">💰</span>
-              <span className="ml-2 text-xl font-bold text-gray-900">FinanceControl</span>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <span
-                className={`px-3 py-1 rounded-full ${currentStep === 'plan' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}`}
-              >
-                1. Plano
+            <Link href="/">
+              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent cursor-pointer">
+                💰 FinanceControl
               </span>
-              <span
-                className={`px-3 py-1 rounded-full ${currentStep === 'register' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}`}
-              >
-                2. Cadastro
-              </span>
-              {selectedPlan && selectedPlan.price > 0 && (
-                <>
-                  <span
-                    className={`px-3 py-1 rounded-full ${currentStep === 'payment' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}`}
-                  >
-                    3. Pagamento
-                  </span>
-                  <span
-                    className={`px-3 py-1 rounded-full ${currentStep === 'status' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}`}
-                  >
-                    4. Confirmação
-                  </span>
-                </>
-              )}
+            </Link>
+            
+            {/* Progress Steps */}
+            <div className="hidden md:flex items-center space-x-2">
+              {[
+                { num: 1, label: 'Plano' },
+                { num: 2, label: 'Cadastro' },
+                ...(selectedPlan && selectedPlan.price > 0 ? [{ num: 3, label: 'Pagamento' }, { num: 4, label: 'Confirmação' }] : []),
+              ].map((step, idx, arr) => (
+                <div key={step.num} className="flex items-center">
+                  <div className={`flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                    getStepNumber() === step.num
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-600/25'
+                      : getStepNumber() > step.num
+                        ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                  }`}>
+                    {getStepNumber() > step.num ? <Check className="w-4 h-4 mr-1" /> : null}
+                    {step.num}. {step.label}
+                  </div>
+                  {idx < arr.length - 1 && (
+                    <div className={`w-8 h-0.5 mx-1 ${getStepNumber() > step.num ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700'}`} />
+                  )}
+                </div>
+              ))}
             </div>
+
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full transition bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8">
+
         {/* Step 1: Select Plan */}
         {currentStep === 'plan' && (
-          <div>
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Escolha seu Plano</h1>
-              <p className="text-gray-600">
+          <div className="animate-fadeIn">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-blue-600/10 to-purple-600/10 border border-blue-600/20 mb-6">
+                <Sparkles className="w-4 h-4 text-blue-600 mr-2" />
+                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Comece sua jornada financeira</span>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-white">
+                Escolha o Plano <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Ideal</span>
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400">
                 Selecione o plano que melhor se adapta às suas necessidades
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
               {plans.map((plan) => (
                 <Card
                   key={plan.id}
-                  className={`bg-white cursor-pointer transition-all hover:shadow-lg ${
-                    plan.type === 'premium' ? 'ring-2 ring-blue-500' : ''
+                  className={`relative cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 ${
+                    plan.type === 'premium' 
+                      ? 'ring-2 ring-blue-500 shadow-xl shadow-blue-500/20'
+                      : ''
                   }`}
                   onClick={() => handleSelectPlan(plan)}
                 >
                   {plan.type === 'premium' && (
-                    <div className="bg-blue-500 text-white text-center py-1 text-sm font-medium">
+                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium px-6 py-1.5 rounded-full shadow-lg flex items-center">
+                      <Star className="w-4 h-4 mr-1 fill-yellow-300 text-yellow-300" />
                       Mais Popular
                     </div>
                   )}
-                  <CardContent className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
-                    <div className="mb-4">
-                      <span className="text-3xl font-bold text-gray-900">
+                  <CardContent className="p-6 pt-8">
+                    <h3 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">{plan.name}</h3>
+                    
+                    {(plan.trialDays || 0) > 0 && (
+                      <div className="mb-3">
+                        <span className="inline-flex items-center px-3 py-1 text-xs font-medium bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full">
+                          <Gift className="w-3 h-3 mr-1" />
+                          {plan.trialDays} dias grátis
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div className="mb-6">
+                      <span className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                         {formatCurrency(plan.price)}
                       </span>
-                      <span className="text-gray-500">/mês</span>
+                      {plan.price > 0 && <span className="text-lg text-gray-500 dark:text-gray-400">/mês</span>}
                     </div>
-                    <ul className="space-y-2 mb-6">
-                      {plan.features.map((feature, index) => (
-                        <li key={index} className="flex items-center text-sm text-gray-600">
-                          <Check className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
-                          {feature}
+                    
+                    <ul className="space-y-3 mb-8">
+                      {plan.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start text-sm text-gray-600 dark:text-gray-300">
+                          <Check className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                          <span>{feature}</span>
                         </li>
                       ))}
                     </ul>
-                    <Button
-                      className={`w-full ${
-                        plan.type === 'premium'
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
-                      }`}
-                    >
-                      {plan.price === 0 ? 'Começar Grátis' : 'Selecionar'}
+                    
+                    <Button className={`w-full py-3 text-base font-medium transition-all ${
+                      plan.type === 'premium'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg shadow-blue-600/25'
+                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white'
+                    }`}>
+                      {plan.price === 0 ? 'Começar Grátis' : (plan.trialDays || 0) > 0 ? 'Experimentar Grátis' : 'Selecionar Plano'}
                     </Button>
                   </CardContent>
                 </Card>
               ))}
             </div>
 
-            <div className="text-center mt-6">
-              <a href="/login" className="text-blue-600 hover:underline">
-                Já tem uma conta? Entrar
-              </a>
+            {/* Trust badges */}
+            <div className="mt-12 text-center">
+              <div className="flex flex-wrap justify-center gap-8 text-gray-500 dark:text-gray-400">
+                <div className="flex items-center">
+                  <Shield className="w-5 h-5 mr-2 text-green-500" />
+                  <span className="text-sm">Dados Seguros</span>
+                </div>
+                <div className="flex items-center">
+                  <CreditCard className="w-5 h-5 mr-2 text-blue-500" />
+                  <span className="text-sm">Pagamento Seguro</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="w-5 h-5 mr-2 text-purple-500" />
+                  <span className="text-sm">Cancele Quando Quiser</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center mt-8">
+              <Link href="/login">
+                <span className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
+                  Já tem uma conta? Entrar
+                </span>
+              </Link>
             </div>
           </div>
         )}
 
         {/* Step 2: Registration */}
         {currentStep === 'register' && selectedPlan && (
-          <div className="max-w-md mx-auto">
+          <div className="max-w-lg mx-auto animate-fadeIn">
             <button
               onClick={() => setCurrentStep('plan')}
-              className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
+              className="flex items-center mb-6 transition text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
-              <ArrowLeft className="w-4 h-4 mr-1" />
+              <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar aos planos
             </button>
 
-            <Card className="bg-white">
-              <CardContent className="p-6">
-                <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Criar Conta</h2>
-                  <p className="text-gray-500 text-sm mt-1">
-                    Plano selecionado: {selectedPlan.name} - {formatCurrency(selectedPlan.price)}
-                    /mês
-                  </p>
-                </div>
+            <Card className="shadow-xl">
+              <CardContent className="p-8">
+                {registrationSuccess ? (
+                  <div className="text-center py-4 animate-fadeIn">
+                    <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/25">
+                      <CheckCircle className="w-10 h-10 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Conta Criada com Sucesso!</h2>
+                    <p className="mb-6 text-gray-500 dark:text-gray-400">
+                      {(selectedPlan.trialDays || 0) > 0 
+                        ? 'Escolha como deseja começar a usar o sistema.'
+                        : 'Agora vamos configurar o pagamento do seu plano.'}
+                    </p>
+                    
+                    <div className="rounded-xl p-4 mb-6 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-800 dark:text-blue-300">
+                        <strong>Plano selecionado:</strong> {selectedPlan.name}
+                      </p>
+                      <p className="text-sm mt-1 text-blue-600 dark:text-blue-400">
+                        {formatCurrency(selectedPlan.price)}/mês
+                      </p>
+                      {(selectedPlan.trialDays || 0) > 0 && (
+                        <p className="text-sm mt-2 flex items-center justify-center text-green-700 dark:text-green-400">
+                          <Gift className="w-4 h-4 mr-1" />
+                          Ao pagar agora, você ganha +{selectedPlan.trialDays} dias de bónus!
+                        </p>
+                      )}
+                    </div>
 
-                {formErrors.general && (
-                  <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
-                    {formErrors.general}
+                    <div className="space-y-3">
+                      <Button
+                        onClick={handleContinueToPayment}
+                        disabled={submitting}
+                        className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/25"
+                      >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Pagar Agora
+                      </Button>
+                      
+                      {(selectedPlan.trialDays || 0) > 0 && (
+                        <button
+                          onClick={handleStartTrial}
+                          disabled={submitting}
+                          className="w-full text-sm py-2 transition text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                        >
+                          {submitting ? 'Iniciando...' : `Ou começar ${selectedPlan.trialDays} dias grátis sem pagar`}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
+                ) : (
+                  <>
+                    <div className="text-center mb-8">
+                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Criar Conta</h2>
+                      <p className="text-sm mt-2 text-gray-500 dark:text-gray-400">
+                        Plano: <span className="font-medium">{selectedPlan.name}</span> - {formatCurrency(selectedPlan.price)}/mês
+                        {(selectedPlan.trialDays || 0) > 0 && (
+                          <span className="text-green-500 ml-1">({selectedPlan.trialDays} dias grátis)</span>
+                        )}
+                      </p>
+                    </div>
 
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          value={formData.firstName}
-                          onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                          className={`w-full pl-10 pr-3 py-2 border rounded-lg ${formErrors.firstName ? 'border-red-500' : 'border-gray-300'}`}
-                          placeholder="Nome"
-                        />
+                    {formErrors.general && (
+                      <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl mb-6 text-sm flex items-start">
+                        <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                        {formErrors.general}
                       </div>
-                      {formErrors.firstName && (
-                        <p className="text-red-500 text-xs mt-1">{formErrors.firstName}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Sobrenome
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.lastName}
-                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg ${formErrors.lastName ? 'border-red-500' : 'border-gray-300'}`}
-                        placeholder="Sobrenome"
-                      />
-                      {formErrors.lastName && (
-                        <p className="text-red-500 text-xs mt-1">{formErrors.lastName}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className={`w-full pl-10 pr-3 py-2 border rounded-lg ${formErrors.email ? 'border-red-500' : 'border-gray-300'}`}
-                        placeholder="seu@email.com"
-                      />
-                    </div>
-                    {formErrors.email && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>
                     )}
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg"
-                        placeholder="9XX XXX XXX"
-                      />
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Nome</label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                            <input
+                              type="text"
+                              value={formData.firstName}
+                              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                              className={`w-full pl-11 pr-4 py-3 rounded-xl border transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                                formErrors.firstName 
+                                  ? 'border-red-500' 
+                                  : 'border-gray-300 dark:border-gray-600'
+                              }`}
+                              placeholder="Nome"
+                            />
+                          </div>
+                          {formErrors.firstName && <p className="text-red-500 text-xs mt-1">{formErrors.firstName}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Sobrenome</label>
+                          <input
+                            type="text"
+                            value={formData.lastName}
+                            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                            className={`w-full px-4 py-3 rounded-xl border transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                              formErrors.lastName 
+                                ? 'border-red-500' 
+                                : 'border-gray-300 dark:border-gray-600'
+                            }`}
+                            placeholder="Sobrenome"
+                          />
+                          {formErrors.lastName && <p className="text-red-500 text-xs mt-1">{formErrors.lastName}</p>}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Email</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          <input
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            className={`w-full pl-11 pr-4 py-3 rounded-xl border transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                              formErrors.email 
+                                ? 'border-red-500' 
+                                : 'border-gray-300 dark:border-gray-600'
+                            }`}
+                            placeholder="seu@email.com"
+                          />
+                        </div>
+                        {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Telefone</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          <input
+                            type="tel"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            className="w-full pl-11 pr-4 py-3 rounded-xl border transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                            placeholder="9XX XXX XXX"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Senha</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          <input
+                            type="password"
+                            value={formData.password}
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            className={`w-full pl-11 pr-4 py-3 rounded-xl border transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                              formErrors.password 
+                                ? 'border-red-500' 
+                                : 'border-gray-300 dark:border-gray-600'
+                            }`}
+                            placeholder="••••••••"
+                          />
+                        </div>
+                        {formErrors.password && <p className="text-red-500 text-xs mt-1">{formErrors.password}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Confirmar Senha</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          <input
+                            type="password"
+                            value={formData.confirmPassword}
+                            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                            className={`w-full pl-11 pr-4 py-3 rounded-xl border transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                              formErrors.confirmPassword 
+                                ? 'border-red-500' 
+                                : 'border-gray-300 dark:border-gray-600'
+                            }`}
+                            placeholder="••••••••"
+                          />
+                        </div>
+                        {formErrors.confirmPassword && <p className="text-red-500 text-xs mt-1">{formErrors.confirmPassword}</p>}
+                      </div>
+
+                      <Button
+                        onClick={handleRegisterSubmit}
+                        disabled={submitting}
+                        className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg shadow-blue-600/25"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Criando conta...
+                          </>
+                        ) : (
+                          <>
+                            Criar Conta
+                            <ArrowRight className="w-5 h-5 ml-2" />
+                          </>
+                        )}
+                      </Button>
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        className={`w-full pl-10 pr-3 py-2 border rounded-lg ${formErrors.password ? 'border-red-500' : 'border-gray-300'}`}
-                        placeholder="••••••••"
-                      />
-                    </div>
-                    {formErrors.password && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.password}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Confirmar Senha
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="password"
-                        value={formData.confirmPassword}
-                        onChange={(e) =>
-                          setFormData({ ...formData, confirmPassword: e.target.value })
-                        }
-                        className={`w-full pl-10 pr-3 py-2 border rounded-lg ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
-                        placeholder="••••••••"
-                      />
-                    </div>
-                    {formErrors.confirmPassword && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.confirmPassword}</p>
-                    )}
-                  </div>
-
-                  <Button
-                    onClick={handleRegisterSubmit}
-                    disabled={submitting}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processando...
-                      </>
-                    ) : (
-                      <>
-                        {selectedPlan.price === 0 ? 'Criar Conta' : 'Continuar'}
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </>
-                    )}
-                  </Button>
-                </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* Step 3: Payment Method */}
+
+        {/* Step 3: Payment Method Selection */}
         {currentStep === 'payment' && selectedPlan && (
-          <div className="max-w-md mx-auto">
+          <div className="max-w-lg mx-auto animate-fadeIn">
             <button
-              onClick={() => setCurrentStep('register')}
-              className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
+              onClick={() => { setRegistrationSuccess(true); setCurrentStep('register'); }}
+              className="flex items-center mb-6 transition text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
-              <ArrowLeft className="w-4 h-4 mr-1" />
+              <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar
             </button>
 
-            <Card className="bg-white">
-              <CardContent className="p-6">
-                <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Método de Pagamento</h2>
-                  <p className="text-gray-500 text-sm mt-1">
+            <Card className="shadow-xl">
+              <CardContent className="p-8">
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-600/25">
+                    <CreditCard className="w-8 h-8 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Método de Pagamento</h2>
+                  <p className="text-sm mt-2 text-gray-500 dark:text-gray-400">
                     {selectedPlan.name} - {formatCurrency(selectedPlan.price)}/mês
                   </p>
                 </div>
 
-                {formErrors.general && (
-                  <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
-                    {formErrors.general}
-                  </div>
-                )}
-
                 {/* Payment Type */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tipo de Pagamento
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <label className="block text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">Tipo de Pagamento</label>
+                  <div className="grid grid-cols-2 gap-4">
                     <button
                       onClick={() => setPaymentType('one_time')}
-                      className={`p-3 rounded-lg border-2 text-left ${
-                        paymentType === 'one_time'
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200'
+                      className={`p-4 rounded-xl border-2 text-left transition-all ${
+                        paymentType === 'one_time' 
+                          ? 'border-blue-500 bg-blue-500/10' 
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
-                      <p className="font-medium text-gray-900">Pagamento Único</p>
-                      <p className="text-xs text-gray-500">Pague manualmente cada mês</p>
+                      <p className="font-medium text-gray-900 dark:text-white">Pagamento Único</p>
+                      <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">Pague manualmente cada mês</p>
                     </button>
                     <button
                       onClick={() => setPaymentType('recurring')}
-                      className={`p-3 rounded-lg border-2 text-left ${
-                        paymentType === 'recurring'
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200'
+                      className={`p-4 rounded-xl border-2 text-left transition-all ${
+                        paymentType === 'recurring' 
+                          ? 'border-blue-500 bg-blue-500/10' 
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
-                      <p className="font-medium text-gray-900">Assinatura</p>
-                      <p className="text-xs text-gray-500">Cobrança automática mensal</p>
+                      <p className="font-medium text-gray-900 dark:text-white">Assinatura</p>
+                      <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">Cobrança automática mensal</p>
                     </button>
                   </div>
                 </div>
 
                 {/* Payment Methods */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Método de Pagamento
-                  </label>
+                  <label className="block text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">Método de Pagamento</label>
                   <div className="space-y-3">
-                    <button
-                      onClick={() => setPaymentMethod('ekwanza')}
-                      className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
-                        paymentMethod === 'ekwanza'
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200'
-                      }`}
-                    >
-                      <Smartphone className="w-6 h-6 text-orange-500 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-gray-900">E-Kwanza</p>
-                        <p className="text-xs text-gray-500">{paymentMethodDescriptions.ekwanza}</p>
-                      </div>
-                    </button>
+                    {paymentMethodsConfig.map((method) => {
+                      const IconComponent = getPaymentMethodIcon(method.icon);
+                      return (
+                        <button
+                          key={method.id}
+                          onClick={() => setSelectedPaymentMethod(method)}
+                          className={`w-full p-4 rounded-xl border-2 text-left flex items-start space-x-4 transition-all ${
+                            selectedPaymentMethod?.id === method.id 
+                              ? 'border-blue-500 bg-blue-500/10' 
+                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        >
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                            selectedPaymentMethod?.id === method.id 
+                              ? 'bg-gradient-to-r from-blue-600 to-purple-600' 
+                              : 'bg-gray-100 dark:bg-gray-700'
+                          }`}>
+                            <IconComponent className={`w-6 h-6 ${selectedPaymentMethod?.id === method.id ? 'text-white' : 'text-blue-500'}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="font-medium text-gray-900 dark:text-white">{method.displayName}</p>
+                              {method.isInstant && (
+                                <span className="text-xs bg-green-500/20 text-green-500 px-2 py-1 rounded-full font-medium">
+                                  Instantâneo
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">{method.description}</p>
+                            <p className="text-xs mt-1 flex items-center text-gray-400 dark:text-gray-500">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {method.processingTime}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                    <button
-                      onClick={() => setPaymentMethod('gpo')}
-                      className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
-                        paymentMethod === 'gpo' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                      }`}
-                    >
-                      <Zap className="w-6 h-6 text-blue-500 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-gray-900">Multicaixa Express</p>
-                        <p className="text-xs text-gray-500">{paymentMethodDescriptions.gpo}</p>
-                      </div>
-                    </button>
+                <Button
+                  onClick={() => setCurrentStep('payer')}
+                  disabled={!selectedPaymentMethod}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg shadow-blue-600/25 disabled:opacity-50"
+                >
+                  Continuar
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-                    <button
-                      onClick={() => setPaymentMethod('ref')}
-                      className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
-                        paymentMethod === 'ref' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                      }`}
-                    >
-                      <Building2 className="w-6 h-6 text-green-500 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-gray-900">Referência Multicaixa</p>
-                        <p className="text-xs text-gray-500">{paymentMethodDescriptions.ref}</p>
+        {/* Step 4: Payer Data */}
+        {currentStep === 'payer' && selectedPlan && selectedPaymentMethod && (
+          <div className="max-w-lg mx-auto animate-fadeIn">
+            <button
+              onClick={() => setCurrentStep('payment')}
+              className="flex items-center mb-6 transition text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar
+            </button>
+
+            <Card className="shadow-xl">
+              <CardContent className="p-8">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Dados do Pagador</h2>
+                  <p className="text-sm mt-2 text-gray-500 dark:text-gray-400">
+                    {selectedPaymentMethod.displayName} - {formatCurrency(selectedPlan.price)}
+                  </p>
+                </div>
+
+                {formErrors.general && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl mb-6 text-sm flex items-start">
+                    <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
+                    {formErrors.general}
+                  </div>
+                )}
+
+                <div className="space-y-5 mb-6">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    Pode alterar os dados caso outra pessoa vá efectuar o pagamento
+                  </p>
+
+                  {selectedPaymentMethod.requiresPhone && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Número de Telefone *
+                      </label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                        <input
+                          type="tel"
+                          value={payerPhone}
+                          onChange={(e) => setPayerPhone(e.target.value)}
+                          placeholder="Ex: 923456789"
+                          className="w-full pl-11 pr-4 py-3 rounded-xl border transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                        />
                       </div>
-                    </button>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Nome do Pagador</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <input
+                        type="text"
+                        value={payerName}
+                        onChange={(e) => setPayerName(e.target.value)}
+                        placeholder="Nome completo"
+                        className="w-full pl-11 pr-4 py-3 rounded-xl border transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Email do Pagador {selectedPaymentMethod.requiresEmail && '*'}
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <input
+                        type="email"
+                        value={payerEmail}
+                        onChange={(e) => setPayerEmail(e.target.value)}
+                        placeholder="email@exemplo.com"
+                        className="w-full pl-11 pr-4 py-3 rounded-xl border transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coupon Section */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    <Gift className="w-4 h-4 inline mr-1" />
+                    Cupão de Desconto
+                  </label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); if (couponResult) setCouponResult(null); }}
+                      placeholder="Digite o código"
+                      className="flex-1 px-4 py-3 rounded-xl border uppercase transition focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                      disabled={couponValidating}
+                    />
+                    {couponResult?.valid ? (
+                      <Button onClick={clearCoupon} variant="outline">
+                        Remover
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={validateCoupon}
+                        disabled={!couponCode.trim() || couponValidating}
+                        className="px-6 bg-gray-600 hover:bg-gray-700 text-white"
+                      >
+                        {couponValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aplicar'}
+                      </Button>
+                    )}
+                  </div>
+                  {couponResult && (
+                    <div className={`mt-2 p-3 rounded-xl text-sm ${
+                      couponResult.valid 
+                        ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
+                        : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                    }`}>
+                      {couponResult.valid ? <Check className="w-4 h-4 inline mr-1" /> : <AlertCircle className="w-4 h-4 inline mr-1" />}
+                      {couponResult.message}
+                    </div>
+                  )}
+                </div>
+
+                {/* Payment Summary */}
+                <div className="p-5 rounded-xl mb-6 bg-gray-50 dark:bg-gray-700/50">
+                  <h4 className="text-sm font-medium mb-4 text-gray-700 dark:text-gray-300">Resumo do Pagamento</h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-gray-400">Plano</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{selectedPlan.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-gray-400">Método</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{selectedPaymentMethod.displayName}</span>
+                    </div>
+                    {couponResult?.valid && couponResult.discountAmount && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400">Subtotal</span>
+                          <span className="text-gray-900 dark:text-white">{formatCurrency(selectedPlan.price)}</span>
+                        </div>
+                        <div className="flex justify-between text-green-500">
+                          <span>Desconto</span>
+                          <span className="font-medium">-{formatCurrency(couponResult.discountAmount)}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between pt-3 border-t border-gray-200 dark:border-gray-600">
+                      <span className="font-medium text-gray-700 dark:text-white">Total</span>
+                      <span className="font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        {formatCurrency(couponResult?.valid && couponResult.finalPrice !== undefined ? couponResult.finalPrice : selectedPlan.price)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 <Button
                   onClick={handlePaymentSubmit}
-                  disabled={submitting}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
+                  disabled={submitting || !validatePayerData()}
+                  className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/25 disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                       Processando...
                     </>
                   ) : (
                     <>
+                      <CheckCircle className="w-5 h-5 mr-2" />
                       Confirmar Pagamento
-                      <ArrowRight className="w-4 h-4 ml-2" />
                     </>
                   )}
                 </Button>
@@ -764,71 +1117,121 @@ export function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 4: Payment Status */}
-        {currentStep === 'status' && pendingPayment && (
-          <div className="max-w-md mx-auto">
-            <Card className="bg-white">
-              <CardContent className="p-6">
-                <div className="text-center mb-6">
-                  <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Receipt className="w-8 h-8 text-yellow-600" />
+        {/* Processing Modal */}
+        {currentStep === 'processing' && selectedPaymentMethod && (
+          <div className="max-w-lg mx-auto animate-fadeIn">
+            <Card className="shadow-xl">
+              <CardContent className="p-8">
+                <div className="text-center">
+                  <div className="w-24 h-24 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-600/25">
+                    <Loader2 className="w-12 h-12 text-white animate-spin" />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Pagamento Pendente</h2>
-                  <p className="text-gray-500 text-sm mt-1">
-                    Complete o pagamento usando {paymentMethodNames[pendingPayment.paymentMethod as PaymentMethod] || pendingPayment.paymentMethod}
+                  <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Processando Pagamento</h2>
+                  <p className="mb-6 text-gray-500 dark:text-gray-400">
+                    {selectedPaymentMethod.isInstant 
+                      ? 'Aguarde a confirmação no seu telefone...'
+                      : 'Estamos a processar o seu pedido de pagamento...'}
+                  </p>
+                  
+                  <div className="w-full rounded-full h-2 mb-4 bg-gray-200 dark:bg-gray-700">
+                    <div 
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full transition-all duration-1000"
+                      style={{ width: `${Math.min(100, (processingTime / maxProcessingTime) * 100)}%` }}
+                    />
+                  </div>
+                  
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    {selectedPaymentMethod.isInstant 
+                      ? `Tempo estimado: ${selectedPaymentMethod.waitTimeSeconds} segundos`
+                      : 'Isto pode demorar alguns segundos...'}
+                  </p>
+
+                  {selectedPaymentMethod.isInstant && (
+                    <div className="mt-6 p-4 rounded-xl bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-400">
+                        <AlertCircle className="w-4 h-4 inline mr-1" />
+                        Verifique o seu telefone e confirme o pagamento na aplicação {selectedPaymentMethod.displayName}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Payment Status - Manual Verification */}
+        {currentStep === 'status' && pendingPayment && selectedPaymentMethod && (
+          <div className="max-w-lg mx-auto animate-fadeIn">
+            <Card className="shadow-xl">
+              <CardContent className="p-8">
+                <div className="text-center mb-6">
+                  <div className="w-20 h-20 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-yellow-500/25">
+                    <Receipt className="w-10 h-10 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Pagamento Pendente</h2>
+                  <p className="text-sm mt-2 text-gray-500 dark:text-gray-400">
+                    Complete o pagamento usando {selectedPaymentMethod.displayName}
                   </p>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm text-gray-500">Valor</span>
-                    <span className="font-semibold text-gray-900">
+                <div className="rounded-xl p-5 mb-6 bg-gray-50 dark:bg-gray-700/50">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Valor</span>
+                    <span className="font-bold text-lg text-gray-900 dark:text-white">
                       {formatCurrency(parseFloat(pendingPayment.amount))}
                     </span>
                   </div>
 
                   {pendingPayment.referenceCode && (
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">Referência</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Referência</span>
                       <div className="flex items-center space-x-2">
-                        <span className="font-mono font-semibold text-gray-900">
+                        <span className="font-mono font-bold text-lg text-gray-900 dark:text-white">
                           {pendingPayment.referenceCode}
                         </span>
                         <button
                           onClick={() => copyToClipboard(pendingPayment.referenceCode)}
-                          className="p-1 hover:bg-gray-200 rounded"
+                          className="p-2 rounded-lg transition hover:bg-gray-200 dark:hover:bg-gray-600"
                         >
-                          {copied ? (
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <Copy className="w-4 h-4 text-gray-400" />
-                          )}
+                          {copied ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5 text-gray-500 dark:text-gray-400" />}
                         </button>
                       </div>
                     </div>
                   )}
                 </div>
 
+                {selectedPaymentMethod.requiresReference && (
+                  <div className="mb-6 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
+                    <h4 className="text-sm font-medium mb-2 text-blue-800 dark:text-blue-300">Como pagar:</h4>
+                    <ol className="text-sm space-y-1 list-decimal list-inside text-blue-700 dark:text-blue-400">
+                      <li>Acesse o seu homebanking ou ATM</li>
+                      <li>Selecione "Pagamentos" → "Serviços"</li>
+                      <li>Insira a referência acima</li>
+                      <li>Confirme o valor e complete o pagamento</li>
+                    </ol>
+                  </div>
+                )}
+
                 <div className="space-y-3">
                   <Button
                     onClick={handleCheckStatus}
                     disabled={checkingStatus}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg shadow-blue-600/25"
                   >
                     {checkingStatus ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Verificando...
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Verificando pagamento...
                       </>
                     ) : (
                       <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
+                        <RefreshCw className="w-5 h-5 mr-2" />
                         Verificar Pagamento
                       </>
                     )}
                   </Button>
-
-                  <p className="text-center text-sm text-gray-500">
+                  <p className="text-center text-sm text-gray-400 dark:text-gray-500">
                     Após efetuar o pagamento, clique em "Verificar Pagamento"
                   </p>
                 </div>
@@ -836,7 +1239,75 @@ export function OnboardingPage() {
             </Card>
           </div>
         )}
+
+        {/* Success Screen */}
+        {currentStep === 'success' && (
+          <div className="max-w-lg mx-auto animate-fadeIn">
+            <Card className="shadow-xl overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-green-500 to-emerald-500" />
+              <CardContent className="p-8">
+                <div className="text-center">
+                  <div className="w-24 h-24 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/25">
+                    <CheckCircle className="w-12 h-12 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">
+                    {isTrialMode ? 'Período de Teste Iniciado!' : 'Pagamento Confirmado!'}
+                  </h2>
+                  <p className="mb-6 text-gray-500 dark:text-gray-400">
+                    {isTrialMode 
+                      ? `Você tem ${selectedPlan?.trialDays} dias para experimentar todas as funcionalidades.`
+                      : subscriptionDays && subscriptionDays.bonusTrial > 0
+                        ? `Sua assinatura está ativa por ${subscriptionDays.total} dias!`
+                        : 'Seu pagamento foi processado com sucesso. Sua assinatura está ativa!'}
+                  </p>
+                  
+                  <div className="rounded-xl p-5 mb-6 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800">
+                    <p className="text-sm text-green-800 dark:text-green-300">
+                      <strong>Plano:</strong> {selectedPlan?.name}
+                    </p>
+                    {!isTrialMode && pendingPayment && (
+                      <p className="text-sm mt-1 text-green-600 dark:text-green-400">
+                        Valor pago: {formatCurrency(parseFloat(pendingPayment.amount))}
+                      </p>
+                    )}
+                    {!isTrialMode && subscriptionDays && (
+                      <p className="text-sm mt-1 text-green-600 dark:text-green-400">
+                        Acesso por {subscriptionDays.total} dias
+                        {subscriptionDays.bonusTrial > 0 && (
+                          <span className="font-medium"> (inclui {subscriptionDays.bonusTrial} dias de bónus!)</span>
+                        )}
+                      </p>
+                    )}
+                    {isTrialMode && (
+                      <p className="text-sm mt-1 text-green-600 dark:text-green-400">
+                        Teste gratuito por {selectedPlan?.trialDays} dias
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    onClick={handleGoToDashboard}
+                    className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/25"
+                  >
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    Ir para o Dashboard
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

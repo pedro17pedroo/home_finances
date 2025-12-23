@@ -4,8 +4,11 @@ import { Switch, Route, Redirect } from 'wouter';
 import { queryClient } from './shared/lib/query-client';
 import { AuthProvider, useAuth } from './shared/contexts/auth-context';
 import { ThemeProvider } from './shared/contexts/theme-context';
+import { OrganizationProvider } from './shared/contexts/organization-context';
 import { ImprovedLoginPage } from './features/auth/pages/improved-login-page';
 import { SimpleCompleteRegisterPage } from './features/auth/pages/simple-complete-register';
+import { ForgotPasswordPage } from './features/auth/pages/forgot-password-page';
+import { ResetPasswordPage } from './features/auth/pages/reset-password-page';
 
 import { DashboardPage } from './features/dashboard/pages/dashboard-page';
 import { AccountsPageImproved as AccountsPage } from './features/accounts/pages/accounts-page-improved';
@@ -63,7 +66,13 @@ function AppRoutes() {
         <AcceptInvitationPage />
       </Route>
       
-
+      <Route path="/forgot-password">
+        {isAuthenticated ? <Redirect to="/dashboard" /> : <ForgotPasswordPage />}
+      </Route>
+      
+      <Route path="/reset-password">
+        {isAuthenticated ? <Redirect to="/dashboard" /> : <ResetPasswordPage />}
+      </Route>
       
       <Route path="/dashboard">
         <ProtectedRoute>
@@ -169,7 +178,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <AppRoutes />
+          <OrganizationProvider>
+            <AppRoutes />
+          </OrganizationProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

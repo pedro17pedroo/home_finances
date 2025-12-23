@@ -2,10 +2,18 @@ import { apiClient } from './client';
 import type { 
   ApiResponse, 
   Loan, 
-  CreateLoanRequest, 
-  UpdateLoanRequest,
+  CreateLoanRequest,
   LoanSummary 
 } from '../types';
+
+export interface MakePaymentRequest {
+  amount: number;
+  description?: string;
+}
+
+export interface CancelRequest {
+  reason: string;
+}
 
 export const loansApi = {
   // Get all user loans
@@ -32,18 +40,22 @@ export const loansApi = {
     return response.data.data.loan;
   },
 
-  // Update loan
-  updateLoan: async (id: number, data: UpdateLoanRequest): Promise<Loan> => {
-    const response = await apiClient.put<ApiResponse<{ loan: Loan }>>(`/loans/${id}`, data);
+  // Make payment (partial or full)
+  makePayment: async (id: number, data: MakePaymentRequest): Promise<Loan> => {
+    const response = await apiClient.post<ApiResponse<{ loan: Loan }>>(`/loans/${id}/payment`, data);
     if (!response.data.data?.loan) {
-      throw new Error('Erro ao atualizar empréstimo');
+      throw new Error('Erro ao registar pagamento');
     }
     return response.data.data.loan;
   },
 
-  // Delete loan
-  deleteLoan: async (id: number): Promise<void> => {
-    await apiClient.delete(`/loans/${id}`);
+  // Cancel loan
+  cancelLoan: async (id: number, data: CancelRequest): Promise<Loan> => {
+    const response = await apiClient.post<ApiResponse<{ loan: Loan }>>(`/loans/${id}/cancel`, data);
+    if (!response.data.data?.loan) {
+      throw new Error('Erro ao cancelar empréstimo');
+    }
+    return response.data.data.loan;
   },
 
   // Get loans summary

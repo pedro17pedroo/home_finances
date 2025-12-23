@@ -225,11 +225,11 @@ export class NotificationService {
   }
 
   private static async getNearDeadlineGoals(userId: number, days: number) {
-    const goals = await SavingsGoalService.getSavingsGoalsByUserId(userId);
+    const goals = await SavingsGoalService.getUserSavingsGoals(userId);
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + days);
     
-    return goals.filter(goal => 
+    return goals.filter((goal: any) => 
       goal.isActive && 
       new Date(goal.targetDate) <= futureDate &&
       new Date(goal.targetDate) > new Date() &&
@@ -238,13 +238,13 @@ export class NotificationService {
   }
 
   private static async getRecentlyCompletedGoals(userId: number, days: number) {
-    const goals = await SavingsGoalService.getSavingsGoalsByUserId(userId);
+    const goals = await SavingsGoalService.getUserSavingsGoals(userId);
     const pastDate = new Date();
     pastDate.setDate(pastDate.getDate() - days);
     
-    return goals.filter(goal => 
+    return goals.filter((goal: any) => 
       parseFloat(goal.currentAmount) >= parseFloat(goal.targetAmount) &&
-      new Date(goal.updatedAt) >= pastDate
+      goal.updatedAt && new Date(goal.updatedAt) >= pastDate
     );
   }
 

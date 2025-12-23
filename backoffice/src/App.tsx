@@ -6,6 +6,8 @@ import { LoginPage } from './features/auth/pages/login-page';
 import { DashboardPage } from './features/dashboard/pages/dashboard-page';
 import { UsersPage } from './features/users/pages/users-page';
 import { PlansPage } from './features/plans/pages/plans-page';
+import { SubscriptionsPage } from './features/subscriptions/pages/subscriptions-page';
+import { CampaignsPage } from './features/campaigns/pages/campaigns-page';
 import { PaymentsPage } from './features/payments/pages/payments-page';
 import { ReportsPage } from './features/reports/pages/reports-page';
 import { ContentPage } from './features/content/pages/content-page';
@@ -47,6 +49,12 @@ function AppRoutes() {
       </Route>
       <Route path="/plans">
         <ProtectedRoute><PlansPage /></ProtectedRoute>
+      </Route>
+      <Route path="/subscriptions">
+        <ProtectedRoute><SubscriptionsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/campaigns">
+        <ProtectedRoute><CampaignsPage /></ProtectedRoute>
       </Route>
       <Route path="/payments">
         <ProtectedRoute><PaymentsPage /></ProtectedRoute>

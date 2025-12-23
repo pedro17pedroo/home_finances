@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { CategoryController } from "../controllers/category.controller.js";
 import { authenticate } from "../middlewares/auth.js";
+import { organizationContext } from "../middlewares/organization.js";
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+router.use(organizationContext);
 
 // GET /api/categories - Get all categories
 router.get("/", CategoryController.getCategories);

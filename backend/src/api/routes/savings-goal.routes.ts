@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { SavingsGoalController } from "../controllers/savings-goal.controller.js";
 import { authenticate } from "../middlewares/auth.js";
+import { organizationContext } from "../middlewares/organization.js";
 import { validate } from "../middlewares/validate.js";
 import { 
   createSavingsGoalSchema, 
   updateSavingsGoalSchema,
-  addToGoalSchema,
   savingsGoalIdSchema 
 } from "../validators/savings-goal.validator.js";
 
@@ -13,6 +13,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+router.use(organizationContext);
 
 // GET /api/savings-goals - Get all user savings goals
 router.get("/", SavingsGoalController.getSavingsGoals);
@@ -36,13 +37,6 @@ router.get("/:id/progress",
 router.post("/", 
   validate(createSavingsGoalSchema), 
   SavingsGoalController.createSavingsGoal
-);
-
-// POST /api/savings-goals/:id/add - Add amount to savings goal
-router.post("/:id/add", 
-  validate(savingsGoalIdSchema),
-  validate(addToGoalSchema), 
-  SavingsGoalController.addToSavingsGoal
 );
 
 // PUT /api/savings-goals/:id - Update savings goal

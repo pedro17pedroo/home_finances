@@ -17,6 +17,8 @@ import whatsappRoutes from "./whatsapp.js";
 import receiptsRoutes from "./receipts.js";
 import subscriptionRoutes from "./subscription.routes.js";
 import organizationRoutes from "./organization.routes.js";
+import passwordResetRoutes from "./password-reset.routes.js";
+import landingContentRoutes from "./landing-content.routes.js";
 
 const router = Router();
 
@@ -32,6 +34,7 @@ router.get("/health", (req, res) => {
 
 // API routes
 router.use("/auth", authRoutes);
+router.use("/auth/forgot-password", passwordResetRoutes);
 router.use("/transactions", transactionRoutes);
 router.use("/accounts", accountRoutes);
 router.use("/savings-goals", savingsGoalRoutes);
@@ -49,5 +52,6 @@ router.use("/whatsapp", whatsappRoutes);
 router.use("/receipts", receiptsRoutes);
 router.use("/subscriptions", subscriptionRoutes);
 router.use("/organizations", organizationRoutes);
+router.use("/landing-content", landingContentRoutes);
 
 export default router;

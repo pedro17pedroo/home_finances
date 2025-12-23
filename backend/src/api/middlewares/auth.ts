@@ -132,3 +132,30 @@ export const verifyPassword = async (
 ): Promise<boolean> => {
   return bcrypt.compare(password, hashedPassword);
 };
+
+// Middleware for admin-only routes (backoffice)
+export const requireAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ success: false, message: 'Admin authentication required' });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, config.JWT_SECRET) as JWTPayload;
+    
+    // Check if it's an admin user (planType === 'admin')
+    if (decoded.planType !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(401).json({ success: false, message: 'Invalid admin token' });
+  }
+};

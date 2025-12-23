@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, TrendingUp, TrendingDown, Filter, Search, Calendar, ArrowUpDown, X } from 'lucide-react';
-import { useTransactions, useTransactionSummary, useCreateTransaction, useDeleteTransaction } from '../hooks/use-transactions';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, TrendingUp, TrendingDown, Filter, Search, ArrowUpDown, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTransactions, useTransactionSummary, useCreateTransaction } from '../hooks/use-transactions';
 import { useAccounts, useCreateAccount } from '../../accounts/hooks/use-accounts';
 import { useCategories, useCreateCategory } from '../../categories/hooks/use-categories';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/compon
 import { Input } from '../../../shared/components/ui/input';
 import { Select } from '../../../shared/components/ui/select';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
-import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
+import { showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
 import type { CreateTransactionRequest, CreateAccountRequest } from '../../../shared/types';
 import type { CreateCategoryRequest } from '../../../shared/api/categories';
+import { useSearch } from 'wouter';
 
 const angolaBanks = [
   'BAI',
@@ -31,22 +32,44 @@ export function TransactionsPage() {
   const { data: accounts } = useAccounts();
   const { data: categoriesData } = useCategories();
   const createTransactionMutation = useCreateTransaction();
-  const deleteTransactionMutation = useDeleteTransaction();
   const createAccountMutation = useCreateAccount();
   const createCategoryMutation = useCreateCategory();
+  const searchString = useSearch();
 
   const [showForm, setShowForm] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'receita' | 'despesa'>('all');
+  const [filterAccount, setFilterAccount] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc'); // desc = mais recentes primeiro
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  
   const [formData, setFormData] = useState<CreateTransactionRequest>({
     accountId: 0,
     amount: 0,
-    type: 'receita',
+    type: 'despesa',
     category: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
   });
+
+  // Abrir modal automaticamente se vier com parâmetro ?type=receita ou ?type=despesa
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const typeParam = params.get('type');
+    if (typeParam === 'receita' || typeParam === 'despesa') {
+      setFormData(prev => ({ ...prev, type: typeParam, category: '' }));
+      setShowForm(true);
+      // Limpar o parâmetro da URL sem recarregar a página
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [searchString]);
 
   // Inline forms state
   const [showAccountForm, setShowAccountForm] = useState(false);
@@ -82,24 +105,11 @@ export function TransactionsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const confirmed = await showDeleteConfirm('esta transação');
-    if (confirmed) {
-      try {
-        await deleteTransactionMutation.mutateAsync(id);
-        showSuccessToast('Transação excluída com sucesso!');
-      } catch (error) {
-        console.error('Error deleting transaction:', error);
-        showErrorToast('Erro ao excluir transação');
-      }
-    }
-  };
-
   const resetForm = () => {
     setFormData({
       accountId: 0,
       amount: 0,
-      type: 'receita',
+      type: 'despesa',
       category: '',
       description: '',
       date: new Date().toISOString().split('T')[0],
@@ -156,6 +166,13 @@ export function TransactionsPage() {
     return account ? `${account.name} (${account.bank})` : 'Conta não encontrada';
   };
 
+  // Obter categorias únicas das transações
+  const uniqueCategories = useMemo(() => {
+    if (!transactions) return [];
+    const categories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
+    return categories.sort();
+  }, [transactions]);
+
   // Filtrar e ordenar transações
   const filteredAndSortedTransactions = useMemo(() => {
     if (!transactions) return [];
@@ -164,24 +181,77 @@ export function TransactionsPage() {
       // Filtro por tipo
       const typeMatch = filterType === 'all' || transaction.type === filterType;
       
+      // Filtro por conta
+      const accountMatch = filterAccount === 'all' || transaction.accountId?.toString() === filterAccount;
+      
+      // Filtro por categoria
+      const categoryMatch = filterCategory === 'all' || transaction.category === filterCategory;
+      
+      // Filtro por intervalo de datas
+      let dateMatch = true;
+      if (dateFrom) {
+        const transactionDate = new Date(transaction.date);
+        const fromDate = new Date(dateFrom);
+        dateMatch = transactionDate >= fromDate;
+      }
+      if (dateTo && dateMatch) {
+        const transactionDate = new Date(transaction.date);
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        dateMatch = transactionDate <= toDate;
+      }
+      
       // Filtro por busca
       const searchMatch = searchTerm === '' || 
         transaction.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         transaction.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         getAccountName(transaction.accountId!).toLowerCase().includes(searchTerm.toLowerCase());
       
-      return typeMatch && searchMatch;
+      return typeMatch && accountMatch && categoryMatch && dateMatch && searchMatch;
     });
 
-    // Ordenar por data (mais recentes primeiro por padrão)
+    // Ordenar por data de criação (mais recentes primeiro)
     filtered.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+      const createdA = new Date(a.createdAt).getTime();
+      const createdB = new Date(b.createdAt).getTime();
+      return sortOrder === 'desc' ? createdB - createdA : createdA - createdB;
     });
 
     return filtered;
-  }, [transactions, filterType, searchTerm, sortOrder, accounts]);
+  }, [transactions, filterType, filterAccount, filterCategory, dateFrom, dateTo, searchTerm, sortOrder, accounts]);
+
+  // Paginação
+  const totalPages = Math.ceil(filteredAndSortedTransactions.length / itemsPerPage);
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedTransactions.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedTransactions, currentPage, itemsPerPage]);
+
+  // Reset página quando filtros mudam
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, filterAccount, filterCategory, dateFrom, dateTo, searchTerm]);
+
+  // Contar filtros ativos
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filterAccount !== 'all') count++;
+    if (filterCategory !== 'all') count++;
+    if (dateFrom) count++;
+    if (dateTo) count++;
+    return count;
+  }, [filterAccount, filterCategory, dateFrom, dateTo]);
+
+  // Limpar todos os filtros
+  const clearAllFilters = () => {
+    setFilterType('all');
+    setFilterAccount('all');
+    setFilterCategory('all');
+    setDateFrom('');
+    setDateTo('');
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
 
   if (transactionsLoading || summaryLoading) {
     return (
@@ -274,7 +344,8 @@ export function TransactionsPage() {
         {/* Filters and Search */}
         <Card className="bg-white dark:bg-gray-800 mb-6">
           <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+            {/* Linha principal de filtros */}
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center mb-4">
               {/* Type Filter */}
               <div className="flex items-center space-x-3">
                 <Filter className="h-5 w-5 text-gray-500 dark:text-gray-400" />
@@ -326,50 +397,169 @@ export function TransactionsPage() {
                 </div>
               </div>
 
+              {/* Botão Filtros Avançados */}
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium border rounded-md transition-colors ${
+                  showAdvancedFilters || activeFiltersCount > 0
+                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Filter className="h-4 w-4" />
+                <span>Filtros</span>
+                {activeFiltersCount > 0 && (
+                  <span className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
+
               {/* Sort Order */}
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                <button
-                  onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                  className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <ArrowUpDown className="h-4 w-4" />
-                  <span>{sortOrder === 'desc' ? 'Mais recentes' : 'Mais antigas'}</span>
-                </button>
-              </div>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <ArrowUpDown className="h-4 w-4" />
+                <span>{sortOrder === 'desc' ? 'Mais recentes' : 'Mais antigas'}</span>
+              </button>
             </div>
+
+            {/* Filtros Avançados */}
+            {showAdvancedFilters && (
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Filtro por Conta */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Conta
+                    </label>
+                    <Select
+                      value={filterAccount}
+                      onChange={(e) => setFilterAccount(e.target.value)}
+                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    >
+                      <option value="all">Todas as contas</option>
+                      {accounts?.map((account) => (
+                        <option key={account.id} value={account.id.toString()}>
+                          {account.name} ({account.bank})
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {/* Filtro por Categoria */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Categoria
+                    </label>
+                    <Select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    >
+                      <option value="all">Todas as categorias</option>
+                      {uniqueCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {/* Data Inicial */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Data Inicial
+                    </label>
+                    <Input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    />
+                  </div>
+
+                  {/* Data Final */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Data Final
+                    </label>
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    />
+                  </div>
+                </div>
+
+                {/* Botão Limpar Filtros */}
+                {activeFiltersCount > 0 && (
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={clearAllFilters}
+                      className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 flex items-center"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Limpar todos os filtros
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Transactions List */}
         <Card className="bg-white dark:bg-gray-800">
           <CardHeader>
-            <CardTitle className="text-gray-900 dark:text-white">
-              {filterType === 'all' ? 'Todas as Transações' : 
-               filterType === 'receita' ? 'Receitas' : 'Despesas'}
-              {filteredAndSortedTransactions.length > 0 && (
-                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-                  ({filteredAndSortedTransactions.length} {filteredAndSortedTransactions.length === 1 ? 'transação' : 'transações'})
-                </span>
-              )}
-            </CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-gray-900 dark:text-white">
+                {filterType === 'all' ? 'Todas as Transações' : 
+                 filterType === 'receita' ? 'Receitas' : 'Despesas'}
+                {filteredAndSortedTransactions.length > 0 && (
+                  <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                    ({filteredAndSortedTransactions.length} {filteredAndSortedTransactions.length === 1 ? 'transação' : 'transações'})
+                  </span>
+                )}
+              </CardTitle>
+              
+              {/* Items per page selector */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500 dark:text-gray-400">Mostrar:</span>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="w-20 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                >
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {filteredAndSortedTransactions.length === 0 ? (
+            {paginatedTransactions.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-4xl mb-4">
-                  {searchTerm ? '🔍' : filterType === 'receita' ? '💰' : filterType === 'despesa' ? '💸' : '📊'}
+                  {searchTerm || activeFiltersCount > 0 ? '🔍' : filterType === 'receita' ? '💰' : filterType === 'despesa' ? '💸' : '📊'}
                 </div>
                 <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
-                  {searchTerm ? 'Nenhuma transação encontrada' :
+                  {searchTerm || activeFiltersCount > 0 ? 'Nenhuma transação encontrada' :
                    filterType === 'all' ? 'Nenhuma transação registrada' :
                    filterType === 'receita' ? 'Nenhuma receita registrada' : 'Nenhuma despesa registrada'}
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  {searchTerm ? 'Tente ajustar os filtros de busca.' :
+                  {searchTerm || activeFiltersCount > 0 ? 'Tente ajustar os filtros de busca.' :
                    `Comece registrando suas ${filterType === 'all' ? 'transações' : filterType === 'receita' ? 'receitas' : 'despesas'}.`}
                 </p>
-                {!searchTerm && (
+                {!searchTerm && activeFiltersCount === 0 && (
                   <Button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700">
                     <Plus className="mr-2 h-4 w-4" />
                     {filterType === 'all' ? 'Primeira Transação' :
@@ -378,43 +568,83 @@ export function TransactionsPage() {
                 )}
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredAndSortedTransactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-3 h-3 rounded-full ${
-                        transaction.type === 'receita' ? 'bg-green-500' : 'bg-red-500'
-                      }`}></div>
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-white">
-                          {transaction.description || transaction.category}
+              <>
+                <div className="space-y-3">
+                  {paginatedTransactions.map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-3 h-3 rounded-full ${
+                          transaction.type === 'receita' ? 'bg-green-500' : 'bg-red-500'
+                        }`}></div>
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            {transaction.description || transaction.category}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {transaction.category} • {getAccountName(transaction.accountId!)} • {formatDate(transaction.date)}
+                          </div>
+                          {transaction.balanceAfter && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              Saldo: {transaction.balanceBefore ? formatCurrency(Number(transaction.balanceBefore)) : '—'} → {formatCurrency(Number(transaction.balanceAfter))}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {transaction.category} • {getAccountName(transaction.accountId!)} • {formatDate(transaction.date)}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <div className={`text-lg font-semibold ${
-                        transaction.type === 'receita' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {transaction.type === 'receita' ? '+' : '-'}{formatCurrency(Number(transaction.amount))}
                       </div>
                       
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(transaction.id)}
-                        disabled={deleteTransactionMutation.isPending}
-                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <div className={`text-lg font-semibold ${
+                            transaction.type === 'receita' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {transaction.type === 'receita' ? '+' : '-'}{formatCurrency(Number(transaction.amount))}
+                          </div>
+                          {transaction.balanceAfter && (
+                            <div className="text-xs text-gray-500">
+                              Saldo: {formatCurrency(Number(transaction.balanceAfter))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Paginação */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, filteredAndSortedTransactions.length)} de {filteredAndSortedTransactions.length} transações
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      {/* Página anterior */}
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Anterior
+                      </button>
+                      
+                      {/* Indicador de página */}
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        Página {currentPage} de {totalPages}
+                      </span>
+                      
+                      {/* Próxima página */}
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Próximo
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

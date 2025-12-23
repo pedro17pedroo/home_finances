@@ -72,6 +72,9 @@ export const teamInvitations = pgTable("team_invitations", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Billing cycle enum
+export const billingCycleEnum = pgEnum('billing_cycle', ['monthly', 'quarterly', 'yearly', 'one_time']);
+
 // Plans table
 export const plans = pgTable("plans", {
   id: serial("id").primaryKey(),
@@ -82,7 +85,16 @@ export const plans = pgTable("plans", {
   features: jsonb("features").notNull(),
   maxAccounts: integer("max_accounts").default(5),
   maxTransactions: integer("max_transactions").default(1000),
+  maxUsers: integer("max_users").default(1), // Limite de utilizadores por organização
   isActive: boolean("is_active").default(true),
+  // New fields for subscription management
+  durationDays: integer("duration_days"), // null = unlimited
+  trialDays: integer("trial_days").default(0),
+  trialOneTimeOnly: boolean("trial_one_time_only").default(true), // Trial só pode ser usado uma vez
+  maxFreeDays: integer("max_free_days"), // Limite de dias para planos gratuitos
+  billingCycle: varchar("billing_cycle", { length: 20 }).default('monthly'),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -158,12 +170,20 @@ export const blockedIPs = pgTable("blocked_ips", {
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   planId: varchar("plan_id", { length: 50 }).notNull(), // 'free', 'basic', 'premium'
   status: varchar("status", { length: 50 }).notNull().default('pending'), // 'active', 'trial', 'expired', 'cancelled', 'pending'
   paymentType: varchar("payment_type", { length: 50 }).notNull().default('one_time'), // 'one_time', 'recurring'
   paymentMethod: varchar("payment_method", { length: 50 }), // 'ekwanza', 'gpo', 'ref'
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
+  // New fields for subscription management
+  trialEndsAt: timestamp("trial_ends_at"),
+  nextBillingDate: timestamp("next_billing_date"),
+  cancelledAt: timestamp("cancelled_at"),
+  cancellationReason: text("cancellation_reason"),
+  trialUsed: boolean("trial_used").default(false), // Se o trial já foi usado
+  isFirstSubscription: boolean("is_first_subscription").default(false), // Se é a primeira subscrição
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -173,6 +193,7 @@ export const subscriptionPayments = pgTable("subscription_payments", {
   id: serial("id").primaryKey(),
   subscriptionId: integer("subscription_id").references(() => subscriptions.id).notNull(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // 'ekwanza', 'gpo', 'ref'
   paymentId: varchar("payment_id", { length: 255 }), // External payment ID
@@ -183,17 +204,39 @@ export const subscriptionPayments = pgTable("subscription_payments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Subscription Notifications table - for expiration and trial notifications
+export const subscriptionNotifications = pgTable("subscription_notifications", {
+  id: serial("id").primaryKey(),
+  subscriptionId: integer("subscription_id").references(() => subscriptions.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // 'trial_ending', 'expiring', 'expired', 'payment_reminder'
+  daysBefore: integer("days_before"), // Days before the event (7, 3, 1, 0)
+  sentAt: timestamp("sent_at"),
+  channel: varchar("channel", { length: 20 }).default('email'), // 'email', 'sms', 'push'
+  status: varchar("status", { length: 20 }).default('pending'), // 'pending', 'sent', 'failed'
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Payment Methods table - for Phase 3
 export const paymentMethods = pgTable("payment_methods", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 100 }).notNull(), // 'stripe', 'multicaixa', 'unitel_money', 'afrimoney', 'bank_transfer'
+  code: varchar("code", { length: 50 }).notNull().unique(), // 'ekwanza', 'gpo', 'ref', 'bank_transfer'
+  name: varchar("name", { length: 100 }).notNull(), // 'E-Kwanza', 'Multicaixa Express', etc.
   displayName: varchar("display_name", { length: 100 }).notNull(),
+  description: text("description"), // Descrição do método
   isActive: boolean("is_active").default(true),
+  isInstant: boolean("is_instant").default(false), // true = pagamento instantâneo, false = requer confirmação
+  waitTimeSeconds: integer("wait_time_seconds").default(60), // Tempo de espera para verificação (em segundos)
+  maxWaitTimeSeconds: integer("max_wait_time_seconds").default(3600), // Tempo máximo de espera (1 hora)
+  requiresPhone: boolean("requires_phone").default(false), // Requer número de telefone
+  requiresEmail: boolean("requires_email").default(false), // Requer email
+  requiresReference: boolean("requires_reference").default(false), // Gera referência de pagamento
   config: jsonb("config"), // Method-specific configurations
   instructions: text("instructions"), // Payment instructions for manual methods
   processingTime: varchar("processing_time", { length: 100 }), // "Imediato", "1-3 dias úteis", etc.
   fees: varchar("fees", { length: 100 }), // Fee information
-  icon: varchar("icon", { length: 100 }), // Icon identifier
+  icon: varchar("icon", { length: 100 }), // Icon identifier (lucide icon name)
   displayOrder: integer("display_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -251,6 +294,10 @@ export const campaigns = pgTable("campaigns", {
   usageLimit: integer("usage_limit"),
   usageCount: integer("usage_count").default(0),
   isActive: boolean("is_active").default(true),
+  // New fields for subscription management
+  applicablePlans: jsonb("applicable_plans").default([]), // Array of plan IDs
+  minAmount: decimal("min_amount", { precision: 10, scale: 2 }).default('0'),
+  maxDiscount: decimal("max_discount", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -294,6 +341,7 @@ export const legalContent = pgTable("legal_content", {
 export const accounts = pgTable("accounts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   name: varchar("name", { length: 255 }).notNull(),
   type: accountTypeEnum("type").notNull(),
   bank: varchar("bank", { length: 255 }).notNull(),
@@ -303,10 +351,11 @@ export const accounts = pgTable("accounts", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
-// Categorias customizadas (por usuário)
+// Categorias customizadas (por organização)
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   name: varchar("name", { length: 255 }).notNull(),
   type: transactionTypeEnum("type").notNull(),
   color: varchar("color", { length: 7 }),
@@ -319,12 +368,15 @@ export const categories = pgTable("categories", {
 export const transactions: any = pgTable("transactions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description"),
   category: varchar("category", { length: 255 }).notNull(),
   type: transactionTypeEnum("type").notNull(),
   accountId: integer("account_id").references(() => accounts.id),
   date: timestamp("date").notNull(),
+  balanceBefore: decimal("balance_before", { precision: 10, scale: 2 }),
+  balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }),
   isRecurring: boolean("is_recurring").default(false),
   recurringFrequency: varchar("recurring_frequency", { length: 50 }),
   recurringParentId: integer("recurring_parent_id").references(() => transactions.id),
@@ -341,6 +393,7 @@ export const transactions: any = pgTable("transactions", {
 export const transfers = pgTable("transfers", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   fromAccountId: integer("from_account_id").references(() => accounts.id).notNull(),
   toAccountId: integer("to_account_id").references(() => accounts.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
@@ -354,9 +407,11 @@ export const transfers = pgTable("transfers", {
 export const savingsGoals = pgTable("savings_goals", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
+  accountId: integer("account_id").references(() => accounts.id), // Conta vinculada à meta
   name: varchar("name", { length: 255 }).notNull(),
   targetAmount: decimal("target_amount", { precision: 10, scale: 2 }).notNull(),
-  currentAmount: decimal("current_amount", { precision: 10, scale: 2 }).notNull().default('0'),
+  currentAmount: decimal("current_amount", { precision: 10, scale: 2 }).notNull().default('0'), // Deprecated: use account balance
   targetDate: timestamp("target_date"),
   description: text("description"),
   isActive: boolean("is_active").default(true),
@@ -368,13 +423,16 @@ export const savingsGoals = pgTable("savings_goals", {
 export const loans = pgTable("loans", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   accountId: integer("account_id").references(() => accounts.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
   borrower: varchar("borrower", { length: 255 }).notNull(),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
   dueDate: timestamp("due_date"),
   status: statusEnum("status").notNull().default('pendente'),
   description: text("description"),
+  cancelReason: text("cancel_reason"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -383,13 +441,16 @@ export const loans = pgTable("loans", {
 export const debts = pgTable("debts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   accountId: integer("account_id").references(() => accounts.id).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
   creditor: varchar("creditor", { length: 255 }).notNull(),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
   dueDate: timestamp("due_date"),
   status: statusEnum("status").notNull().default('pendente'),
   description: text("description"),
+  cancelReason: text("cancel_reason"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -454,6 +515,10 @@ export const savingsGoalsRelations = relations(savingsGoals, ({ one }) => ({
   user: one(users, {
     fields: [savingsGoals.userId],
     references: [users.id],
+  }),
+  account: one(accounts, {
+    fields: [savingsGoals.accountId],
+    references: [accounts.id],
   }),
 }));
 
@@ -664,6 +729,11 @@ export const insertPaymentConfirmationSchema = createInsertSchema(paymentConfirm
   createdAt: true,
 });
 
+export const insertSubscriptionNotificationSchema = createInsertSchema(subscriptionNotifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Authentication schemas
 export const loginSchema = z.object({
   emailOrPhone: z.string().min(1, "Email ou telefone é obrigatório"),
@@ -753,3 +823,29 @@ export type InsertPaymentTransaction = typeof paymentTransactions.$inferInsert;
 
 export type PaymentConfirmation = typeof paymentConfirmations.$inferSelect;
 export type InsertPaymentConfirmation = typeof paymentConfirmations.$inferInsert;
+
+// Subscription Management types
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+export type SubscriptionPayment = typeof subscriptionPayments.$inferSelect;
+export type InsertSubscriptionPayment = typeof subscriptionPayments.$inferInsert;
+
+export type SubscriptionNotification = typeof subscriptionNotifications.$inferSelect;
+export type InsertSubscriptionNotification = typeof subscriptionNotifications.$inferInsert;
+
+
+// Password Reset Tokens table
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  code: varchar("code", { length: 6 }), // For SMS verification
+  type: varchar("type", { length: 20 }).notNull().default('email'), // 'email' or 'sms'
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = typeof passwordResetTokens.$inferInsert;

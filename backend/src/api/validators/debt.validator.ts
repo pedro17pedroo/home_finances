@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+// Custom date validator that accepts both ISO datetime and simple date formats
+const dateString = z.string().refine((val) => {
+  const isoDatetime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+  const simpleDate = /^\d{4}-\d{2}-\d{2}$/;
+  return isoDatetime.test(val) || simpleDate.test(val);
+}, { message: "Data inválida" });
+
 export const createDebtSchema = z.object({
   body: z.object({
     accountId: z.number()
@@ -15,9 +22,7 @@ export const createDebtSchema = z.object({
       .min(0, "Taxa de juros não pode ser negativa")
       .max(100, "Taxa de juros não pode ser maior que 100%")
       .optional(),
-    dueDate: z.string()
-      .datetime("Data de vencimento deve ser uma data válida")
-      .optional(),
+    dueDate: dateString.optional(),
     description: z.string()
       .max(500, "Descrição muito longa")
       .optional()
@@ -38,9 +43,7 @@ export const updateDebtSchema = z.object({
       .min(0, "Taxa de juros não pode ser negativa")
       .max(100, "Taxa de juros não pode ser maior que 100%")
       .optional(),
-    dueDate: z.string()
-      .datetime("Data de vencimento deve ser uma data válida")
-      .optional(),
+    dueDate: dateString.optional(),
     status: z.enum(['pendente', 'pago', 'cancelado'], {
       errorMap: () => ({ message: "Status deve ser: pendente, pago ou cancelado" })
     }).optional(),
@@ -59,11 +62,7 @@ export const debtIdSchema = z.object({
 export const debtFiltersSchema = z.object({
   query: z.object({
     status: z.enum(['pendente', 'pago', 'cancelado']).optional(),
-    startDate: z.string()
-      .datetime("Data de início deve ser uma data válida")
-      .optional(),
-    endDate: z.string()
-      .datetime("Data de fim deve ser uma data válida")
-      .optional(),
+    startDate: dateString.optional(),
+    endDate: dateString.optional(),
   }).optional()
 });

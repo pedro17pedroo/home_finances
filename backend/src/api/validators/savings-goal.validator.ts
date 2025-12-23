@@ -6,6 +6,10 @@ export const createSavingsGoalSchema = z.object({
       .min(1, "Goal name is required")
       .max(100, "Goal name must be less than 100 characters"),
     
+    accountId: z.number()
+      .int("Account ID must be an integer")
+      .positive("Account ID must be positive"),
+    
     targetAmount: z.number()
       .min(0.01, "Target amount must be greater than zero"),
     
@@ -14,7 +18,9 @@ export const createSavingsGoalSchema = z.object({
       .optional(),
     
     targetDate: z.string()
+      .optional()
       .refine((date) => {
+        if (!date) return true;
         const targetDate = new Date(date);
         return targetDate > new Date();
       }, "Target date must be in the future"),
@@ -32,6 +38,11 @@ export const updateSavingsGoalSchema = z.object({
       .max(100, "Goal name must be less than 100 characters")
       .optional(),
     
+    accountId: z.number()
+      .int("Account ID must be an integer")
+      .positive("Account ID must be positive")
+      .optional(),
+    
     targetAmount: z.number()
       .min(0.01, "Target amount must be greater than zero")
       .optional(),
@@ -45,7 +56,8 @@ export const updateSavingsGoalSchema = z.object({
         const targetDate = new Date(date);
         return targetDate > new Date();
       }, "Target date must be in the future")
-      .optional(),
+      .optional()
+      .nullable(),
     
     description: z.string()
       .max(500, "Description must be less than 500 characters")

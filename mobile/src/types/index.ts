@@ -31,12 +31,17 @@ export interface Transaction {
 export interface SavingsGoal {
   id: number;
   name: string;
+  accountId?: number;
   targetAmount: string;
   currentAmount: string;
   targetDate?: string;
   description?: string;
   isActive: boolean;
   userId: number;
+  // Account info (from join)
+  accountName?: string;
+  accountBalance?: string;
+  accountBank?: string;
 }
 
 export interface Loan {

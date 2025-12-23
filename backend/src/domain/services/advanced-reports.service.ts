@@ -61,21 +61,31 @@ export class AdvancedReportsService {
   /**
    * Gera relatório financeiro completo
    */
-  static async getFinancialOverview(userId: number, months: number = 12): Promise<FinancialOverview> {
+  static async getFinancialOverview(organizationId: number | null, userId: number, months: number = 12): Promise<FinancialOverview> {
     try {
-      logger.info(`Gerando relatório financeiro para usuário ${userId}`);
+      logger.info(`Gerando relatório financeiro para organização ${organizationId} / usuário ${userId}`);
 
       const endDate = new Date();
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - months);
 
-      // Buscar dados básicos
+      // Buscar dados básicos usando organizationId ou userId
       const [accounts, transactions, loans, debts, savingsGoals] = await Promise.all([
-        AccountRepository.findByUserId(userId),
-        TransactionRepository.findByUserId(userId, { startDate, endDate }),
-        LoanRepository.findByUserId(userId),
-        DebtRepository.findByUserId(userId),
-        SavingsGoalRepository.findByUserId(userId)
+        organizationId 
+          ? AccountRepository.findByOrganizationId(organizationId)
+          : AccountRepository.findByUserId(userId),
+        organizationId
+          ? TransactionRepository.findByOrganizationId(organizationId, { startDate, endDate })
+          : TransactionRepository.findByUserId(userId, { startDate, endDate }),
+        organizationId
+          ? LoanRepository.findByOrganizationId(organizationId)
+          : LoanRepository.findByUserId(userId),
+        organizationId
+          ? DebtRepository.findByOrganizationId(organizationId)
+          : DebtRepository.findByUserId(userId),
+        organizationId
+          ? SavingsGoalRepository.findByOrganizationId(organizationId)
+          : SavingsGoalRepository.findByUserId(userId)
       ]);
 
       // Calcular métricas principais
@@ -98,10 +108,11 @@ export class AdvancedReportsService {
       const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
       // Gerar dados mensais
-      const monthlyTrend = await this.generateMonthlyTrend(userId, months);
+      const monthlyTrend = await this.generateMonthlyTrend(organizationId, userId, months);
 
-      // Breakdown por categoria
-      const categoryBreakdown = await this.generateCategoryBreakdown(transactions);
+      // Breakdown por categoria (apenas despesas)
+      const expenseTransactions = transactions.filter(t => t.type === 'despesa');
+      const categoryBreakdown = await this.generateCategoryBreakdown(expenseTransactions);
 
       // Distribuição por conta
       const accountDistribution = this.generateAccountDistribution(accounts);
@@ -118,7 +129,7 @@ export class AdvancedReportsService {
       };
 
     } catch (error) {
-      logger.error(`Erro ao gerar relatório financeiro para usuário ${userId}:`, error);
+      logger.error(`Erro ao gerar relatório financeiro:`, error);
       throw error;
     }
   }
@@ -126,13 +137,17 @@ export class AdvancedReportsService {
   /**
    * Análise de fluxo de caixa
    */
-  static async getCashFlowAnalysis(userId: number): Promise<CashFlowAnalysis> {
+  static async getCashFlowAnalysis(organizationId: number | null, userId: number): Promise<CashFlowAnalysis> {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - 6); // Últimos 6 meses
 
-    const transactions = await TransactionRepository.findByUserId(userId, { startDate, endDate });
-    const accounts = await AccountRepository.findByUserId(userId);
+    const transactions = organizationId
+      ? await TransactionRepository.findByOrganizationId(organizationId, { startDate, endDate })
+      : await TransactionRepository.findByUserId(userId, { startDate, endDate });
+    const accounts = organizationId
+      ? await AccountRepository.findByOrganizationId(organizationId)
+      : await AccountRepository.findByUserId(userId);
 
     const monthlyIncome = this.calculateMonthlyAverage(transactions, 'receita', 6);
     const monthlyExpenses = this.calculateMonthlyAverage(transactions, 'despesa', 6);
@@ -161,13 +176,19 @@ export class AdvancedReportsService {
   /**
    * Análise de dívidas e empréstimos
    */
-  static async getDebtAnalysis(userId: number): Promise<DebtAnalysis> {
+  static async getDebtAnalysis(organizationId: number | null, userId: number): Promise<DebtAnalysis> {
+    const startDate = new Date(new Date().setMonth(new Date().getMonth() - 12));
+    
     const [loans, debts, transactions] = await Promise.all([
-      LoanRepository.findByUserId(userId),
-      DebtRepository.findByUserId(userId),
-      TransactionRepository.findByUserId(userId, {
-        startDate: new Date(new Date().setMonth(new Date().getMonth() - 12))
-      })
+      organizationId
+        ? LoanRepository.findByOrganizationId(organizationId)
+        : LoanRepository.findByUserId(userId),
+      organizationId
+        ? DebtRepository.findByOrganizationId(organizationId)
+        : DebtRepository.findByUserId(userId),
+      organizationId
+        ? TransactionRepository.findByOrganizationId(organizationId, { startDate })
+        : TransactionRepository.findByUserId(userId, { startDate })
     ]);
 
     const totalLoans = loans
@@ -217,7 +238,7 @@ export class AdvancedReportsService {
   /**
    * Comparação entre períodos
    */
-  static async getPeriodComparison(userId: number, currentMonths: number = 6, previousMonths: number = 6) {
+  static async getPeriodComparison(organizationId: number | null, userId: number, currentMonths: number = 6, previousMonths: number = 6) {
     const currentEndDate = new Date();
     const currentStartDate = new Date();
     currentStartDate.setMonth(currentStartDate.getMonth() - currentMonths);
@@ -227,14 +248,12 @@ export class AdvancedReportsService {
     previousStartDate.setMonth(previousStartDate.getMonth() - previousMonths);
 
     const [currentTransactions, previousTransactions] = await Promise.all([
-      TransactionRepository.findByUserId(userId, { 
-        startDate: currentStartDate, 
-        endDate: currentEndDate 
-      }),
-      TransactionRepository.findByUserId(userId, { 
-        startDate: previousStartDate, 
-        endDate: previousEndDate 
-      })
+      organizationId
+        ? TransactionRepository.findByOrganizationId(organizationId, { startDate: currentStartDate, endDate: currentEndDate })
+        : TransactionRepository.findByUserId(userId, { startDate: currentStartDate, endDate: currentEndDate }),
+      organizationId
+        ? TransactionRepository.findByOrganizationId(organizationId, { startDate: previousStartDate, endDate: previousEndDate })
+        : TransactionRepository.findByUserId(userId, { startDate: previousStartDate, endDate: previousEndDate })
     ]);
 
     const currentIncome = currentTransactions
@@ -281,7 +300,7 @@ export class AdvancedReportsService {
   }
 
   // Métodos auxiliares privados
-  private static async generateMonthlyTrend(userId: number, months: number): Promise<MonthlyData[]> {
+  private static async generateMonthlyTrend(organizationId: number | null, userId: number, months: number): Promise<MonthlyData[]> {
     const monthlyData: MonthlyData[] = [];
     
     for (let i = months - 1; i >= 0; i--) {
@@ -294,7 +313,9 @@ export class AdvancedReportsService {
       const startDate = new Date(endDate);
       startDate.setDate(1); // Primeiro dia do mês
 
-      const transactions = await TransactionRepository.findByUserId(userId, { startDate, endDate });
+      const transactions = organizationId
+        ? await TransactionRepository.findByOrganizationId(organizationId, { startDate, endDate })
+        : await TransactionRepository.findByUserId(userId, { startDate, endDate });
       
       const income = transactions
         .filter(t => t.type === 'receita')

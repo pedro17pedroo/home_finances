@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { TransferService } from "../../domain/services/transfer.service.js";
-import type { AuthenticatedRequest } from "../middlewares/auth.js";
+import { getOrganizationId } from "../middlewares/organization.js";
 
 export class TransferController {
-  static async getTransfers(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getTransfers(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const { startDate, endDate, accountId } = req.query;
       
       const filters = {
@@ -14,7 +15,7 @@ export class TransferController {
         accountId: accountId ? parseInt(accountId as string) : undefined,
       };
 
-      const transfers = await TransferService.getUserTransfers(userId, filters);
+      const transfers = await TransferService.getTransfers(organizationId, userId, filters);
       
       res.json({
         status: 'success',
@@ -25,9 +26,10 @@ export class TransferController {
     }
   }
 
-  static async getTransferById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getTransferById(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const transferId = parseInt(req.params.id);
       
       if (isNaN(transferId)) {
@@ -37,7 +39,7 @@ export class TransferController {
         });
       }
 
-      const transfer = await TransferService.getTransferById(transferId, userId);
+      const transfer = await TransferService.getTransferById(transferId, userId, organizationId);
       
       res.json({
         status: 'success',
@@ -48,10 +50,11 @@ export class TransferController {
     }
   }
 
-  static async createTransfer(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async createTransfer(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const transfer = await TransferService.createTransfer(req.body, userId);
+      const organizationId = getOrganizationId(req);
+      const transfer = await TransferService.createTransfer(req.body, userId, organizationId);
       
       res.status(201).json({
         status: 'success',
@@ -63,9 +66,10 @@ export class TransferController {
     }
   }
 
-  static async deleteTransfer(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async deleteTransfer(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const transferId = parseInt(req.params.id);
       
       if (isNaN(transferId)) {
@@ -75,7 +79,7 @@ export class TransferController {
         });
       }
 
-      await TransferService.deleteTransfer(transferId, userId);
+      await TransferService.deleteTransfer(transferId, userId, organizationId);
       
       res.json({
         status: 'success',
@@ -86,10 +90,11 @@ export class TransferController {
     }
   }
 
-  static async getTransferSummary(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getTransferSummary(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const summary = await TransferService.getTransferSummary(userId);
+      const organizationId = getOrganizationId(req);
+      const summary = await TransferService.getTransferSummary(userId, organizationId);
       
       res.json({
         status: 'success',
@@ -100,9 +105,10 @@ export class TransferController {
     }
   }
 
-  static async getAccountTransferHistory(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async getAccountTransferHistory(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
       const accountId = parseInt(req.params.accountId);
       
       if (isNaN(accountId)) {
@@ -112,7 +118,7 @@ export class TransferController {
         });
       }
 
-      const transfers = await TransferService.getAccountTransferHistory(accountId, userId);
+      const transfers = await TransferService.getAccountTransferHistory(accountId, userId, organizationId);
       
       res.json({
         status: 'success',

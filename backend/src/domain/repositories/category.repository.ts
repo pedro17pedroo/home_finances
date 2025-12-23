@@ -26,6 +26,20 @@ export class CategoryRepository {
     return result[0] || null;
   }
 
+  // Find by ID and organization
+  static async findByIdAndOrganization(id: number, organizationId: number): Promise<Category | null> {
+    const result = await db
+      .select()
+      .from(categories)
+      .where(and(
+        eq(categories.id, id),
+        eq(categories.organizationId, organizationId)
+      ))
+      .limit(1);
+    
+    return result[0] || null;
+  }
+
   static async findAll(): Promise<Category[]> {
     return db
       .select()
@@ -39,6 +53,23 @@ export class CategoryRepository {
       .from(categories)
       .where(eq(categories.userId, userId))
       .orderBy(categories.type, categories.name);
+  }
+
+  // Find all by organization
+  static async findAllByOrganization(organizationId: number): Promise<Category[]> {
+    return db
+      .select()
+      .from(categories)
+      .where(eq(categories.organizationId, organizationId))
+      .orderBy(categories.type, categories.name);
+  }
+
+  // Find by organization or user (for migration period)
+  static async findByOrganizationOrUser(organizationId: number | null, userId: number): Promise<Category[]> {
+    if (organizationId) {
+      return this.findAllByOrganization(organizationId);
+    }
+    return this.findAllByUser(userId);
   }
 
   static async findByType(type: 'receita' | 'despesa'): Promise<Category[]> {
@@ -60,6 +91,18 @@ export class CategoryRepository {
       .orderBy(categories.name);
   }
 
+  // Find by type and organization
+  static async findByTypeAndOrganization(type: 'receita' | 'despesa', organizationId: number): Promise<Category[]> {
+    return db
+      .select()
+      .from(categories)
+      .where(and(
+        eq(categories.type, type),
+        eq(categories.organizationId, organizationId)
+      ))
+      .orderBy(categories.name);
+  }
+
   static async findByName(name: string): Promise<Category | null> {
     const result = await db
       .select()
@@ -77,6 +120,20 @@ export class CategoryRepository {
       .where(and(
         eq(categories.name, name),
         eq(categories.userId, userId)
+      ))
+      .limit(1);
+    
+    return result[0] || null;
+  }
+
+  // Find by name and organization
+  static async findByNameAndOrganization(name: string, organizationId: number): Promise<Category | null> {
+    const result = await db
+      .select()
+      .from(categories)
+      .where(and(
+        eq(categories.name, name),
+        eq(categories.organizationId, organizationId)
       ))
       .limit(1);
     
@@ -126,6 +183,16 @@ export class CategoryRepository {
     return Number(result[0]?.count || 0);
   }
 
+  // Count by organization
+  static async countByOrganization(organizationId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(categories)
+      .where(eq(categories.organizationId, organizationId));
+    
+    return Number(result[0]?.count || 0);
+  }
+
   static async getTransactionCount(categoryName: string): Promise<number> {
     const result = await db
       .select({ count: sql<number>`count(*)` })
@@ -142,6 +209,19 @@ export class CategoryRepository {
       .where(and(
         eq(transactions.category, categoryName),
         eq(transactions.userId, userId)
+      ));
+    
+    return Number(result[0]?.count || 0);
+  }
+
+  // Get transaction count by organization
+  static async getTransactionCountByOrganization(categoryName: string, organizationId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(transactions)
+      .where(and(
+        eq(transactions.category, categoryName),
+        eq(transactions.organizationId, organizationId)
       ));
     
     return Number(result[0]?.count || 0);

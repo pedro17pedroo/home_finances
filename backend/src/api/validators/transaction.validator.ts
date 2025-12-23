@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+// Custom date validator that accepts both ISO datetime and simple date formats
+const dateString = z.string().refine((val) => {
+  // Accept ISO datetime format (2025-12-23T00:00:00.000Z)
+  // or simple date format (2025-12-23)
+  const isoDatetime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+  const simpleDate = /^\d{4}-\d{2}-\d{2}$/;
+  return isoDatetime.test(val) || simpleDate.test(val);
+}, { message: "Data inválida" });
+
 export const createTransactionSchema = z.object({
   body: z.object({
     accountId: z.number().positive("Account ID deve ser positivo"),
@@ -9,7 +18,7 @@ export const createTransactionSchema = z.object({
     }),
     category: z.string().min(1, "Categoria é obrigatória"),
     description: z.string().optional(),
-    date: z.string().datetime("Data inválida"),
+    date: dateString,
     isRecurring: z.boolean().optional(),
     recurringFrequency: z.string().optional(),
   }),
@@ -22,7 +31,7 @@ export const updateTransactionSchema = z.object({
     type: z.enum(['receita', 'despesa']).optional(),
     category: z.string().min(1).optional(),
     description: z.string().optional(),
-    date: z.string().datetime().optional(),
+    date: dateString.optional(),
     isRecurring: z.boolean().optional(),
     recurringFrequency: z.string().optional(),
   }),
@@ -30,8 +39,8 @@ export const updateTransactionSchema = z.object({
 
 export const getTransactionsSchema = z.object({
   query: z.object({
-    startDate: z.string().datetime().optional(),
-    endDate: z.string().datetime().optional(),
+    startDate: dateString.optional(),
+    endDate: dateString.optional(),
     type: z.enum(['receita', 'despesa']).optional(),
     accountId: z.string().transform(Number).optional(),
   }),

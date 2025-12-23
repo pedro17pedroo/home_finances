@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "../../core/database/db.js";
 import { debts, type Debt, type InsertDebt } from "../../core/database/schema.js";
 
@@ -21,11 +21,37 @@ export class DebtRepository {
       .orderBy(desc(debts.createdAt));
   }
 
-  static async findByUserIdAndStatus(userId: number, status: string): Promise<Debt[]> {
+  // Find by organization ID (multi-tenant)
+  static async findByOrganizationId(organizationId: number): Promise<Debt[]> {
+    return await db
+      .select()
+      .from(debts)
+      .where(eq(debts.organizationId, organizationId))
+      .orderBy(desc(debts.createdAt));
+  }
+
+  // Find by organization or user (for migration period)
+  static async findByOrganizationOrUser(organizationId: number | null, userId: number): Promise<Debt[]> {
+    if (organizationId) {
+      return this.findByOrganizationId(organizationId);
+    }
+    return this.findByUserId(userId);
+  }
+
+  static async findByUserIdAndStatus(userId: number, status: 'pendente' | 'pago' | 'cancelado'): Promise<Debt[]> {
     return await db
       .select()
       .from(debts)
       .where(and(eq(debts.userId, userId), eq(debts.status, status)))
+      .orderBy(desc(debts.createdAt));
+  }
+
+  // Find by organization and status
+  static async findByOrganizationIdAndStatus(organizationId: number, status: 'pendente' | 'pago' | 'cancelado'): Promise<Debt[]> {
+    return await db
+      .select()
+      .from(debts)
+      .where(and(eq(debts.organizationId, organizationId), eq(debts.status, status)))
       .orderBy(desc(debts.createdAt));
   }
 
@@ -43,14 +69,51 @@ export class DebtRepository {
     return result.rowCount > 0;
   }
 
+  // Count by user
+  static async countByUserId(userId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(debts)
+      .where(eq(debts.userId, userId));
+    
+    return Number(result[0]?.count || 0);
+  }
+
+  // Count by organization
+  static async countByOrganizationId(organizationId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(debts)
+      .where(eq(debts.organizationId, organizationId));
+    
+    return Number(result[0]?.count || 0);
+  }
+
   static async getSummaryByUserId(userId: number) {
     const userDebts = await this.findByUserId(userId);
-    
-    const totalDebts = userDebts.length;
-    const totalAmount = userDebts.reduce((sum, debt) => sum + parseFloat(debt.amount), 0);
-    const pendingDebts = userDebts.filter(debt => debt.status === 'pendente').length;
-    const paidDebts = userDebts.filter(debt => debt.status === 'pago').length;
-    const overdueDebts = userDebts.filter(debt => 
+    return this.calculateSummary(userDebts);
+  }
+
+  // Get summary by organization
+  static async getSummaryByOrganizationId(organizationId: number) {
+    const orgDebts = await this.findByOrganizationId(organizationId);
+    return this.calculateSummary(orgDebts);
+  }
+
+  // Get summary by organization or user
+  static async getSummaryByOrganizationOrUser(organizationId: number | null, userId: number) {
+    if (organizationId) {
+      return this.getSummaryByOrganizationId(organizationId);
+    }
+    return this.getSummaryByUserId(userId);
+  }
+
+  private static calculateSummary(debtsList: Debt[]) {
+    const totalDebts = debtsList.length;
+    const totalAmount = debtsList.reduce((sum, debt) => sum + parseFloat(debt.amount), 0);
+    const pendingDebts = debtsList.filter(debt => debt.status === 'pendente').length;
+    const paidDebts = debtsList.filter(debt => debt.status === 'pago').length;
+    const overdueDebts = debtsList.filter(debt => 
       debt.status === 'pendente' && 
       debt.dueDate && 
       new Date(debt.dueDate) < new Date()
@@ -62,10 +125,10 @@ export class DebtRepository {
       pendingDebts,
       paidDebts,
       overdueDebts,
-      pendingAmount: userDebts
+      pendingAmount: debtsList
         .filter(debt => debt.status === 'pendente')
         .reduce((sum, debt) => sum + parseFloat(debt.amount), 0),
-      paidAmount: userDebts
+      paidAmount: debtsList
         .filter(debt => debt.status === 'pago')
         .reduce((sum, debt) => sum + parseFloat(debt.amount), 0)
     };

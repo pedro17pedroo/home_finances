@@ -3,6 +3,7 @@ import app from "./app.js";
 import { config } from "./core/config/index.js";
 import { logger } from "./core/utils/logger.js";
 import { RecurringTransactionsJob } from "./core/jobs/recurring-transactions.job.js";
+import { SubscriptionExpirationJob } from "./core/jobs/subscription-expiration.job.js";
 
 const server = app.listen(config.PORT, "0.0.0.0", () => {
   logger.info(`🚀 Server running on port ${config.PORT}`);
@@ -11,6 +12,7 @@ const server = app.listen(config.PORT, "0.0.0.0", () => {
   
   // Iniciar jobs em background
   RecurringTransactionsJob.start();
+  SubscriptionExpirationJob.start();
   logger.info(`⏰ Jobs iniciados`);
 });
 
@@ -18,6 +20,7 @@ const server = app.listen(config.PORT, "0.0.0.0", () => {
 process.on("SIGTERM", () => {
   logger.info("SIGTERM received, shutting down gracefully");
   RecurringTransactionsJob.stop();
+  SubscriptionExpirationJob.stop();
   server.close(() => {
     logger.info("Process terminated");
     process.exit(0);
@@ -27,6 +30,7 @@ process.on("SIGTERM", () => {
 process.on("SIGINT", () => {
   logger.info("SIGINT received, shutting down gracefully");
   RecurringTransactionsJob.stop();
+  SubscriptionExpirationJob.stop();
   server.close(() => {
     logger.info("Process terminated");
     process.exit(0);
