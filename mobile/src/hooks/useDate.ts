@@ -1,86 +1,50 @@
+import { useCallback } from 'react';
+
 export const useDate = () => {
-  const formatDate = (date: string | Date): string => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    
-    return dateObj.toLocaleDateString('pt-BR', {
+  const formatDate = useCallback((dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-AO', {
       day: '2-digit',
-      month: '2-digit',
+      month: 'short',
       year: 'numeric',
     });
-  };
+  }, []);
 
-  const formatDateTime = (date: string | Date): string => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    
-    return dateObj.toLocaleString('pt-BR', {
+  const formatDateTime = useCallback((dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-AO', {
       day: '2-digit',
-      month: '2-digit',
+      month: 'short',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
+  }, []);
 
-  const formatRelativeDate = (date: string | Date): string => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const formatRelativeDate = useCallback((dateString: string): string => {
+    const date = new Date(dateString);
     const now = new Date();
-    const diffInMs = now.getTime() - dateObj.getTime();
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-    if (diffInDays === 0) {
-      return 'Hoje';
-    } else if (diffInDays === 1) {
-      return 'Ontem';
-    } else if (diffInDays < 7) {
-      return `${diffInDays} dias atrás`;
-    } else if (diffInDays < 30) {
-      const weeks = Math.floor(diffInDays / 7);
-      return `${weeks} semana${weeks > 1 ? 's' : ''} atrás`;
-    } else if (diffInDays < 365) {
-      const months = Math.floor(diffInDays / 30);
-      return `${months} mês${months > 1 ? 'es' : ''} atrás`;
-    } else {
-      const years = Math.floor(diffInDays / 365);
-      return `${years} ano${years > 1 ? 's' : ''} atrás`;
-    }
-  };
+    if (diffMinutes < 1) return 'Agora mesmo';
+    if (diffMinutes < 60) return `Há ${diffMinutes} min`;
+    if (diffHours < 24) return `Há ${diffHours}h`;
+    if (diffDays === 1) return 'Ontem';
+    if (diffDays < 7) return `Há ${diffDays} dias`;
+    if (diffDays < 30) return `Há ${Math.floor(diffDays / 7)} semanas`;
+    if (diffDays < 365) return `Há ${Math.floor(diffDays / 30)} meses`;
+    return `Há ${Math.floor(diffDays / 365)} anos`;
+  }, []);
 
-  const formatMonthYear = (date: string | Date): string => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    
-    return dateObj.toLocaleDateString('pt-BR', {
-      month: 'long',
-      year: 'numeric',
-    });
-  };
+  const getDaysUntil = useCallback((dateString: string): number => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  }, []);
 
-  const isToday = (date: string | Date): boolean => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    const today = new Date();
-    
-    return (
-      dateObj.getDate() === today.getDate() &&
-      dateObj.getMonth() === today.getMonth() &&
-      dateObj.getFullYear() === today.getFullYear()
-    );
-  };
-
-  const isThisMonth = (date: string | Date): boolean => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    const today = new Date();
-    
-    return (
-      dateObj.getMonth() === today.getMonth() &&
-      dateObj.getFullYear() === today.getFullYear()
-    );
-  };
-
-  return {
-    formatDate,
-    formatDateTime,
-    formatRelativeDate,
-    formatMonthYear,
-    isToday,
-    isThisMonth,
-  };
+  return { formatDate, formatDateTime, formatRelativeDate, getDaysUntil };
 };

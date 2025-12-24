@@ -1,47 +1,20 @@
-import { APP_CONFIG } from '../constants/config';
+import { useCallback } from 'react';
 
 export const useCurrency = () => {
-  const formatCurrency = (value: number | string): string => {
-    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+  const formatCurrency = useCallback((value: number | string): string => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(num)) return '0,00 Kz';
     
-    if (isNaN(numericValue)) {
-      return '0,00 AOA';
-    }
-
-    return new Intl.NumberFormat(APP_CONFIG.LOCALE, {
-      style: 'currency',
-      currency: APP_CONFIG.CURRENCY,
+    return new Intl.NumberFormat('pt-AO', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(numericValue);
-  };
+    }).format(num) + ' Kz';
+  }, []);
 
-  const formatNumber = (value: number | string): string => {
-    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
-    
-    if (isNaN(numericValue)) {
-      return '0';
-    }
+  const parseCurrency = useCallback((value: string): number => {
+    const cleaned = value.replace(/[^\d,.-]/g, '').replace(',', '.');
+    return parseFloat(cleaned) || 0;
+  }, []);
 
-    return new Intl.NumberFormat(APP_CONFIG.LOCALE, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(numericValue);
-  };
-
-  const parseCurrency = (value: string): number => {
-    // Remove todos os caracteres não numéricos exceto vírgula e ponto
-    const cleanValue = value.replace(/[^\d,.-]/g, '');
-    
-    // Substitui vírgula por ponto para conversão
-    const normalizedValue = cleanValue.replace(',', '.');
-    
-    return parseFloat(normalizedValue) || 0;
-  };
-
-  return {
-    formatCurrency,
-    formatNumber,
-    parseCurrency,
-  };
+  return { formatCurrency, parseCurrency };
 };

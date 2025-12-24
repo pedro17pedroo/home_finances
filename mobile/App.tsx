@@ -1,21 +1,25 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import Toast from 'react-native-toast-message';
+import { View, ActivityIndicator, Text } from 'react-native';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { AuthProvider } from './src/contexts/AuthContext';
-import { AppProvider } from './src/contexts/AppContext';
+import { ToastProvider } from './src/contexts/ToastContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { NetworkStatus } from './src/components/NetworkStatus';
 import { storageService } from './src/services/storage.service';
 import { analytics } from './src/utils/analytics';
+import { COLORS } from './src/constants/config';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
     },
     mutations: {
       retry: 1,
@@ -23,19 +27,27 @@ const queryClient = new QueryClient({
   },
 });
 
+// Inner component to access theme
+const AppContent: React.FC = () => {
+  const { isDark } = useTheme();
+
+  return (
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <NetworkStatus />
+      <AppNavigator />
+    </>
+  );
+};
+
 export default function App() {
   useEffect(() => {
-    // Inicialização da aplicação
     const initializeApp = async () => {
       try {
-        // Limpa cache expirado
         await storageService.cleanExpiredCache();
-        
-        // Track app start
         analytics.track('app_started', {
           timestamp: new Date().toISOString(),
         });
-        
         console.log('✅ App initialized successfully');
       } catch (error) {
         console.error('❌ Error initializing app:', error);
@@ -47,17 +59,20 @@ export default function App() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AppProvider>
-          <AuthProvider>
-            <StatusBar style="auto" />
-            <NetworkStatus />
-            <AppNavigator />
-            <Toast />
-          </AuthProvider>
-        </AppProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider>
+              <AuthProvider>
+                <ToastProvider>
+                  <AppContent />
+                </ToastProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

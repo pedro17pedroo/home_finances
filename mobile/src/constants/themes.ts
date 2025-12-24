@@ -1,79 +1,161 @@
-// Temas da aplicação
-export const lightTheme = {
-  // Cores principais
-  primary: '#007bff',
-  primaryDark: '#0056b3',
-  primaryLight: '#66b3ff',
+import { SPACING, RADIUS, FONT_SIZE } from './config';
+
+// Light Theme Colors
+export const lightColors = {
+  // Primary
+  primary: '#2563EB',
+  primaryDark: '#1D4ED8',
+  primaryLight: '#3B82F6',
+  primaryBackground: '#EFF6FF',
   
-  // Cores de fundo
-  background: '#ffffff',
-  backgroundSecondary: '#f8f9fa',
-  backgroundTertiary: '#e9ecef',
+  // Background
+  background: '#F8FAFC',
+  surface: '#FFFFFF',
+  surfaceSecondary: '#F1F5F9',
+  surfaceTertiary: '#E2E8F0',
   
-  // Cores de texto
-  text: '#212529',
-  textSecondary: '#6c757d',
-  textTertiary: '#adb5bd',
+  // Text
+  text: '#1E293B',
+  textSecondary: '#64748B',
+  textTertiary: '#94A3B8',
+  textInverse: '#FFFFFF',
   
-  // Cores de status
-  success: '#28a745',
-  warning: '#ffc107',
-  error: '#dc3545',
-  info: '#17a2b8',
+  // Status
+  success: '#10B981',
+  successBackground: '#D1FAE5',
+  warning: '#F59E0B',
+  warningBackground: '#FEF3C7',
+  error: '#EF4444',
+  errorBackground: '#FEE2E2',
+  info: '#3B82F6',
+  infoBackground: '#DBEAFE',
   
-  // Cores de borda
-  border: '#dee2e6',
-  borderLight: '#e9ecef',
+  // Border
+  border: '#E2E8F0',
+  borderLight: '#F1F5F9',
+  borderFocused: '#3B82F6',
   
-  // Cores específicas
-  income: '#28a745',
-  expense: '#dc3545',
-  transfer: '#17a2b8',
+  // Specific
+  income: '#10B981',
+  incomeBackground: '#D1FAE5',
+  expense: '#EF4444',
+  expenseBackground: '#FEE2E2',
+  transfer: '#3B82F6',
+  transferBackground: '#DBEAFE',
   
-  // Sombras
-  shadow: 'rgba(0, 0, 0, 0.1)',
-  shadowDark: 'rgba(0, 0, 0, 0.2)',
+  // Card
+  card: '#FFFFFF',
+  cardBorder: '#E2E8F0',
+  
+  // Input
+  inputBackground: '#FFFFFF',
+  inputBorder: '#E2E8F0',
+  inputPlaceholder: '#94A3B8',
+  
+  // Tab Bar
+  tabBar: '#FFFFFF',
+  tabBarBorder: '#E2E8F0',
+  tabActive: '#2563EB',
+  tabInactive: '#94A3B8',
+  
+  // Others
+  overlay: 'rgba(0, 0, 0, 0.5)',
+  shadow: 'rgba(0, 0, 0, 0.08)',
+  skeleton: '#E2E8F0',
+  skeletonHighlight: '#F1F5F9',
 } as const;
 
-export const darkTheme = {
-  // Cores principais
-  primary: '#0d6efd',
-  primaryDark: '#0a58ca',
-  primaryLight: '#6ea8fe',
+// Dark Theme Colors
+export const darkColors = {
+  // Primary
+  primary: '#3B82F6',
+  primaryDark: '#2563EB',
+  primaryLight: '#60A5FA',
+  primaryBackground: '#1E3A5F',
   
-  // Cores de fundo
-  background: '#121212',
-  backgroundSecondary: '#1e1e1e',
-  backgroundTertiary: '#2d2d2d',
+  // Background
+  background: '#0F172A',
+  surface: '#1E293B',
+  surfaceSecondary: '#334155',
+  surfaceTertiary: '#475569',
   
-  // Cores de texto
-  text: '#ffffff',
-  textSecondary: '#b3b3b3',
-  textTertiary: '#808080',
+  // Text
+  text: '#F1F5F9',
+  textSecondary: '#94A3B8',
+  textTertiary: '#64748B',
+  textInverse: '#1E293B',
   
-  // Cores de status
-  success: '#198754',
-  warning: '#fd7e14',
-  error: '#dc3545',
-  info: '#0dcaf0',
+  // Status
+  success: '#34D399',
+  successBackground: '#064E3B',
+  warning: '#FBBF24',
+  warningBackground: '#78350F',
+  error: '#F87171',
+  errorBackground: '#7F1D1D',
+  info: '#60A5FA',
+  infoBackground: '#1E3A5F',
   
-  // Cores de borda
-  border: '#404040',
-  borderLight: '#333333',
+  // Border
+  border: '#334155',
+  borderLight: '#475569',
+  borderFocused: '#3B82F6',
   
-  // Cores específicas
-  income: '#198754',
-  expense: '#dc3545',
-  transfer: '#0dcaf0',
+  // Specific
+  income: '#34D399',
+  incomeBackground: '#064E3B',
+  expense: '#F87171',
+  expenseBackground: '#7F1D1D',
+  transfer: '#60A5FA',
+  transferBackground: '#1E3A5F',
   
-  // Sombras
+  // Card
+  card: '#1E293B',
+  cardBorder: '#334155',
+  
+  // Input
+  inputBackground: '#1E293B',
+  inputBorder: '#334155',
+  inputPlaceholder: '#64748B',
+  
+  // Tab Bar
+  tabBar: '#1E293B',
+  tabBarBorder: '#334155',
+  tabActive: '#3B82F6',
+  tabInactive: '#64748B',
+  
+  // Others
+  overlay: 'rgba(0, 0, 0, 0.7)',
   shadow: 'rgba(0, 0, 0, 0.3)',
-  shadowDark: 'rgba(0, 0, 0, 0.5)',
+  skeleton: '#334155',
+  skeletonHighlight: '#475569',
 } as const;
 
-export type Theme = typeof lightTheme;
+export type ThemeColors = typeof lightColors;
 
-// Utilitário para obter o tema baseado no modo
+export interface Theme {
+  dark: boolean;
+  colors: ThemeColors;
+  spacing: typeof SPACING;
+  radius: typeof RADIUS;
+  fontSize: typeof FONT_SIZE;
+}
+
+export const lightTheme: Theme = {
+  dark: false,
+  colors: lightColors,
+  spacing: SPACING,
+  radius: RADIUS,
+  fontSize: FONT_SIZE,
+};
+
+export const darkTheme: Theme = {
+  dark: true,
+  colors: darkColors,
+  spacing: SPACING,
+  radius: RADIUS,
+  fontSize: FONT_SIZE,
+};
+
 export const getTheme = (isDark: boolean): Theme => {
   return isDark ? darkTheme : lightTheme;
 };
