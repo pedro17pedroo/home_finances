@@ -8,6 +8,8 @@ import {
   systemSettings,
   landingContent,
   legalContent,
+  faqItems,
+  contactMessages,
   subscriptionPayments,
   securityLogs,
   blockedIPs,
@@ -18,7 +20,11 @@ import {
   type LandingContent,
   type InsertLandingContent,
   type LegalContent,
-  type InsertLegalContent
+  type InsertLegalContent,
+  type FaqItem,
+  type InsertFaqItem,
+  type ContactMessage,
+  type InsertContactMessage
 } from "../../core/database/schema.js";
 
 export class AdminRepository {
@@ -28,6 +34,14 @@ export class AdminRepository {
       .select()
       .from(adminUsers)
       .where(eq(adminUsers.email, email));
+    return admin || null;
+  }
+
+  static async findAdminById(id: number): Promise<AdminUser | null> {
+    const [admin] = await db
+      .select()
+      .from(adminUsers)
+      .where(eq(adminUsers.id, id));
     return admin || null;
   }
 
@@ -674,5 +688,95 @@ export class AdminRepository {
         summary: { totalRevenue: 0, totalUsers: 0, activeSubscriptions: 0, conversionRate: 0 }
       };
     }
+  }
+
+  // FAQ Management
+  static async getAllFaqItems(): Promise<FaqItem[]> {
+    try {
+      return await db
+        .select()
+        .from(faqItems)
+        .where(eq(faqItems.isActive, true))
+        .orderBy(faqItems.category, faqItems.order);
+    } catch {
+      return [];
+    }
+  }
+
+  static async getFaqByCategory(category: string): Promise<FaqItem[]> {
+    try {
+      return await db
+        .select()
+        .from(faqItems)
+        .where(and(eq(faqItems.category, category), eq(faqItems.isActive, true)))
+        .orderBy(faqItems.order);
+    } catch {
+      return [];
+    }
+  }
+
+  static async createFaqItem(data: InsertFaqItem): Promise<FaqItem> {
+    const [item] = await db.insert(faqItems).values(data).returning();
+    return item;
+  }
+
+  static async updateFaqItem(id: number, data: Partial<InsertFaqItem>): Promise<FaqItem | null> {
+    const [item] = await db
+      .update(faqItems)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(faqItems.id, id))
+      .returning();
+    return item || null;
+  }
+
+  static async deleteFaqItem(id: number): Promise<boolean> {
+    const result = await db.delete(faqItems).where(eq(faqItems.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Contact Messages Management
+  static async getAllContactMessages(status?: string): Promise<ContactMessage[]> {
+    try {
+      if (status && status !== 'all') {
+        return await db
+          .select()
+          .from(contactMessages)
+          .where(eq(contactMessages.status, status))
+          .orderBy(desc(contactMessages.createdAt));
+      }
+      return await db
+        .select()
+        .from(contactMessages)
+        .orderBy(desc(contactMessages.createdAt));
+    } catch {
+      return [];
+    }
+  }
+
+  static async createContactMessage(data: InsertContactMessage): Promise<ContactMessage> {
+    const [message] = await db.insert(contactMessages).values(data).returning();
+    return message;
+  }
+
+  static async updateContactMessageStatus(id: number, status: string, adminId?: number, notes?: string): Promise<ContactMessage | null> {
+    const updateData: any = { status, updatedAt: new Date() };
+    if (status === 'replied' && adminId) {
+      updateData.repliedAt = new Date();
+      updateData.repliedBy = adminId;
+    }
+    if (notes) {
+      updateData.adminNotes = notes;
+    }
+    const [message] = await db
+      .update(contactMessages)
+      .set(updateData)
+      .where(eq(contactMessages.id, id))
+      .returning();
+    return message || null;
+  }
+
+  static async deleteContactMessage(id: number): Promise<boolean> {
+    const result = await db.delete(contactMessages).where(eq(contactMessages.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
