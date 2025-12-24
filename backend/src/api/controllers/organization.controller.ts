@@ -271,4 +271,174 @@ export class OrganizationController {
       next(error);
     }
   }
+
+  // Simplified methods that use user's organization automatically
+
+  /**
+   * Get members of user's organization
+   */
+  static async getMyMembers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user!.id;
+      const organizationId = authReq.user!.organizationId;
+
+      if (!organizationId) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Você não pertence a nenhuma organização',
+        });
+      }
+
+      const members = await OrganizationService.getMembers(organizationId, userId);
+
+      res.json({
+        status: 'success',
+        data: members,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get invitations of user's organization
+   */
+  static async getMyInvitations(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user!.id;
+      const organizationId = authReq.user!.organizationId;
+
+      if (!organizationId) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Você não pertence a nenhuma organização',
+        });
+      }
+
+      const invitations = await OrganizationService.getPendingInvitations(organizationId, userId);
+
+      res.json({
+        status: 'success',
+        data: invitations,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Invite to user's organization
+   */
+  static async inviteToMyOrg(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user!.id;
+      const organizationId = authReq.user!.organizationId;
+      const { email, role } = req.body;
+
+      if (!organizationId) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Você não pertence a nenhuma organização',
+        });
+      }
+
+      if (!email) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Email é obrigatório',
+        });
+      }
+
+      const invitation = await OrganizationService.inviteMember(
+        organizationId,
+        userId,
+        { email, role }
+      );
+
+      res.status(201).json({
+        status: 'success',
+        data: invitation,
+        message: 'Convite enviado com sucesso',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Remove member from user's organization
+   */
+  static async removeMyMember(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user!.id;
+      const organizationId = authReq.user!.organizationId;
+      const { memberId } = req.params;
+
+      if (!organizationId) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Você não pertence a nenhuma organização',
+        });
+      }
+
+      await OrganizationService.removeMember(
+        organizationId,
+        parseInt(memberId),
+        userId
+      );
+
+      res.json({
+        status: 'success',
+        message: 'Membro removido com sucesso',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Update member role in user's organization
+   */
+  static async updateMyMemberRole(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user!.id;
+      const organizationId = authReq.user!.organizationId;
+      const { memberId } = req.params;
+      const { role } = req.body;
+
+      if (!organizationId) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Você não pertence a nenhuma organização',
+        });
+      }
+
+      if (!role || !['admin', 'member'].includes(role)) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Função inválida. Use "admin" ou "member"',
+        });
+      }
+
+      const member = await OrganizationService.updateMemberRole(
+        organizationId,
+        parseInt(memberId),
+        role,
+        userId
+      );
+
+      res.json({
+        status: 'success',
+        data: member,
+        message: 'Função atualizada com sucesso',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

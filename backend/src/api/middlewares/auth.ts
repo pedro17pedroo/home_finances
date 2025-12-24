@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { UnauthorizedError, BadRequestError } from "../../core/errors/app-error.js";
 import { config } from "../../core/config/index.js";
 import { UserRepository } from "../../domain/repositories/user.repository.js";
+import { AdminRepository } from "../../domain/repositories/admin.repository.js";
 
 // Extend Request type to include user
 declare global {
@@ -15,6 +16,8 @@ declare global {
         phone?: string;
         planType: string;
         subscriptionStatus: string;
+        organizationId?: number;
+        role?: string;
       };
     }
   }
@@ -28,6 +31,8 @@ export type AuthenticatedRequest = Request & {
     phone?: string;
     planType: string;
     subscriptionStatus: string;
+    organizationId?: number;
+    role?: string;
   };
 };
 
@@ -55,7 +60,27 @@ export const authenticate = async (
     
     const decoded = jwt.verify(token, config.JWT_SECRET) as JWTPayload;
     
-    // Verify user still exists and is active
+    // Check if it's an admin user (planType === 'admin')
+    if (decoded.planType === 'admin') {
+      const admin = await AdminRepository.findAdminById(decoded.userId);
+      if (!admin) {
+        throw new UnauthorizedError("Admin not found");
+      }
+      if (!admin.isActive) {
+        throw new UnauthorizedError("Admin account is disabled");
+      }
+      
+      req.user = {
+        id: admin.id,
+        email: admin.email,
+        planType: "admin",
+        subscriptionStatus: "active",
+      };
+      
+      return next();
+    }
+    
+    // Verify regular user still exists and is active
     const user = await UserRepository.findById(decoded.userId);
     if (!user) {
       throw new UnauthorizedError("User not found");
@@ -67,6 +92,8 @@ export const authenticate = async (
       phone: user.phone || undefined,
       planType: user.planType || "basic",
       subscriptionStatus: user.subscriptionStatus || "trialing",
+      organizationId: user.organizationId || undefined,
+      role: user.role || undefined,
     };
 
     next();
