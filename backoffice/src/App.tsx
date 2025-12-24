@@ -1,5 +1,6 @@
 import { Route, Switch, Redirect } from 'wouter';
 import { AdminAuthProvider, useAdminAuth } from './shared/contexts/admin-auth-context';
+import { ThemeProvider } from './shared/contexts/theme-context';
 
 // Pages
 import { LoginPage } from './features/auth/pages/login-page';
@@ -83,8 +84,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AdminAuthProvider>
-      <AppRoutes />
-    </AdminAuthProvider>
+    <ThemeProvider>
+      <AdminAuthProvider>
+        <AppRoutes />
+      </AdminAuthProvider>
+    </ThemeProvider>
   );
 }

@@ -43,7 +43,6 @@ export function DashboardPage() {
         const response = await apiClient.get('/admin/dashboard/stats');
         return response.data;
       } catch {
-        // Return empty data if API fails
         return {
           users: { total: 0, active: 0, newThisMonth: 0 },
           revenue: { monthly: 0, total: 0, growth: 0 },
@@ -55,7 +54,6 @@ export function DashboardPage() {
     },
   });
 
-  // Use chart data from API or empty arrays
   const revenueData = stats?.charts?.revenueHistory || [];
   const userGrowthData = stats?.charts?.userGrowthHistory || [];
 
@@ -76,8 +74,8 @@ export function DashboardPage() {
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{value}</p>
             {change !== undefined && (
               <div className="flex items-center mt-2">
                 {change >= 0 ? (
@@ -88,7 +86,7 @@ export function DashboardPage() {
                 <span className={`text-sm ${change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {Math.abs(change)}%
                 </span>
-                <span className="text-sm text-gray-400 ml-1">vs mês anterior</span>
+                <span className="text-sm text-gray-400 dark:text-gray-500 ml-1">vs mês anterior</span>
               </div>
             )}
           </div>
@@ -153,10 +151,17 @@ export function DashboardPage() {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                  <XAxis dataKey="month" className="text-gray-600 dark:text-gray-400" />
+                  <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`} className="text-gray-600 dark:text-gray-400" />
+                  <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{ 
+                      backgroundColor: 'var(--tooltip-bg, #fff)', 
+                      border: '1px solid var(--tooltip-border, #e5e7eb)',
+                      borderRadius: '8px'
+                    }}
+                  />
                   <Area
                     type="monotone"
                     dataKey="revenue"
@@ -176,10 +181,16 @@ export function DashboardPage() {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={userGrowthData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                  <XAxis dataKey="month" className="text-gray-600 dark:text-gray-400" />
+                  <YAxis className="text-gray-600 dark:text-gray-400" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'var(--tooltip-bg, #fff)', 
+                      border: '1px solid var(--tooltip-border, #e5e7eb)',
+                      borderRadius: '8px'
+                    }}
+                  />
                   <Bar dataKey="users" fill="#10b981" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -196,15 +207,15 @@ export function DashboardPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Ativas</span>
+                  <span className="text-gray-600 dark:text-gray-400">Ativas</span>
                   <span className="font-semibold text-green-600">{stats?.subscriptions.active}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Em Teste</span>
+                  <span className="text-gray-600 dark:text-gray-400">Em Teste</span>
                   <span className="font-semibold text-blue-600">{stats?.subscriptions.trial}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Canceladas</span>
+                  <span className="text-gray-600 dark:text-gray-400">Canceladas</span>
                   <span className="font-semibold text-red-600">{stats?.subscriptions.cancelled}</span>
                 </div>
               </div>
@@ -218,15 +229,15 @@ export function DashboardPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Pendentes</span>
+                  <span className="text-gray-600 dark:text-gray-400">Pendentes</span>
                   <span className="font-semibold text-yellow-600">{stats?.payments.pending}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Concluídos</span>
+                  <span className="text-gray-600 dark:text-gray-400">Concluídos</span>
                   <span className="font-semibold text-green-600">{stats?.payments.completed}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Falhados</span>
+                  <span className="text-gray-600 dark:text-gray-400">Falhados</span>
                   <span className="font-semibold text-red-600">{stats?.payments.failed}</span>
                 </div>
               </div>
@@ -240,7 +251,7 @@ export function DashboardPage() {
             <CardContent>
               <div className="text-center">
                 <p className="text-4xl font-bold text-blue-600">{stats?.users.newThisMonth}</p>
-                <p className="text-gray-500 mt-2">Este mês</p>
+                <p className="text-gray-500 dark:text-gray-400 mt-2">Este mês</p>
               </div>
             </CardContent>
           </Card>
