@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,24 +13,33 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { COLORS, SPACING } from '../../constants/config';
+import api from '../../services/api';
 
 interface AddCategoryScreenProps {
-  navigation: any;
+  navigation?: any;
   route?: {
     params?: {
       categoryId?: number;
+      category?: {
+        id: number;
+        name: string;
+        type: 'receita' | 'despesa';
+        icon?: string;
+        color?: string;
+      };
     };
   };
 }
 
 export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({ navigation, route }) => {
-  const isEditing = !!route?.params?.categoryId;
+  const existingCategory = route?.params?.category;
+  const isEditing = !!existingCategory;
   
   const [formData, setFormData] = useState({
-    name: '',
-    type: 'despesa' as 'receita' | 'despesa',
-    icon: 'pricetag' as keyof typeof Ionicons.glyphMap,
-    color: COLORS.primary,
+    name: existingCategory?.name || '',
+    type: (existingCategory?.type || 'despesa') as 'receita' | 'despesa',
+    icon: (existingCategory?.icon || 'pricetag') as keyof typeof Ionicons.glyphMap,
+    color: existingCategory?.color || COLORS.primary,
   });
   const [loading, setLoading] = useState(false);
 
@@ -48,10 +57,10 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({ navigation
     'Finanças': ['card', 'cash', 'wallet', 'trending-up', 'trending-down', 'analytics'],
   };
 
-  // Cores disponíveis
+  // Cores disponíveis (sem duplicatas)
   const availableColors = [
     COLORS.primary, COLORS.secondary, COLORS.success, COLORS.warning, COLORS.error,
-    '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6',
+    '#8B5CF6', '#EC4899', '#F97316', '#14B8A6', '#3B82F6',
     '#6366F1', '#8B5A2B', '#059669', '#DC2626', '#7C3AED',
     '#BE185D', '#D97706', '#047857', '#B91C1C', '#5B21B6',
   ];
@@ -87,8 +96,21 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({ navigation
 
     setLoading(true);
     try {
-      // Simular criação/edição da categoria
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (isEditing && existingCategory) {
+        await api.put(`/categories/${existingCategory.id}`, {
+          name: formData.name.trim(),
+          type: formData.type,
+          icon: formData.icon,
+          color: formData.color,
+        });
+      } else {
+        await api.post('/categories', {
+          name: formData.name.trim(),
+          type: formData.type,
+          icon: formData.icon,
+          color: formData.color,
+        });
+      }
       
       Alert.alert(
         'Sucesso',
@@ -96,12 +118,13 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({ navigation
         [
           {
             text: 'OK',
-            onPress: () => navigation.goBack(),
+            onPress: () => navigation?.goBack(),
           },
         ]
       );
-    } catch (error) {
-      Alert.alert('Erro', `Erro ao ${isEditing ? 'atualizar' : 'criar'} categoria. Tente novamente.`);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || `Erro ao ${isEditing ? 'atualizar' : 'criar'} categoria`;
+      Alert.alert('Erro', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -120,7 +143,7 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({ navigation
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation?.goBack()}
         >
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
@@ -250,9 +273,9 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({ navigation
           <Text style={styles.formTitle}>Cor</Text>
           
           <View style={styles.colorsGrid}>
-            {availableColors.map((color) => (
+            {availableColors.map((color, index) => (
               <TouchableOpacity
-                key={color}
+                key={`color-${index}`}
                 style={[
                   styles.colorButton,
                   { backgroundColor: color },

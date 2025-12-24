@@ -347,7 +347,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
               title={`Marcar Todas como Lidas (${getUnreadCount()})`}
               onPress={markAllAsRead}
               variant="outline"
-              size="small"
+              size="sm"
             />
           </View>
         )}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,32 +9,80 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useToast } from '../../contexts/ToastContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useCurrency } from '../../hooks/useCurrency';
-import { COLORS, SPACING } from '../../constants/config';
+import { SPACING } from '../../constants/config';
+import { Account, Debt } from '../../types';
+import api from '../../services/api';
 
 interface AddDebtScreenProps {
-  navigation: any;
+  navigation?: any;
+  route?: { params?: { debt?: Debt } };
 }
 
-export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation }) => {
+export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation, route }) => {
+  const { colors } = useTheme();
+  const { showSuccess, showError } = useToast();
+  const { formatCurrency } = useCurrency();
+  
+  const editingDebt = route?.params?.debt;
+  const isEditing = !!editingDebt;
+
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(editingDebt?.accountId || null);
   const [formData, setFormData] = useState({
-    creditorName: '',
-    amount: '',
-    interestRate: '',
-    dueDate: '',
-    description: '',
+    creditorName: editingDebt?.creditor || '',
+    amount: editingDebt?.amount || editingDebt?.totalAmount ? String(editingDebt?.amount || editingDebt?.totalAmount) : '',
+    interestRate: editingDebt?.interestRate ? String(editingDebt.interestRate) : '',
+    dueDate: editingDebt?.dueDate ? formatDateForDisplay(editingDebt.dueDate) : '',
+    description: editingDebt?.description || editingDebt?.notes || '',
   });
   const [loading, setLoading] = useState(false);
-  const { formatCurrency } = useCurrency();
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
+
+  const fetchAccounts = async () => {
+    try {
+      const response = await api.get('/accounts');
+      const data = response.data?.data || response.data || [];
+      setAccounts(Array.isArray(data) ? data : []);
+      if (data.length > 0 && !selectedAccountId) {
+        setSelectedAccountId(data[0].id);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar contas:', error);
+      showError('Erro ao carregar contas');
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
+
+  function formatDateForDisplay(dateStr: string): string {
+    try {
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return '';
+    }
+  }
+
+  function formatDateForAPI(dateStr: string): string {
+    const [day, month, year] = dateStr.split('/').map(Number);
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const validateForm = () => {
@@ -42,42 +90,26 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation }) => {
       Alert.alert('Erro', 'Nome do credor é obrigatório');
       return false;
     }
-
     if (!formData.amount.trim()) {
       Alert.alert('Erro', 'Valor da dívida é obrigatório');
       return false;
     }
-
     const amount = parseFloat(formData.amount.replace(/[^\d.,]/g, '').replace(',', '.'));
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Erro', 'Valor da dívida deve ser maior que zero');
       return false;
     }
-
-    if (!formData.dueDate.trim()) {
-      Alert.alert('Erro', 'Data de vencimento é obrigatória');
+    if (!selectedAccountId) {
+      Alert.alert('Erro', 'Selecione uma conta');
       return false;
     }
-
-    // Validar formato da data (DD/MM/YYYY)
-    const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
-    if (!dateRegex.test(formData.dueDate)) {
-      Alert.alert('Erro', 'Data deve estar no formato DD/MM/YYYY');
-      return false;
+    if (formData.dueDate.trim()) {
+      const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+      if (!dateRegex.test(formData.dueDate)) {
+        Alert.alert('Erro', 'Data deve estar no formato DD/MM/YYYY');
+        return false;
+      }
     }
-
-    // Validar se a data é futura
-    const [day, month, year] = formData.dueDate.split('/').map(Number);
-    const dueDate = new Date(year, month - 1, day);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (dueDate <= today) {
-      Alert.alert('Erro', 'Data de vencimento deve ser futura');
-      return false;
-    }
-
-    // Validar taxa de juros se fornecida
     if (formData.interestRate.trim()) {
       const rate = parseFloat(formData.interestRate.replace(',', '.'));
       if (isNaN(rate) || rate < 0 || rate > 100) {
@@ -85,44 +117,47 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation }) => {
         return false;
       }
     }
-
     return true;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-
     setLoading(true);
     try {
-      // Simular criação da dívida
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      Alert.alert(
-        'Sucesso',
-        'Dívida registrada com sucesso!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Erro', 'Erro ao registrar dívida. Tente novamente.');
+      const amount = parseFloat(formData.amount.replace(/[^\d.,]/g, '').replace(',', '.'));
+      const interestRate = formData.interestRate.trim() 
+        ? parseFloat(formData.interestRate.replace(',', '.')) 
+        : undefined;
+      const payload = {
+        accountId: selectedAccountId,
+        amount,
+        creditor: formData.creditorName.trim(),
+        interestRate,
+        dueDate: formData.dueDate.trim() ? formatDateForAPI(formData.dueDate) : undefined,
+        description: formData.description.trim() || undefined,
+      };
+      if (isEditing) {
+        await api.put(`/debts/${editingDebt.id}`, payload);
+        showSuccess('Dívida atualizada com sucesso!');
+      } else {
+        await api.post('/debts', payload);
+        showSuccess('Dívida registrada com sucesso!');
+      }
+      navigation.goBack();
+    } catch (error: any) {
+      console.error('Erro ao salvar dívida:', error);
+      const message = error.response?.data?.message || 'Erro ao salvar dívida';
+      showError(message);
     } finally {
       setLoading(false);
     }
   };
 
   const formatAmountInput = (value: string) => {
-    // Remove tudo exceto números
     const numbers = value.replace(/[^\d]/g, '');
-    
     if (!numbers) return '';
-    
-    // Converte para número e formata
     const amount = parseInt(numbers) / 100;
-    return formatCurrency(amount).replace('AOA', '').trim();
+    return formatCurrency(amount).replace('Kz', '').trim();
   };
 
   const handleAmountChange = (value: string) => {
@@ -131,9 +166,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation }) => {
   };
 
   const formatDateInput = (value: string) => {
-    // Remove tudo exceto números
     const numbers = value.replace(/[^\d]/g, '');
-    
     if (numbers.length <= 2) return numbers;
     if (numbers.length <= 4) return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
     return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
@@ -147,29 +180,20 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation }) => {
   const calculatePreview = () => {
     const amount = parseFloat(formData.amount.replace(/[^\d.,]/g, '').replace(',', '.'));
     const rate = parseFloat(formData.interestRate.replace(',', '.')) || 0;
-    
     if (isNaN(amount) || amount <= 0) return null;
-
     const monthlyInterest = (amount * rate) / 100;
     const totalWithInterest = amount + monthlyInterest;
-
-    return {
-      principal: amount,
-      monthlyInterest,
-      totalWithInterest,
-    };
+    return { principal: amount, monthlyInterest, totalWithInterest };
   };
 
   const getDaysUntilDue = () => {
     if (!formData.dueDate) return null;
-    
     try {
       const [day, month, year] = formData.dueDate.split('/').map(Number);
       const dueDate = new Date(year, month - 1, day);
       const today = new Date();
       const diffTime = dueDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays;
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     } catch {
       return null;
     }
@@ -179,24 +203,29 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation }) => {
   const daysUntilDue = getDaysUntilDue();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Nova Dívida</Text>
+        <Text style={[styles.title, { color: colors.text }]}>
+          {isEditing ? 'Editar Dívida' : 'Nova Dívida'}
+        </Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <Card style={styles.formCard}>
-          <Text style={styles.formTitle}>Dados da Dívida</Text>
+        <Card variant="default" padding="lg" style={styles.formCard}>
+          <Text style={[styles.formTitle, { color: colors.text }]}>Dados da Dívida</Text>
+          <Text style={[styles.formSubtitle, { color: colors.textSecondary }]}>
+            💳 Dívida = dinheiro que você deve a alguém (você deve a eles)
+          </Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Nome do Credor *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Nome do Credor *</Text>
             <Input
               placeholder="Ex: Banco BAI, Cartão BFA"
               value={formData.creditorName}
@@ -205,48 +234,77 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation }) => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Valor da Dívida *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Valor da Dívida *</Text>
             <Input
               placeholder="0,00"
               value={formData.amount}
               onChangeText={handleAmountChange}
               keyboardType="numeric"
             />
-            <Text style={styles.inputHint}>
-              Digite o valor sem símbolos de moeda
-            </Text>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Taxa de Juros (% ao mês)</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Conta Associada *</Text>
+            {loadingAccounts ? (
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Carregando...</Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {accounts.map((account) => (
+                  <TouchableOpacity
+                    key={account.id}
+                    style={[
+                      styles.accountChip,
+                      { 
+                        backgroundColor: selectedAccountId === account.id ? colors.error : colors.surfaceSecondary,
+                        borderColor: selectedAccountId === account.id ? colors.error : colors.border,
+                      }
+                    ]}
+                    onPress={() => setSelectedAccountId(account.id)}
+                  >
+                    <Text style={[
+                      styles.accountChipText,
+                      { color: selectedAccountId === account.id ? '#FFFFFF' : colors.text }
+                    ]}>
+                      {account.name}
+                    </Text>
+                    <Text style={[
+                      styles.accountChipBalance,
+                      { color: selectedAccountId === account.id ? 'rgba(255,255,255,0.8)' : colors.textSecondary }
+                    ]}>
+                      {formatCurrency(account.balance)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Taxa de Juros (% ao mês)</Text>
             <Input
               placeholder="Ex: 12.0"
               value={formData.interestRate}
               onChangeText={(value) => handleInputChange('interestRate', value)}
               keyboardType="numeric"
             />
-            <Text style={styles.inputHint}>
-              Opcional - deixe em branco se não houver juros
-            </Text>
+            <Text style={[styles.inputHint, { color: colors.textSecondary }]}>Opcional</Text>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Data de Vencimento *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Data de Vencimento</Text>
             <Input
               placeholder="DD/MM/YYYY"
               value={formData.dueDate}
               onChangeText={handleDateChange}
               keyboardType="numeric"
+              maxLength={10}
             />
-            <Text style={styles.inputHint}>
-              Data em que a dívida deve ser paga
-            </Text>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Descrição</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Descrição</Text>
             <Input
-              placeholder="Ex: Fatura do cartão de crédito"
+              placeholder="Ex: Fatura do cartão"
               value={formData.description}
               onChangeText={(value) => handleInputChange('description', value)}
               multiline
@@ -255,266 +313,81 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation }) => {
           </View>
         </Card>
 
-        {/* Preview da Dívida */}
         {preview && (
-          <Card style={styles.previewCard}>
-            <Text style={styles.previewTitle}>Resumo da Dívida</Text>
-            
+          <Card variant="outlined" padding="lg" style={[styles.previewCard, { borderColor: colors.error }]}>
+            <Text style={[styles.previewTitle, { color: colors.text }]}>Resumo</Text>
             <View style={styles.previewRow}>
-              <Text style={styles.previewLabel}>Valor Principal:</Text>
-              <Text style={styles.previewValue}>
-                {formatCurrency(preview.principal)}
-              </Text>
+              <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>Principal:</Text>
+              <Text style={[styles.previewValue, { color: colors.text }]}>{formatCurrency(preview.principal)}</Text>
             </View>
-
             {preview.monthlyInterest > 0 && (
               <>
                 <View style={styles.previewRow}>
-                  <Text style={styles.previewLabel}>Juros Mensal:</Text>
-                  <Text style={[styles.previewValue, styles.interestValue]}>
-                    {formatCurrency(preview.monthlyInterest)}
-                  </Text>
+                  <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>Juros:</Text>
+                  <Text style={[styles.previewValue, { color: colors.warning }]}>{formatCurrency(preview.monthlyInterest)}</Text>
                 </View>
-
-                <View style={[styles.previewRow, styles.totalRow]}>
-                  <Text style={styles.previewLabel}>Total com Juros:</Text>
-                  <Text style={[styles.previewValue, styles.totalValue]}>
-                    {formatCurrency(preview.totalWithInterest)}
-                  </Text>
+                <View style={[styles.previewRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, marginTop: 8 }]}>
+                  <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>Total:</Text>
+                  <Text style={[styles.previewValue, { color: colors.error, fontWeight: 'bold' }]}>{formatCurrency(preview.totalWithInterest)}</Text>
                 </View>
               </>
             )}
-
-            <View style={styles.previewRow}>
-              <Text style={styles.previewLabel}>Credor:</Text>
-              <Text style={styles.previewValue}>
-                {formData.creditorName || 'Nome não informado'}
-              </Text>
-            </View>
-
-            <View style={styles.previewRow}>
-              <Text style={styles.previewLabel}>Vencimento:</Text>
-              <Text style={styles.previewValue}>
-                {formData.dueDate || 'Data não informada'}
-                {daysUntilDue !== null && (
-                  <Text style={[
-                    styles.daysLabel,
-                    { color: daysUntilDue <= 7 ? COLORS.error : COLORS.textSecondary }
-                  ]}>
-                    {' '}({daysUntilDue} dias)
-                  </Text>
-                )}
-              </Text>
-            </View>
           </Card>
         )}
 
-        {/* Alerta de Urgência */}
-        {daysUntilDue !== null && daysUntilDue <= 7 && (
-          <Card style={styles.warningCard}>
+        {daysUntilDue !== null && daysUntilDue <= 7 && daysUntilDue > 0 && (
+          <Card variant="outlined" padding="md" style={[styles.warningCard, { borderColor: colors.error, backgroundColor: `${colors.error}10` }]}>
             <View style={styles.warningHeader}>
-              <Ionicons name="warning" size={20} color={COLORS.error} />
-              <Text style={styles.warningTitle}>Atenção!</Text>
+              <Ionicons name="warning" size={20} color={colors.error} />
+              <Text style={[styles.warningTitle, { color: colors.error }]}>Atenção!</Text>
             </View>
-            <Text style={styles.warningText}>
-              Esta dívida vence em {daysUntilDue} dia(s). 
-              {daysUntilDue <= 3 && ' É urgente!'}
+            <Text style={[styles.warningText, { color: colors.textSecondary }]}>
+              Vence em {daysUntilDue} dia(s){daysUntilDue <= 3 && ' - Urgente!'}
             </Text>
           </Card>
         )}
-
-        {/* Informações Importantes */}
-        <Card style={styles.infoCard}>
-          <View style={styles.infoHeader}>
-            <Ionicons name="information-circle" size={20} color={COLORS.primary} />
-            <Text style={styles.infoTitle}>Informações Importantes</Text>
-          </View>
-          
-          <View style={styles.infoList}>
-            <Text style={styles.infoItem}>
-              • A dívida será registrada como pendente
-            </Text>
-            <Text style={styles.infoItem}>
-              • Você pode marcar como paga quando efetuar o pagamento
-            </Text>
-            <Text style={styles.infoItem}>
-              • Os juros são calculados mensalmente se informados
-            </Text>
-            <Text style={styles.infoItem}>
-              • Dívidas em atraso serão destacadas automaticamente
-            </Text>
-            <Text style={styles.infoItem}>
-              • Você receberá alertas próximo ao vencimento
-            </Text>
-          </View>
-        </Card>
 
         <View style={styles.buttonContainer}>
+          <Button title="Cancelar" onPress={() => navigation.goBack()} variant="outline" style={{ flex: 1 }} />
           <Button
-            title="Cancelar"
-            onPress={() => navigation.goBack()}
-            variant="outline"
-          />
-          <Button
-            title={loading ? "Registrando..." : "Registrar Dívida"}
+            title={loading ? "Salvando..." : (isEditing ? "Atualizar" : "Registrar")}
             onPress={handleSubmit}
-            variant="primary"
             loading={loading}
             disabled={loading}
+            style={{ flex: 2 }}
           />
         </View>
+        <View style={{ height: SPACING.xxl }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  placeholder: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-  },
-  formCard: {
-    marginBottom: SPACING.lg,
-  },
-  formTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.lg,
-  },
-  inputGroup: {
-    marginBottom: SPACING.lg,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  inputHint: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  previewCard: {
-    marginBottom: SPACING.lg,
-    backgroundColor: `${COLORS.error}05`,
-    borderColor: COLORS.error,
-    borderWidth: 1,
-  },
-  previewTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  previewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  previewLabel: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  previewValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.text,
-  },
-  interestValue: {
-    color: COLORS.warning,
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: SPACING.sm,
-    marginTop: SPACING.sm,
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.error,
-  },
-  daysLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  warningCard: {
-    marginBottom: SPACING.lg,
-    backgroundColor: `${COLORS.error}05`,
-    borderColor: COLORS.error,
-    borderWidth: 1,
-  },
-  warningHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-    gap: SPACING.sm,
-  },
-  warningTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.error,
-  },
-  warningText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    lineHeight: 16,
-  },
-  infoCard: {
-    marginBottom: SPACING.lg,
-    backgroundColor: `${COLORS.info}05`,
-  },
-  infoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-    gap: SPACING.sm,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  infoList: {
-    gap: SPACING.sm,
-  },
-  infoItem: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    lineHeight: 16,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginBottom: SPACING.xl,
-  },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.md },
+  backButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 18, fontWeight: '600' },
+  placeholder: { width: 40 },
+  scrollView: { flex: 1, paddingHorizontal: SPACING.md },
+  formCard: { marginBottom: SPACING.lg },
+  formTitle: { fontSize: 18, fontWeight: '600', marginBottom: SPACING.xs },
+  formSubtitle: { fontSize: 12, marginBottom: SPACING.lg },
+  inputGroup: { marginBottom: SPACING.lg },
+  inputLabel: { fontSize: 14, fontWeight: '500', marginBottom: SPACING.sm },
+  inputHint: { fontSize: 12, marginTop: SPACING.xs },
+  loadingText: { fontSize: 14, padding: SPACING.md },
+  accountChip: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: 12, marginRight: SPACING.sm, borderWidth: 1, minWidth: 120 },
+  accountChipText: { fontSize: 14, fontWeight: '500' },
+  accountChipBalance: { fontSize: 11, marginTop: 2 },
+  previewCard: { marginBottom: SPACING.lg },
+  previewTitle: { fontSize: 16, fontWeight: '600', marginBottom: SPACING.md },
+  previewRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  previewLabel: { fontSize: 14 },
+  previewValue: { fontSize: 14, fontWeight: '500' },
+  warningCard: { marginBottom: SPACING.lg },
+  warningHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm, gap: SPACING.sm },
+  warningTitle: { fontSize: 14, fontWeight: '600' },
+  warningText: { fontSize: 12 },
+  buttonContainer: { flexDirection: 'row', gap: SPACING.md },
 });

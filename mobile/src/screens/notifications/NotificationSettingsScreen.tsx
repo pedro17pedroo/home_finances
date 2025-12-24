@@ -399,7 +399,7 @@ export const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProp
             loading={loading}
             disabled={loading}
             fullWidth
-            size="large"
+            size="lg"
           />
         </View>
       </ScrollView>

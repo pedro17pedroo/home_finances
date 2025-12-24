@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Loading } from '../../components/ui/Loading';
 import { Account } from '../../types';
 import { COLORS, SPACING } from '../../constants/config';
+import api from '../../services/api';
 
 const transactionSchema = z.object({
   amount: z.string().min(1, 'Valor é obrigatório'),
@@ -27,11 +30,19 @@ const transactionSchema = z.object({
 
 type TransactionFormData = z.infer<typeof transactionSchema>;
 
+interface Category {
+  id: number;
+  name: string;
+  type: 'receita' | 'despesa';
+  icon?: string;
+  color?: string;
+}
+
 interface AddTransactionScreenProps {
-  navigation: any;
-  route: {
-    params: {
-      type: 'receita' | 'despesa';
+  navigation?: any;
+  route?: {
+    params?: {
+      type?: 'receita' | 'despesa';
     };
   };
 }
@@ -40,11 +51,14 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { type } = route.params;
+  const typeParam = route?.params?.type;
+  const type = typeParam === 'receita' ? 'receita' : 'despesa';
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   const {
     control,
@@ -55,59 +69,39 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     resolver: zodResolver(transactionSchema),
   });
 
-  const categories = {
-    receita: [
-      { id: 'salario', name: 'Salário', icon: 'briefcase' },
-      { id: 'freelance', name: 'Freelance', icon: 'laptop' },
-      { id: 'investimentos', name: 'Investimentos', icon: 'trending-up' },
-      { id: 'vendas', name: 'Vendas', icon: 'storefront' },
-      { id: 'outros', name: 'Outros', icon: 'ellipsis-horizontal' },
-    ],
-    despesa: [
-      { id: 'alimentacao', name: 'Alimentação', icon: 'restaurant' },
-      { id: 'transporte', name: 'Transporte', icon: 'car' },
-      { id: 'moradia', name: 'Moradia', icon: 'home' },
-      { id: 'saude', name: 'Saúde', icon: 'medical' },
-      { id: 'lazer', name: 'Lazer', icon: 'game-controller' },
-      { id: 'educacao', name: 'Educação', icon: 'school' },
-      { id: 'outros', name: 'Outros', icon: 'ellipsis-horizontal' },
-    ],
-  };
-
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
-
-  const fetchAccounts = async () => {
+  const fetchData = async () => {
     try {
-      // Simular dados das contas
-      const mockAccounts: Account[] = [
-        {
-          id: 1,
-          name: 'Conta Corrente BAI',
-          type: 'corrente',
-          bank: 'Banco Angolano de Investimentos',
-          balance: '150000.00',
-          userId: 1,
-        },
-        {
-          id: 2,
-          name: 'Conta Poupança BFA',
-          type: 'poupanca',
-          bank: 'Banco de Fomento Angola',
-          balance: '500000.00',
-          userId: 1,
-        },
-      ];
-      setAccounts(mockAccounts);
-      if (mockAccounts.length > 0) {
-        setSelectedAccount(mockAccounts[0]);
-        setValue('accountId', mockAccounts[0].id);
+      setLoadingData(true);
+      const [accountsRes, categoriesRes] = await Promise.all([
+        api.get('/accounts'),
+        api.get('/categories'),
+      ]);
+      
+      const accountsData = accountsRes.data?.data || accountsRes.data;
+      const categoriesData = categoriesRes.data?.data || categoriesRes.data;
+      
+      const accountsList = Array.isArray(accountsData) ? accountsData : [];
+      const categoriesList = Array.isArray(categoriesData) ? categoriesData : [];
+      
+      setAccounts(accountsList);
+      setCategories(categoriesList.filter((cat: Category) => cat.type === type));
+      
+      if (accountsList.length > 0) {
+        setSelectedAccount(accountsList[0]);
+        setValue('accountId', accountsList[0].id);
       }
     } catch (error) {
-      console.error('Erro ao carregar contas:', error);
+      console.error('Erro ao carregar dados:', error);
+    } finally {
+      setLoadingData(false);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [type])
+  );
 
   const onSubmit = async (data: TransactionFormData) => {
     if (!selectedAccount || !selectedCategory) {
@@ -117,8 +111,16 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
     setLoading(true);
     try {
-      // Simular criação da transação
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const amount = parseFloat(data.amount.replace(',', '.'));
+      
+      await api.post('/transactions', {
+        amount,
+        type,
+        category: selectedCategory,
+        accountId: selectedAccount.id,
+        description: data.description || '',
+        date: new Date().toISOString(),
+      });
       
       Alert.alert(
         'Sucesso!',
@@ -130,19 +132,45 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           },
         ]
       );
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível registrar a transação');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Não foi possível registrar a transação';
+      Alert.alert('Erro', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (value: string) => {
+  const formatCurrency = (value: string | number) => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
     return new Intl.NumberFormat('pt-AO', {
-      style: 'currency',
-      currency: 'AOA',
-    }).format(parseFloat(value));
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num) + ' Kz';
   };
+
+  const getCategoryIcon = (iconName?: string): keyof typeof Ionicons.glyphMap => {
+    const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
+      'briefcase': 'briefcase',
+      'laptop': 'laptop',
+      'trending-up': 'trending-up',
+      'storefront': 'storefront',
+      'restaurant': 'restaurant',
+      'car': 'car',
+      'home': 'home',
+      'medical': 'medical',
+      'game-controller': 'game-controller',
+      'school': 'school',
+      'flash': 'flash',
+      'shirt': 'shirt',
+      'cart': 'cart',
+      'cash': 'cash',
+    };
+    return iconMap[iconName || ''] || 'ellipsis-horizontal';
+  };
+
+  if (loadingData) {
+    return <Loading message="Carregando..." />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -181,88 +209,116 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
         {/* Conta */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Conta</Text>
-          <View style={styles.accountsList}>
-            {accounts.map((account) => (
-              <TouchableOpacity
-                key={account.id}
-                style={[
-                  styles.accountItem,
-                  selectedAccount?.id === account.id && styles.accountItemSelected,
-                ]}
-                onPress={() => {
-                  setSelectedAccount(account);
-                  setValue('accountId', account.id);
-                }}
-              >
-                <View style={styles.accountInfo}>
-                  <Ionicons
-                    name={account.type === 'poupanca' ? 'library' : 'card'}
-                    size={20}
-                    color={
-                      selectedAccount?.id === account.id
-                        ? COLORS.primary
-                        : COLORS.textSecondary
-                    }
-                  />
-                  <View style={styles.accountDetails}>
-                    <Text
-                      style={[
-                        styles.accountName,
-                        selectedAccount?.id === account.id && styles.accountNameSelected,
-                      ]}
-                    >
-                      {account.name}
-                    </Text>
-                    <Text style={styles.accountBalance}>
-                      {formatCurrency(account.balance)}
-                    </Text>
-                  </View>
-                </View>
-                {selectedAccount?.id === account.id && (
-                  <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Conta</Text>
+            <TouchableOpacity style={styles.addNewButton} onPress={() => navigation.navigate('AddAccount', {})}>
+              <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.addNewText}>Nova</Text>
+            </TouchableOpacity>
           </View>
+          {accounts.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Nenhuma conta disponível</Text>
+              <Button title="Criar Conta" onPress={() => navigation.navigate('AddAccount', {})} variant="outline" size="sm" />
+            </View>
+          ) : (
+            <View style={styles.accountsList}>
+              {accounts.map((account) => (
+                <TouchableOpacity
+                  key={account.id}
+                  style={[
+                    styles.accountItem,
+                    selectedAccount?.id === account.id && styles.accountItemSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedAccount(account);
+                    setValue('accountId', account.id);
+                  }}
+                >
+                  <View style={styles.accountInfo}>
+                    <Ionicons
+                      name={account.type === 'poupanca' ? 'library' : 'card'}
+                      size={20}
+                      color={
+                        selectedAccount?.id === account.id
+                          ? COLORS.primary
+                          : COLORS.textSecondary
+                      }
+                    />
+                    <View style={styles.accountDetails}>
+                      <Text
+                        style={[
+                          styles.accountName,
+                          selectedAccount?.id === account.id && styles.accountNameSelected,
+                        ]}
+                      >
+                        {account.name}
+                      </Text>
+                      <Text style={styles.accountBalance}>
+                        {formatCurrency(account.balance)}
+                      </Text>
+                    </View>
+                  </View>
+                  {selectedAccount?.id === account.id && (
+                    <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Categoria */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Categoria</Text>
-          <View style={styles.categoriesGrid}>
-            {categories[type].map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={[
-                  styles.categoryItem,
-                  selectedCategory === category.id && styles.categoryItemSelected,
-                ]}
-                onPress={() => {
-                  setSelectedCategory(category.id);
-                  setValue('category', category.id);
-                }}
-              >
-                <Ionicons
-                  name={category.icon as any}
-                  size={24}
-                  color={
-                    selectedCategory === category.id
-                      ? 'white'
-                      : COLORS.primary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.categoryName,
-                    selectedCategory === category.id && styles.categoryNameSelected,
-                  ]}
-                >
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Categoria</Text>
+            <TouchableOpacity style={styles.addNewButton} onPress={() => navigation.navigate('AddCategory', { type })}>
+              <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.addNewText}>Nova</Text>
+            </TouchableOpacity>
           </View>
+          {categories.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Nenhuma categoria disponível</Text>
+              <Button title="Criar Categoria" onPress={() => navigation.navigate('AddCategory', { type })} variant="outline" size="sm" />
+            </View>
+          ) : (
+            <View style={styles.categoriesGrid}>
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[
+                    styles.categoryItem,
+                    selectedCategory === category.name && styles.categoryItemSelected,
+                    selectedCategory === category.name && category.color && { backgroundColor: category.color },
+                  ]}
+                  onPress={() => {
+                    setSelectedCategory(category.name);
+                    setValue('category', category.name);
+                  }}
+                >
+                  <Ionicons
+                    name={getCategoryIcon(category.icon)}
+                    size={24}
+                    color={
+                      selectedCategory === category.name
+                        ? 'white'
+                        : category.color || COLORS.primary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.categoryName,
+                      selectedCategory === category.name && styles.categoryNameSelected,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Descrição */}
@@ -290,7 +346,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             onPress={handleSubmit(onSubmit)}
             loading={loading}
             fullWidth
-            size="large"
+            size="lg"
           />
         </View>
       </ScrollView>
@@ -348,12 +404,38 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: SPACING.lg,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
-    marginHorizontal: SPACING.lg,
-    marginBottom: SPACING.md,
+  },
+  addNewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addNewText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
   accountsList: {
     paddingHorizontal: SPACING.lg,

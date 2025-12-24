@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,90 +6,39 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { StatCard } from '../../components/ui/StatCard';
+import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useToast } from '../../contexts/ToastContext';
+import { Card, Button, Loading, EmptyState } from '../../components/ui';
+import { Loan } from '../../types';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useDate } from '../../hooks/useDate';
-import { COLORS, SPACING } from '../../constants/config';
-
-interface Loan {
-  id: number;
-  borrowerName: string;
-  amount: string;
-  interestRate?: number;
-  dueDate: string;
-  status: 'pending' | 'paid' | 'overdue';
-  description?: string;
-  createdAt: string;
-  paidAt?: string;
-  userId: number;
-}
+import { SPACING } from '../../constants/config';
+import api from '../../services/api';
 
 interface LoansScreenProps {
-  navigation: any;
+  navigation?: any;
 }
 
 export const LoansScreen: React.FC<LoansScreenProps> = ({ navigation }) => {
+  const { colors } = useTheme();
+  const { showSuccess, showError } = useToast();
+  const { formatCurrency } = useCurrency();
+  const { formatDate } = useDate();
+  
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { formatCurrency } = useCurrency();
-  const { formatDate, formatRelativeDate } = useDate();
 
   const fetchLoans = async () => {
     try {
-      // Simular dados de empréstimos
-      const mockLoans: Loan[] = [
-        {
-          id: 1,
-          borrowerName: 'João Silva',
-          amount: '150000.00',
-          interestRate: 5,
-          dueDate: '2025-01-15T00:00:00Z',
-          status: 'pending',
-          description: 'Empréstimo para negócio',
-          createdAt: '2024-11-15T10:00:00Z',
-          userId: 1,
-        },
-        {
-          id: 2,
-          borrowerName: 'Maria Santos',
-          amount: '75000.00',
-          interestRate: 3,
-          dueDate: '2024-12-10T00:00:00Z',
-          status: 'overdue',
-          description: 'Ajuda familiar',
-          createdAt: '2024-10-10T14:30:00Z',
-          userId: 1,
-        },
-        {
-          id: 3,
-          borrowerName: 'Pedro Costa',
-          amount: '200000.00',
-          interestRate: 8,
-          dueDate: '2025-03-20T00:00:00Z',
-          status: 'pending',
-          description: 'Investimento em equipamentos',
-          createdAt: '2024-12-01T09:15:00Z',
-          userId: 1,
-        },
-        {
-          id: 4,
-          borrowerName: 'Ana Ferreira',
-          amount: '50000.00',
-          dueDate: '2024-11-30T00:00:00Z',
-          status: 'paid',
-          description: 'Empréstimo pessoal',
-          createdAt: '2024-10-01T16:00:00Z',
-          paidAt: '2024-11-28T10:30:00Z',
-          userId: 1,
-        },
-      ];
-      setLoans(mockLoans);
+      const response = await api.get('/loans');
+      const data = response.data?.data?.loans || response.data?.data || response.data || [];
+      setLoans(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao carregar empréstimos:', error);
     } finally {
@@ -98,218 +47,206 @@ export const LoansScreen: React.FC<LoansScreenProps> = ({ navigation }) => {
     }
   };
 
-  useEffect(() => {
-    fetchLoans();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchLoans();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchLoans();
   };
 
-  const getPendingLoans = () => loans.filter(loan => loan.status === 'pending');
-  const getOverdueLoans = () => loans.filter(loan => loan.status === 'overdue');
-  const getPaidLoans = () => loans.filter(loan => loan.status === 'paid');
+  const getPendingLoans = () => loans.filter(loan => loan.status === 'active' || loan.status === 'pendente');
+  const getOverdueLoans = () => loans.filter(loan => loan.status === 'overdue' || loan.status === 'atrasado');
+  const getPaidLoans = () => loans.filter(loan => loan.status === 'paid' || loan.status === 'pago');
 
   const getTotalLent = () => {
-    return loans.reduce((total, loan) => {
-      return total + parseFloat(loan.amount);
-    }, 0);
+    return loans.reduce((total, loan) => total + parseFloat(loan.amount || '0'), 0);
   };
 
   const getTotalPending = () => {
-    return [...getPendingLoans(), ...getOverdueLoans()].reduce((total, loan) => {
-      return total + parseFloat(loan.amount);
-    }, 0);
+    return [...getPendingLoans(), ...getOverdueLoans()].reduce(
+      (total, loan) => {
+        const amount = parseFloat(loan.amount || '0');
+        const paid = parseFloat(loan.paidAmount || '0');
+        return total + (amount - paid);
+      },
+      0
+    );
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'paid':
-        return COLORS.success;
+      case 'pago':
+        return colors.success;
       case 'overdue':
-        return COLORS.error;
-      case 'pending':
-        return COLORS.warning;
-      default:
-        return COLORS.textSecondary;
+      case 'atrasado':
+        return colors.error;
+      case 'active':
+      case 'pendente':
+        return colors.warning;
+      default: return colors.textSecondary;
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
       case 'paid':
+      case 'pago':
         return 'Pago';
       case 'overdue':
+      case 'atrasado':
         return 'Atrasado';
-      case 'pending':
-        return 'Pendente';
-      default:
-        return status;
+      case 'active':
+      case 'pendente':
+        return 'Ativo';
+      default: return status;
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string): keyof typeof Ionicons.glyphMap => {
     switch (status) {
       case 'paid':
+      case 'pago':
         return 'checkmark-circle';
       case 'overdue':
+      case 'atrasado':
         return 'alert-circle';
-      case 'pending':
+      case 'active':
+      case 'pendente':
         return 'time';
-      default:
-        return 'help-circle';
+      default: return 'help-circle';
     }
   };
 
-  const calculateInterest = (loan: Loan) => {
-    if (!loan.interestRate) return 0;
-    const principal = parseFloat(loan.amount);
-    const rate = loan.interestRate / 100;
-    const monthsElapsed = Math.max(1, Math.floor(
-      (new Date().getTime() - new Date(loan.createdAt).getTime()) / (1000 * 60 * 60 * 24 * 30)
-    ));
-    return principal * rate * monthsElapsed;
-  };
-
-  const getTotalWithInterest = (loan: Loan) => {
-    return parseFloat(loan.amount) + calculateInterest(loan);
-  };
-
-  const markAsPaid = (loanId: number) => {
-    setLoans(prevLoans =>
-      prevLoans.map(loan =>
-        loan.id === loanId
-          ? { ...loan, status: 'paid' as const, paidAt: new Date().toISOString() }
-          : loan
-      )
+  const handleMarkAsPaid = async (loan: Loan) => {
+    const borrowerName = loan.borrower || loan.personName || 'Devedor';
+    Alert.alert(
+      'Marcar como Pago',
+      `Confirmar que "${borrowerName}" pagou o empréstimo?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            try {
+              const remainingAmount = parseFloat(loan.amount) - parseFloat(loan.paidAmount || '0');
+              await api.post(`/loans/${loan.id}/payment`, { amount: remainingAmount });
+              showSuccess('Empréstimo marcado como pago');
+              fetchLoans();
+            } catch (error) {
+              showError('Erro ao atualizar empréstimo');
+            }
+          },
+        },
+      ]
     );
   };
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text>Carregando empréstimos...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <Loading message="Carregando empréstimos..." />;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Empréstimos</Text>
         <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddLoan')}
+          style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}
+          onPress={() => navigation?.goBack()}
         >
-          <Ionicons name="add" size={24} color={COLORS.primary} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: colors.text }]}>Empréstimos</Text>
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.primary }]}
+          onPress={() => navigation?.navigate('AddLoan', {})}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
         showsVerticalScrollIndicator={false}
       >
         {/* Estatísticas */}
-        <View style={styles.statsContainer}>
-          <StatCard
-            title="Total Emprestado"
-            value={formatCurrency(getTotalLent())}
-            icon="cash"
-            color={COLORS.primary}
-          />
-          <StatCard
-            title="Pendente"
-            value={formatCurrency(getTotalPending())}
-            icon="time"
-            color={COLORS.warning}
-          />
-        </View>
-
-        {/* Resumo por Status */}
-        <View style={styles.summaryContainer}>
-          <Card style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Resumo</Text>
-            <View style={styles.summaryStats}>
-              <View style={styles.summaryItem}>
-                <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
-                <Text style={styles.summaryLabel}>Pagos: {getPaidLoans().length}</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Ionicons name="time" size={16} color={COLORS.warning} />
-                <Text style={styles.summaryLabel}>Pendentes: {getPendingLoans().length}</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Ionicons name="alert-circle" size={16} color={COLORS.error} />
-                <Text style={styles.summaryLabel}>Atrasados: {getOverdueLoans().length}</Text>
-              </View>
-            </View>
+        <View style={styles.statsRow}>
+          <Card variant="elevated" padding="md" style={[styles.statCard, { backgroundColor: colors.primary }]}>
+            <Ionicons name="cash" size={20} color="#FFFFFF" />
+            <Text style={styles.statLabel}>Total Emprestado</Text>
+            <Text style={styles.statValue}>{formatCurrency(getTotalLent())}</Text>
+          </Card>
+          <Card variant="elevated" padding="md" style={[styles.statCard, { backgroundColor: colors.warning }]}>
+            <Ionicons name="time" size={20} color="#FFFFFF" />
+            <Text style={styles.statLabel}>Pendente</Text>
+            <Text style={styles.statValue}>{formatCurrency(getTotalPending())}</Text>
           </Card>
         </View>
 
-        {/* Ação Rápida */}
-        <View style={styles.quickActionContainer}>
-          <Button
-            title="Novo Empréstimo"
-            onPress={() => navigation.navigate('AddLoan')}
-            variant="primary"
-            fullWidth
-            size="large"
-          />
-        </View>
+        {/* Resumo */}
+        <Card variant="default" padding="md" style={styles.summaryCard}>
+          <Text style={[styles.summaryTitle, { color: colors.text }]}>Resumo</Text>
+          <View style={styles.summaryStats}>
+            <View style={styles.summaryItem}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+                Pagos: {getPaidLoans().length}
+              </Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Ionicons name="time" size={16} color={colors.warning} />
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+                Ativos: {getPendingLoans().length}
+              </Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Ionicons name="alert-circle" size={16} color={colors.error} />
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+                Atrasados: {getOverdueLoans().length}
+              </Text>
+            </View>
+          </View>
+        </Card>
 
         {/* Lista de Empréstimos */}
-        <View style={styles.loansList}>
-          <Text style={styles.sectionTitle}>Empréstimos ({loans.length})</Text>
-          
-          {loans.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Ionicons name="cash" size={48} color={COLORS.textSecondary} />
-              <Text style={styles.emptyTitle}>Nenhum empréstimo</Text>
-              <Text style={styles.emptySubtitle}>
-                Você ainda não registrou nenhum empréstimo
-              </Text>
-              <Button
-                title="Registrar Primeiro Empréstimo"
-                onPress={() => navigation.navigate('AddLoan')}
-                variant="outline"
-                style={styles.emptyButton}
-              />
-            </Card>
-          ) : (
-            loans.map((loan) => {
+        {loans.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Empréstimos ({loans.length})
+            </Text>
+            {loans.map((loan) => {
               const statusColor = getStatusColor(loan.status);
-              const totalWithInterest = getTotalWithInterest(loan);
-              const interest = calculateInterest(loan);
+              const borrowerName = loan.borrower || loan.personName || 'Devedor';
+              const paidAmount = parseFloat(loan.paidAmount || '0');
+              const totalAmount = parseFloat(loan.amount || '0');
+              const remainingAmount = totalAmount - paidAmount;
+              const description = loan.description || loan.notes;
               
               return (
-                <Card key={loan.id} style={styles.loanCard}>
+                <Card key={loan.id} variant="default" padding="md" style={styles.loanCard}>
                   <View style={styles.loanHeader}>
                     <View style={styles.loanInfo}>
-                      <Text style={styles.borrowerName}>{loan.borrowerName}</Text>
-                      <Text style={styles.loanAmount}>
-                        {formatCurrency(parseFloat(loan.amount))}
-                        {interest > 0 && (
-                          <Text style={styles.interestAmount}>
-                            {' '}+ {formatCurrency(interest)} juros
-                          </Text>
-                        )}
+                      <Text style={[styles.personName, { color: colors.text }]}>
+                        {borrowerName}
                       </Text>
-                      <Text style={styles.totalAmount}>
-                        Total: {formatCurrency(totalWithInterest)}
+                      <Text style={[styles.loanAmount, { color: colors.primary }]}>
+                        {formatCurrency(loan.amount)}
                       </Text>
+                      {paidAmount > 0 && paidAmount < totalAmount && (
+                        <Text style={[styles.remainingAmount, { color: colors.textSecondary }]}>
+                          Restante: {formatCurrency(remainingAmount)}
+                        </Text>
+                      )}
                     </View>
                     <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20` }]}>
-                      <Ionicons
-                        name={getStatusIcon(loan.status)}
-                        size={16}
-                        color={statusColor}
-                      />
+                      <Ionicons name={getStatusIcon(loan.status)} size={14} color={statusColor} />
                       <Text style={[styles.statusText, { color: statusColor }]}>
                         {getStatusText(loan.status)}
                       </Text>
@@ -317,229 +254,120 @@ export const LoansScreen: React.FC<LoansScreenProps> = ({ navigation }) => {
                   </View>
 
                   <View style={styles.loanDetails}>
-                    {loan.description && (
-                      <Text style={styles.loanDescription}>{loan.description}</Text>
+                    {description && (
+                      <Text style={[styles.loanDescription, { color: colors.textSecondary }]}>
+                        {description}
+                      </Text>
                     )}
-                    
                     <View style={styles.loanDates}>
-                      <Text style={styles.dateLabel}>
-                        📅 Vencimento: {formatDate(loan.dueDate)}
-                      </Text>
-                      <Text style={styles.dateLabel}>
-                        📝 Criado: {formatRelativeDate(loan.createdAt)}
-                      </Text>
-                      {loan.paidAt && (
-                        <Text style={styles.dateLabel}>
-                          ✅ Pago: {formatRelativeDate(loan.paidAt)}
+                      {loan.createdAt && (
+                        <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>
+                          📅 Início: {formatDate(loan.createdAt)}
+                        </Text>
+                      )}
+                      {loan.dueDate && (
+                        <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>
+                          ⏰ Vencimento: {formatDate(loan.dueDate)}
+                        </Text>
+                      )}
+                      {loan.interestRate && (
+                        <Text style={[styles.dateLabel, { color: colors.warning }]}>
+                          💰 Juros: {loan.interestRate}% ao mês
                         </Text>
                       )}
                     </View>
-
-                    {loan.interestRate && (
-                      <Text style={styles.interestRate}>
-                        💰 Taxa de juros: {loan.interestRate}% ao mês
-                      </Text>
-                    )}
                   </View>
 
-                  {loan.status !== 'paid' && (
+                  {loan.status !== 'paid' && loan.status !== 'pago' && loan.status !== 'cancelado' && (
                     <View style={styles.loanActions}>
                       <Button
-                        title="Marcar como Pago"
-                        onPress={() => markAsPaid(loan.id)}
-                        variant="primary"
-                        size="small"
+                        title="Marcar Pago"
+                        onPress={() => handleMarkAsPaid(loan)}
+                        size="sm"
+                        icon="checkmark-circle-outline"
+                        style={{ flex: 1 }}
                       />
                       <Button
-                        title="Detalhes"
-                        onPress={() => {}}
+                        title="Editar"
+                        onPress={() => navigation?.navigate('AddLoan', { loan })}
                         variant="outline"
-                        size="small"
+                        size="sm"
+                        icon="pencil-outline"
+                        style={{ flex: 1 }}
                       />
                     </View>
                   )}
                 </Card>
               );
-            })
-          )}
-        </View>
+            })}
+          </View>
+        ) : (
+          <EmptyState
+            icon="cash-outline"
+            title="Nenhum empréstimo"
+            description="Você ainda não registrou nenhum empréstimo"
+            actionLabel="Registrar Empréstimo"
+            onAction={() => navigation?.navigate('AddLoan', {})}
+          />
+        )}
+
+        <View style={{ height: SPACING.xxl }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.text,
+  backButton: {
+    width: 40, height: 40, borderRadius: 20,
+    justifyContent: 'center', alignItems: 'center',
   },
+  title: { fontSize: 18, fontWeight: '600' },
   addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    width: 40, height: 40, borderRadius: 20,
+    justifyContent: 'center', alignItems: 'center',
   },
-  scrollView: {
-    flex: 1,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-    gap: SPACING.sm,
-  },
-  summaryContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  summaryCard: {
-    padding: SPACING.md,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  summaryStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  quickActionContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  loansList: {
-    paddingHorizontal: SPACING.lg,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: SPACING.xxl,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginBottom: SPACING.lg,
-  },
-  emptyButton: {
-    marginTop: SPACING.sm,
-  },
-  loanCard: {
-    marginBottom: SPACING.md,
-  },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: SPACING.md },
+  statsRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
+  statCard: { flex: 1, alignItems: 'center' },
+  statLabel: { fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: SPACING.xs },
+  statValue: { fontSize: 14, fontWeight: '700', color: '#FFFFFF', marginTop: 2 },
+  summaryCard: { marginBottom: SPACING.lg },
+  summaryTitle: { fontSize: 14, fontWeight: '600', marginBottom: SPACING.sm },
+  summaryStats: { flexDirection: 'row', justifyContent: 'space-around' },
+  summaryItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  summaryLabel: { fontSize: 12 },
+  section: { marginBottom: SPACING.lg },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: SPACING.md },
+  loanCard: { marginBottom: SPACING.sm },
   loanHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: SPACING.md,
   },
-  loanInfo: {
-    flex: 1,
-  },
-  borrowerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  loanAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    marginBottom: SPACING.xs,
-  },
-  interestAmount: {
-    fontSize: 14,
-    fontWeight: 'normal',
-    color: COLORS.warning,
-  },
-  totalAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
+  loanInfo: { flex: 1 },
+  personName: { fontSize: 16, fontWeight: '600', marginBottom: SPACING.xs },
+  loanAmount: { fontSize: 18, fontWeight: '700' },
+  remainingAmount: { fontSize: 12, marginTop: 2 },
   statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: 12,
-    gap: SPACING.xs,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: SPACING.sm, paddingVertical: 4,
+    borderRadius: 12, gap: 4,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  loanDetails: {
-    marginBottom: SPACING.md,
-    gap: SPACING.sm,
-  },
-  loanDescription: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-  },
-  loanDates: {
-    gap: SPACING.xs,
-  },
-  dateLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  interestRate: {
-    fontSize: 12,
-    color: COLORS.warning,
-    fontWeight: '500',
-  },
-  loanActions: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
+  statusText: { fontSize: 11, fontWeight: '500' },
+  loanDetails: { marginBottom: SPACING.md },
+  loanDescription: { fontSize: 13, fontStyle: 'italic', marginBottom: SPACING.sm },
+  loanDates: { gap: 4 },
+  dateLabel: { fontSize: 12 },
+  loanActions: { flexDirection: 'row', gap: SPACING.sm },
 });

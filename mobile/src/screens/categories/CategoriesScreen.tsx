@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,17 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
+import { Loading } from '../../components/ui/Loading';
 import { COLORS, SPACING } from '../../constants/config';
+import api from '../../services/api';
 
 interface Category {
   id: number;
@@ -20,9 +24,9 @@ interface Category {
   type: 'receita' | 'despesa';
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
-  isDefault: boolean;
-  transactionCount: number;
-  totalAmount: string;
+  isDefault?: boolean;
+  transactionCount?: number;
+  totalAmount?: string;
   userId?: number;
 }
 
@@ -38,149 +42,23 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }
 
   const fetchCategories = async () => {
     try {
-      // Simular dados de categorias
-      const mockCategories: Category[] = [
-        // Categorias de Receita
-        {
-          id: 1,
-          name: 'Salário',
-          type: 'receita',
-          icon: 'briefcase',
-          color: COLORS.success,
-          isDefault: true,
-          transactionCount: 12,
-          totalAmount: '4200000.00',
-        },
-        {
-          id: 2,
-          name: 'Freelance',
-          type: 'receita',
-          icon: 'laptop',
-          color: '#10B981',
-          isDefault: false,
-          transactionCount: 8,
-          totalAmount: '640000.00',
-          userId: 1,
-        },
-        {
-          id: 3,
-          name: 'Investimentos',
-          type: 'receita',
-          icon: 'trending-up',
-          color: '#059669',
-          isDefault: false,
-          transactionCount: 5,
-          totalAmount: '125000.00',
-          userId: 1,
-        },
-        {
-          id: 4,
-          name: 'Vendas',
-          type: 'receita',
-          icon: 'storefront',
-          color: '#047857',
-          isDefault: false,
-          transactionCount: 3,
-          totalAmount: '85000.00',
-          userId: 1,
-        },
-        
-        // Categorias de Despesa
-        {
-          id: 5,
-          name: 'Moradia',
-          type: 'despesa',
-          icon: 'home',
-          color: COLORS.error,
-          isDefault: true,
-          transactionCount: 12,
-          totalAmount: '1440000.00',
-        },
-        {
-          id: 6,
-          name: 'Alimentação',
-          type: 'despesa',
-          icon: 'restaurant',
-          color: '#EF4444',
-          isDefault: true,
-          transactionCount: 45,
-          totalAmount: '675000.00',
-        },
-        {
-          id: 7,
-          name: 'Transporte',
-          type: 'despesa',
-          icon: 'car',
-          color: '#DC2626',
-          isDefault: true,
-          transactionCount: 28,
-          totalAmount: '420000.00',
-        },
-        {
-          id: 8,
-          name: 'Saúde',
-          type: 'despesa',
-          icon: 'medical',
-          color: '#B91C1C',
-          isDefault: true,
-          transactionCount: 6,
-          totalAmount: '180000.00',
-        },
-        {
-          id: 9,
-          name: 'Educação',
-          type: 'despesa',
-          icon: 'school',
-          color: '#991B1B',
-          isDefault: true,
-          transactionCount: 4,
-          totalAmount: '120000.00',
-        },
-        {
-          id: 10,
-          name: 'Lazer',
-          type: 'despesa',
-          icon: 'game-controller',
-          color: '#7C2D12',
-          isDefault: false,
-          transactionCount: 15,
-          totalAmount: '225000.00',
-          userId: 1,
-        },
-        {
-          id: 11,
-          name: 'Utilidades',
-          type: 'despesa',
-          icon: 'flash',
-          color: '#92400E',
-          isDefault: true,
-          transactionCount: 18,
-          totalAmount: '270000.00',
-        },
-        {
-          id: 12,
-          name: 'Roupas',
-          type: 'despesa',
-          icon: 'shirt',
-          color: '#78350F',
-          isDefault: false,
-          transactionCount: 7,
-          totalAmount: '105000.00',
-          userId: 1,
-        },
-      ];
-      setCategories(mockCategories);
+      const response = await api.get('/categories');
+      const data = response.data?.data || response.data;
+      setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao carregar categorias:', error);
+      setCategories([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchCategories();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -197,23 +75,42 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }
   const getCustomCategories = () => categories.filter(cat => !cat.isDefault);
 
   const getTotalTransactions = () => {
-    return categories.reduce((total, cat) => total + cat.transactionCount, 0);
+    return categories.reduce((total, cat) => total + (cat.transactionCount || 0), 0);
   };
 
   const getMostUsedCategory = () => {
+    if (categories.length === 0) return null;
     return categories.reduce((prev, current) => 
-      prev.transactionCount > current.transactionCount ? prev : current
+      (prev.transactionCount || 0) > (current.transactionCount || 0) ? prev : current
     );
   };
 
-  const deleteCategory = (categoryId: number) => {
+  const deleteCategory = async (categoryId: number) => {
     const category = categories.find(cat => cat.id === categoryId);
     if (category?.isDefault) {
-      alert('Não é possível excluir categorias padrão');
+      Alert.alert('Erro', 'Não é possível excluir categorias padrão');
       return;
     }
     
-    setCategories(prev => prev.filter(cat => cat.id !== categoryId));
+    Alert.alert(
+      'Eliminar Categoria',
+      `Tem certeza que deseja eliminar "${category?.name}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/categories/${categoryId}`);
+              fetchCategories();
+            } catch (error: any) {
+              Alert.alert('Erro', error.response?.data?.message || 'Erro ao eliminar categoria');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const formatCurrency = (amount: string) => {
@@ -230,13 +127,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }
   const mostUsed = getMostUsedCategory();
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text>Carregando categorias...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <Loading message="Carregando categorias..." />;
   }
 
   return (
@@ -281,20 +172,22 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }
         </View>
 
         {/* Categoria Mais Usada */}
-        <Card style={styles.mostUsedCard}>
-          <Text style={styles.mostUsedTitle}>Categoria Mais Usada</Text>
-          <View style={styles.mostUsedContent}>
-            <View style={[styles.mostUsedIcon, { backgroundColor: `${mostUsed.color}20` }]}>
-              <Ionicons name={mostUsed.icon} size={24} color={mostUsed.color} />
+        {mostUsed && (mostUsed.transactionCount || 0) > 0 && (
+          <Card style={styles.mostUsedCard}>
+            <Text style={styles.mostUsedTitle}>Categoria Mais Usada</Text>
+            <View style={styles.mostUsedContent}>
+              <View style={[styles.mostUsedIcon, { backgroundColor: `${mostUsed.color || COLORS.primary}20` }]}>
+                <Ionicons name={mostUsed.icon || 'pricetag'} size={24} color={mostUsed.color || COLORS.primary} />
+              </View>
+              <View style={styles.mostUsedInfo}>
+                <Text style={styles.mostUsedName}>{mostUsed.name}</Text>
+                <Text style={styles.mostUsedStats}>
+                  {mostUsed.transactionCount || 0} transações • {formatCurrency(mostUsed.totalAmount || '0')}
+                </Text>
+              </View>
             </View>
-            <View style={styles.mostUsedInfo}>
-              <Text style={styles.mostUsedName}>{mostUsed.name}</Text>
-              <Text style={styles.mostUsedStats}>
-                {mostUsed.transactionCount} transações • {formatCurrency(mostUsed.totalAmount)}
-              </Text>
-            </View>
-          </View>
-        </Card>
+          </Card>
+        )}
 
         {/* Filtros */}
         <View style={styles.filtersContainer}>
@@ -361,7 +254,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }
             onPress={() => navigation.navigate('AddCategory')}
             variant="primary"
             fullWidth
-            size="large"
+            size="lg"
           />
         </View>
 
@@ -389,12 +282,12 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }
                   <View style={styles.categoryHeader}>
                     <View style={[
                       styles.categoryIcon,
-                      { backgroundColor: `${category.color}20` }
+                      { backgroundColor: `${category.color || COLORS.primary}20` }
                     ]}>
                       <Ionicons
-                        name={category.icon}
+                        name={category.icon || 'pricetag'}
                         size={24}
-                        color={category.color}
+                        color={category.color || COLORS.primary}
                       />
                     </View>
                     
@@ -430,14 +323,14 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }
                     <View style={styles.statItem}>
                       <Ionicons name="swap-horizontal" size={14} color={COLORS.textSecondary} />
                       <Text style={styles.statText}>
-                        {category.transactionCount} transações
+                        {category.transactionCount || 0} transações
                       </Text>
                     </View>
                     
                     <View style={styles.statItem}>
                       <Ionicons name="cash" size={14} color={COLORS.textSecondary} />
                       <Text style={styles.statText}>
-                        {formatCurrency(category.totalAmount)}
+                        {formatCurrency(category.totalAmount || '0')}
                       </Text>
                     </View>
                   </View>
@@ -445,16 +338,16 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ navigation }
                   <View style={styles.categoryActions}>
                     <Button
                       title="Editar"
-                      onPress={() => navigation.navigate('AddCategory', { categoryId: category.id })}
+                      onPress={() => navigation.navigate('AddCategory', { categoryId: category.id, category })}
                       variant="outline"
-                      size="small"
+                      size="sm"
                       disabled={category.isDefault}
                     />
                     <Button
                       title="Ver Transações"
-                      onPress={() => navigation.navigate('Transactions', { categoryId: category.id })}
+                      onPress={() => navigation.navigate('Main', { screen: 'Transações', params: { categoryId: category.id } })}
                       variant="primary"
-                      size="small"
+                      size="sm"
                     />
                   </View>
                 </Card>
@@ -494,11 +387,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
