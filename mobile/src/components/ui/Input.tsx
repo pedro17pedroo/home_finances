@@ -1,111 +1,145 @@
-import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, forwardRef } from 'react';
+import {
+  View,
+  TextInput,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ViewStyle,
+  TextStyle,
+  TextInputProps,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING } from '../../constants/config';
+import { useTheme } from '../../contexts/ThemeContext';
+import { SPACING, RADIUS } from '../../constants/config';
 
-interface InputProps {
+interface InputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
-  placeholder?: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  secureTextEntry?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   error?: string;
-  disabled?: boolean;
-  multiline?: boolean;
-  numberOfLines?: number;
+  hint?: string;
   leftIcon?: keyof typeof Ionicons.glyphMap;
   rightIcon?: keyof typeof Ionicons.glyphMap;
   onRightIconPress?: () => void;
+  containerStyle?: ViewStyle;
+  inputStyle?: TextStyle;
+  disabled?: boolean;
 }
 
-export const Input: React.FC<InputProps> = ({
+export const Input = forwardRef<TextInput, InputProps>(({
   label,
-  placeholder,
-  value,
-  onChangeText,
-  secureTextEntry = false,
-  keyboardType = 'default',
   error,
-  disabled = false,
-  multiline = false,
-  numberOfLines = 1,
+  hint,
   leftIcon,
   rightIcon,
   onRightIconPress,
-}) => {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  containerStyle,
+  inputStyle,
+  disabled = false,
+  secureTextEntry,
+  ...props
+}, ref) => {
+  const { colors } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const togglePasswordVisibility = () => {
     setIsPasswordVisible(!isPasswordVisible);
   };
 
-  const inputStyle = [
+  const getBorderColor = () => {
+    if (error) return colors.error;
+    if (isFocused) return colors.borderFocused;
+    return colors.inputBorder;
+  };
+
+  const inputContainerStyle: ViewStyle[] = [
+    styles.inputContainer,
+    {
+      backgroundColor: colors.inputBackground,
+      borderColor: getBorderColor(),
+    },
+    disabled && styles.disabled,
+  ];
+
+  const textInputStyle: TextStyle[] = [
     styles.input,
-    isFocused && styles.inputFocused,
-    error && styles.inputError,
-    disabled && styles.inputDisabled,
+    { color: colors.text },
     leftIcon && styles.inputWithLeftIcon,
     (rightIcon || secureTextEntry) && styles.inputWithRightIcon,
-    multiline && styles.inputMultiline,
+    inputStyle,
   ];
 
   return (
-    <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <View style={styles.inputContainer}>
+    <View style={[styles.container, containerStyle]}>
+      {label && (
+        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+      )}
+      
+      <View style={inputContainerStyle}>
         {leftIcon && (
           <Ionicons
             name={leftIcon}
             size={20}
-            color={isFocused ? COLORS.primary : COLORS.textSecondary}
+            color={isFocused ? colors.primary : colors.textSecondary}
             style={styles.leftIcon}
           />
         )}
+        
         <TextInput
-          style={inputStyle}
-          placeholder={placeholder}
-          placeholderTextColor={COLORS.textSecondary}
-          value={value}
-          onChangeText={onChangeText}
-          secureTextEntry={secureTextEntry && !isPasswordVisible}
-          keyboardType={keyboardType}
+          ref={ref}
+          style={textInputStyle}
+          placeholderTextColor={colors.inputPlaceholder}
           editable={!disabled}
-          multiline={multiline}
-          numberOfLines={numberOfLines}
+          secureTextEntry={secureTextEntry && !isPasswordVisible}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          {...props}
         />
+        
         {secureTextEntry && (
           <TouchableOpacity
             onPress={togglePasswordVisibility}
             style={styles.rightIcon}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons
-              name={isPasswordVisible ? 'eye-off' : 'eye'}
+              name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
               size={20}
-              color={COLORS.textSecondary}
+              color={colors.textSecondary}
             />
           </TouchableOpacity>
         )}
+        
         {rightIcon && !secureTextEntry && (
           <TouchableOpacity
             onPress={onRightIconPress}
             style={styles.rightIcon}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons
               name={rightIcon}
               size={20}
-              color={COLORS.textSecondary}
+              color={colors.textSecondary}
             />
           </TouchableOpacity>
         )}
       </View>
-      {error && <Text style={styles.error}>{error}</Text>}
+      
+      {error && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={14} color={colors.error} />
+          <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
+        </View>
+      )}
+      
+      {hint && !error && (
+        <Text style={[styles.hint, { color: colors.textTertiary }]}>{hint}</Text>
+      )}
     </View>
   );
-};
+});
+
+Input.displayName = 'Input';
 
 const styles = StyleSheet.create({
   container: {
@@ -114,31 +148,20 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
     marginBottom: SPACING.xs,
   },
   inputContainer: {
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: RADIUS.md,
+    minHeight: 48,
   },
   input: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
+    flex: 1,
+    fontSize: 16,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    fontSize: 16,
-    color: COLORS.text,
-    backgroundColor: COLORS.surface,
-  },
-  inputFocused: {
-    borderColor: COLORS.primary,
-  },
-  inputError: {
-    borderColor: COLORS.error,
-  },
-  inputDisabled: {
-    backgroundColor: COLORS.background,
-    opacity: 0.6,
   },
   inputWithLeftIcon: {
     paddingLeft: 44,
@@ -146,26 +169,30 @@ const styles = StyleSheet.create({
   inputWithRightIcon: {
     paddingRight: 44,
   },
-  inputMultiline: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
   leftIcon: {
     position: 'absolute',
-    left: SPACING.sm,
-    top: SPACING.sm + 2,
+    left: SPACING.md,
     zIndex: 1,
   },
   rightIcon: {
     position: 'absolute',
-    right: SPACING.sm,
-    top: SPACING.sm,
-    padding: 2,
+    right: SPACING.md,
     zIndex: 1,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.xs,
   },
   error: {
     fontSize: 12,
-    color: COLORS.error,
+    marginLeft: 4,
+  },
+  hint: {
+    fontSize: 12,
     marginTop: SPACING.xs,
   },
 });

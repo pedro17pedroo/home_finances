@@ -1,114 +1,196 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { COLORS, SPACING } from '../../constants/config';
+import {
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  ViewStyle,
+  TextStyle,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { SPACING, RADIUS } from '../../constants/config';
+
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
+type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline';
-  size?: 'small' | 'medium' | 'large';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconPosition?: 'left' | 'right';
+  style?: ViewStyle;
+  textStyle?: TextStyle;
 }
 
 export const Button: React.FC<ButtonProps> = ({
   title,
   onPress,
   variant = 'primary',
-  size = 'medium',
+  size = 'md',
   loading = false,
   disabled = false,
   fullWidth = false,
+  icon,
+  iconPosition = 'left',
+  style,
+  textStyle,
 }) => {
-  const buttonStyle = [
-    styles.button,
-    styles[variant],
-    styles[size],
+  const { colors } = useTheme();
+
+  const getVariantStyles = (): { container: ViewStyle; text: TextStyle; iconColor: string } => {
+    switch (variant) {
+      case 'primary':
+        return {
+          container: { backgroundColor: colors.primary },
+          text: { color: '#FFFFFF' },
+          iconColor: '#FFFFFF',
+        };
+      case 'secondary':
+        return {
+          container: { backgroundColor: colors.surfaceSecondary },
+          text: { color: colors.text },
+          iconColor: colors.text,
+        };
+      case 'outline':
+        return {
+          container: {
+            backgroundColor: 'transparent',
+            borderWidth: 1.5,
+            borderColor: colors.primary,
+          },
+          text: { color: colors.primary },
+          iconColor: colors.primary,
+        };
+      case 'ghost':
+        return {
+          container: { backgroundColor: 'transparent' },
+          text: { color: colors.primary },
+          iconColor: colors.primary,
+        };
+      case 'danger':
+        return {
+          container: { backgroundColor: colors.error },
+          text: { color: '#FFFFFF' },
+          iconColor: '#FFFFFF',
+        };
+      case 'success':
+        return {
+          container: { backgroundColor: colors.success },
+          text: { color: '#FFFFFF' },
+          iconColor: '#FFFFFF',
+        };
+      default:
+        return {
+          container: { backgroundColor: colors.primary },
+          text: { color: '#FFFFFF' },
+          iconColor: '#FFFFFF',
+        };
+    }
+  };
+
+  const getSizeStyles = (): { container: ViewStyle; text: TextStyle; iconSize: number } => {
+    switch (size) {
+      case 'sm':
+        return {
+          container: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, minHeight: 36 },
+          text: { fontSize: 14 },
+          iconSize: 16,
+        };
+      case 'md':
+        return {
+          container: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, minHeight: 48 },
+          text: { fontSize: 16 },
+          iconSize: 20,
+        };
+      case 'lg':
+        return {
+          container: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.lg, minHeight: 56 },
+          text: { fontSize: 18 },
+          iconSize: 24,
+        };
+    }
+  };
+
+  const variantStyles = getVariantStyles();
+  const sizeStyles = getSizeStyles();
+
+  const containerStyle: ViewStyle[] = [
+    styles.container,
+    sizeStyles.container,
+    variantStyles.container,
     fullWidth && styles.fullWidth,
     (disabled || loading) && styles.disabled,
+    style,
   ];
 
-  const textStyle = [
+  const textStyles: TextStyle[] = [
     styles.text,
-    styles[`${variant}Text`],
-    styles[`${size}Text`],
+    sizeStyles.text,
+    variantStyles.text,
+    textStyle,
   ];
+
+  const renderIcon = (position: 'left' | 'right') => {
+    if (!icon || iconPosition !== position) return null;
+    return (
+      <Ionicons
+        name={icon}
+        size={sizeStyles.iconSize}
+        color={variantStyles.iconColor}
+        style={position === 'left' ? styles.iconLeft : styles.iconRight}
+      />
+    );
+  };
 
   return (
     <TouchableOpacity
-      style={buttonStyle}
+      style={containerStyle}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? 'white' : COLORS.primary} />
+        <ActivityIndicator
+          color={variantStyles.iconColor}
+          size={size === 'sm' ? 'small' : 'small'}
+        />
       ) : (
-        <Text style={textStyle}>{title}</Text>
+        <>
+          {renderIcon('left')}
+          <Text style={textStyles}>{title}</Text>
+          {renderIcon('right')}
+        </>
       )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  button: {
-    borderRadius: 8,
+  container: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  primary: {
-    backgroundColor: COLORS.primary,
-  },
-  secondary: {
-    backgroundColor: COLORS.secondary,
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
-  small: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    minHeight: 32,
-  },
-  medium: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    minHeight: 44,
-  },
-  large: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    minHeight: 52,
+    borderRadius: RADIUS.md,
   },
   fullWidth: {
     width: '100%',
   },
   disabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   text: {
     fontWeight: '600',
   },
-  primaryText: {
-    color: 'white',
+  iconLeft: {
+    marginRight: SPACING.sm,
   },
-  secondaryText: {
-    color: 'white',
-  },
-  outlineText: {
-    color: COLORS.primary,
-  },
-  smallText: {
-    fontSize: 14,
-  },
-  mediumText: {
-    fontSize: 16,
-  },
-  largeText: {
-    fontSize: 18,
+  iconRight: {
+    marginLeft: SPACING.sm,
   },
 });

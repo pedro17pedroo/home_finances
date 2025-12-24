@@ -1,87 +1,103 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from './Card';
-import { COLORS, SPACING } from '../../constants/config';
+import { useTheme } from '../../contexts/ThemeContext';
+import { SPACING, RADIUS } from '../../constants/config';
 
 interface StatCardProps {
   title: string;
   value: string | number;
-  icon?: keyof typeof Ionicons.glyphMap;
-  color?: string;
   subtitle?: string;
-  trend?: 'up' | 'down' | 'neutral';
-  trendValue?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconColor?: string;
+  trend?: {
+    value: number;
+    isPositive: boolean;
+  };
   onPress?: () => void;
+  style?: ViewStyle;
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
   title,
   value,
-  icon,
-  color = COLORS.primary,
   subtitle,
+  icon,
+  iconColor,
   trend,
-  trendValue,
   onPress,
+  style,
 }) => {
-  const getTrendIcon = () => {
-    switch (trend) {
-      case 'up':
-        return 'trending-up';
-      case 'down':
-        return 'trending-down';
-      default:
-        return 'remove';
-    }
-  };
+  const { colors } = useTheme();
 
-  const getTrendColor = () => {
-    switch (trend) {
-      case 'up':
-        return COLORS.success;
-      case 'down':
-        return COLORS.error;
-      default:
-        return COLORS.textSecondary;
-    }
-  };
-
-  return (
-    <Card style={styles.container} onPress={onPress}>
+  const content = (
+    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.cardBorder }, style]}>
       <View style={styles.header}>
         {icon && (
-          <View style={[styles.iconContainer, { backgroundColor: `${color}15` }]}>
-            <Ionicons name={icon} size={20} color={color} />
+          <View style={[styles.iconContainer, { backgroundColor: `${iconColor || colors.primary}15` }]}>
+            <Ionicons
+              name={icon}
+              size={20}
+              color={iconColor || colors.primary}
+            />
           </View>
         )}
-        <Text style={styles.title}>{title}</Text>
+        <Text style={[styles.title, { color: colors.textSecondary }]} numberOfLines={1}>
+          {title}
+        </Text>
       </View>
 
-      <Text style={[styles.value, { color }]}>{value}</Text>
+      <Text style={[styles.value, { color: colors.text }]} numberOfLines={1}>
+        {value}
+      </Text>
 
-      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-
-      {trend && trendValue && (
-        <View style={styles.trendContainer}>
-          <Ionicons
-            name={getTrendIcon()}
-            size={12}
-            color={getTrendColor()}
-          />
-          <Text style={[styles.trendValue, { color: getTrendColor() }]}>
-            {trendValue}
-          </Text>
+      {(subtitle || trend) && (
+        <View style={styles.footer}>
+          {trend && (
+            <View style={[
+              styles.trendContainer,
+              { backgroundColor: trend.isPositive ? colors.successBackground : colors.errorBackground }
+            ]}>
+              <Ionicons
+                name={trend.isPositive ? 'trending-up' : 'trending-down'}
+                size={12}
+                color={trend.isPositive ? colors.success : colors.error}
+              />
+              <Text style={[
+                styles.trendText,
+                { color: trend.isPositive ? colors.success : colors.error }
+              ]}>
+                {Math.abs(trend.value)}%
+              </Text>
+            </View>
+          )}
+          {subtitle && (
+            <Text style={[styles.subtitle, { color: colors.textTertiary }]}>
+              {subtitle}
+            </Text>
+          )}
         </View>
       )}
-    </Card>
+    </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return content;
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    minHeight: 100,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    minWidth: 140,
   },
   header: {
     flexDirection: 'row',
@@ -91,7 +107,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.sm,
@@ -99,26 +115,31 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 12,
     fontWeight: '500',
-    color: COLORS.textSecondary,
     flex: 1,
   },
   value: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
     marginBottom: SPACING.xs,
   },
-  subtitle: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   trendContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: SPACING.xs,
   },
-  trendValue: {
-    fontSize: 10,
-    fontWeight: '500',
-    marginLeft: SPACING.xs,
+  trendText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  subtitle: {
+    fontSize: 11,
   },
 });
