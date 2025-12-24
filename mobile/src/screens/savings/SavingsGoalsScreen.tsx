@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,74 +6,40 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { StatCard } from '../../components/ui/StatCard';
+import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useToast } from '../../contexts/ToastContext';
+import { Card, Button, Loading, EmptyState } from '../../components/ui';
 import { SavingsGoal } from '../../types';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useDate } from '../../hooks/useDate';
-import { COLORS, SPACING } from '../../constants/config';
+import { SPACING } from '../../constants/config';
+import api from '../../services/api';
 
 interface SavingsGoalsScreenProps {
-  navigation: any;
+  navigation?: any;
 }
 
 export const SavingsGoalsScreen: React.FC<SavingsGoalsScreenProps> = ({ navigation }) => {
+  const { colors } = useTheme();
+  const { showSuccess, showError } = useToast();
+  const { formatCurrency } = useCurrency();
+  const { formatDate } = useDate();
+  
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { formatCurrency } = useCurrency();
-  const { formatDate, formatRelativeDate } = useDate();
 
   const fetchGoals = async () => {
     try {
-      // Simular dados de metas
-      const mockGoals: SavingsGoal[] = [
-        {
-          id: 1,
-          name: 'Viagem para Europa',
-          targetAmount: '500000.00',
-          currentAmount: '375000.00',
-          targetDate: '2025-06-15T00:00:00Z',
-          description: 'Férias de verão na Europa',
-          isActive: true,
-          userId: 1,
-        },
-        {
-          id: 2,
-          name: 'Fundo de Emergência',
-          targetAmount: '300000.00',
-          currentAmount: '180000.00',
-          targetDate: '2025-03-01T00:00:00Z',
-          description: '6 meses de despesas',
-          isActive: true,
-          userId: 1,
-        },
-        {
-          id: 3,
-          name: 'Novo Carro',
-          targetAmount: '800000.00',
-          currentAmount: '200000.00',
-          targetDate: '2025-12-31T00:00:00Z',
-          description: 'Carro novo para a família',
-          isActive: true,
-          userId: 1,
-        },
-        {
-          id: 4,
-          name: 'Casa Própria',
-          targetAmount: '2000000.00',
-          currentAmount: '2000000.00',
-          targetDate: '2024-12-01T00:00:00Z',
-          description: 'Entrada para casa própria',
-          isActive: false,
-          userId: 1,
-        },
-      ];
-      setGoals(mockGoals);
+      const response = await api.get('/savings-goals');
+      // Handle both { data: goals } and { data: { goals } } structures
+      const data = response.data?.data?.goals || response.data?.data || response.data || [];
+      setGoals(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao carregar metas:', error);
     } finally {
@@ -82,213 +48,226 @@ export const SavingsGoalsScreen: React.FC<SavingsGoalsScreenProps> = ({ navigati
     }
   };
 
-  useEffect(() => {
-    fetchGoals();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchGoals();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchGoals();
   };
 
-  const getActiveGoals = () => goals.filter(goal => goal.isActive);
-  const getCompletedGoals = () => goals.filter(goal => !goal.isActive);
+  const getActiveGoals = () => goals.filter(goal => {
+    const current = parseFloat(goal.accountBalance || goal.currentAmount || '0');
+    const target = parseFloat(goal.targetAmount || '0');
+    return current < target && goal.isActive !== false;
+  });
+  
+  const getCompletedGoals = () => goals.filter(goal => {
+    const current = parseFloat(goal.accountBalance || goal.currentAmount || '0');
+    const target = parseFloat(goal.targetAmount || '0');
+    return current >= target || goal.isCompleted === true;
+  });
 
   const getTotalSaved = () => {
     return getActiveGoals().reduce((total, goal) => {
-      // Use account balance if available
-      const amount = goal.accountBalance ? parseFloat(goal.accountBalance) : parseFloat(goal.currentAmount);
-      return total + amount;
+      return total + parseFloat(goal.accountBalance || goal.currentAmount || '0');
     }, 0);
   };
 
   const getTotalTarget = () => {
     return getActiveGoals().reduce((total, goal) => {
-      return total + parseFloat(goal.targetAmount);
+      return total + parseFloat(goal.targetAmount || '0');
     }, 0);
   };
 
   const getProgress = (goal: SavingsGoal) => {
-    // Use account balance if available, otherwise use currentAmount
-    const current = goal.accountBalance ? parseFloat(goal.accountBalance) : parseFloat(goal.currentAmount);
-    const target = parseFloat(goal.targetAmount);
+    const current = parseFloat(goal.accountBalance || goal.currentAmount || '0');
+    const target = parseFloat(goal.targetAmount || '1');
     return Math.min((current / target) * 100, 100);
   };
 
   const getCurrentAmount = (goal: SavingsGoal) => {
-    // Use account balance if available, otherwise use currentAmount
-    return goal.accountBalance ? parseFloat(goal.accountBalance) : parseFloat(goal.currentAmount);
+    return parseFloat(goal.accountBalance || goal.currentAmount || '0');
   };
 
   const getProgressColor = (progress: number) => {
-    if (progress >= 100) return COLORS.success;
-    if (progress >= 75) return COLORS.primary;
-    if (progress >= 50) return COLORS.warning;
-    return COLORS.error;
+    if (progress >= 100) return colors.success;
+    if (progress >= 75) return colors.primary;
+    if (progress >= 50) return colors.warning;
+    return colors.error;
   };
 
   const isOverdue = (goal: SavingsGoal) => {
-    if (!goal.targetDate) return false;
-    return new Date(goal.targetDate) < new Date() && goal.isActive;
+    const deadline = goal.deadline || goal.targetDate;
+    if (!deadline) return false;
+    const current = parseFloat(goal.accountBalance || goal.currentAmount || '0');
+    const target = parseFloat(goal.targetAmount || '0');
+    if (current >= target) return false; // Already completed
+    return new Date(deadline) < new Date();
+  };
+
+  const handleDeleteGoal = (goal: SavingsGoal) => {
+    Alert.alert(
+      'Eliminar Meta',
+      `Tem certeza que deseja eliminar "${goal.name}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/savings-goals/${goal.id}`);
+              showSuccess('Meta eliminada');
+              fetchGoals();
+            } catch (error) {
+              showError('Erro ao eliminar meta');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text>Carregando metas...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <Loading message="Carregando metas..." />;
   }
 
+  const overallProgress = getTotalTarget() > 0 
+    ? (getTotalSaved() / getTotalTarget()) * 100 
+    : 0;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Metas de Poupança</Text>
         <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddSavingsGoal')}
+          style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}
+          onPress={() => navigation?.goBack()}
         >
-          <Ionicons name="add" size={24} color={COLORS.primary} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: colors.text }]}>Metas de Poupança</Text>
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.primary }]}
+          onPress={() => navigation?.navigate('AddSavingsGoal', {})}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
         showsVerticalScrollIndicator={false}
       >
         {/* Estatísticas */}
-        <View style={styles.statsContainer}>
-          <StatCard
-            title="Total Poupado"
-            value={formatCurrency(getTotalSaved())}
-            icon="trending-up"
-            color={COLORS.success}
-          />
-          <StatCard
-            title="Meta Total"
-            value={formatCurrency(getTotalTarget())}
-            icon="flag"
-            color={COLORS.primary}
-          />
+        <View style={styles.statsRow}>
+          <Card variant="elevated" padding="md" style={[styles.statCard, { backgroundColor: colors.success }]}>
+            <Ionicons name="trending-up" size={20} color="#FFFFFF" />
+            <Text style={styles.statLabel}>Total Poupado</Text>
+            <Text style={styles.statValue}>{formatCurrency(getTotalSaved())}</Text>
+          </Card>
+          <Card variant="elevated" padding="md" style={[styles.statCard, { backgroundColor: colors.primary }]}>
+            <Ionicons name="flag" size={20} color="#FFFFFF" />
+            <Text style={styles.statLabel}>Meta Total</Text>
+            <Text style={styles.statValue}>{formatCurrency(getTotalTarget())}</Text>
+          </Card>
         </View>
 
         {/* Progresso Geral */}
-        <Card style={styles.overallProgressCard}>
-          <Text style={styles.overallProgressTitle}>Progresso Geral</Text>
-          <View style={styles.overallProgressBar}>
-            <View
-              style={[
-                styles.overallProgressFill,
-                {
-                  width: `${Math.min((getTotalSaved() / getTotalTarget()) * 100, 100)}%`,
-                  backgroundColor: COLORS.primary,
-                },
-              ]}
-            />
-          </View>
-          <Text style={styles.overallProgressText}>
-            {((getTotalSaved() / getTotalTarget()) * 100).toFixed(1)}% das metas atingidas
-          </Text>
-        </Card>
-
-        {/* Ação Rápida */}
-        <View style={styles.quickActionContainer}>
-          <Button
-            title="Nova Meta de Poupança"
-            onPress={() => navigation.navigate('AddSavingsGoal')}
-            variant="primary"
-            fullWidth
-            size="large"
-          />
-        </View>
+        {goals.length > 0 && (
+          <Card variant="default" padding="lg" style={styles.progressCard}>
+            <Text style={[styles.progressTitle, { color: colors.text }]}>Progresso Geral</Text>
+            <View style={[styles.progressBar, { backgroundColor: colors.surfaceSecondary }]}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${Math.min(overallProgress, 100)}%`, backgroundColor: colors.primary },
+                ]}
+              />
+            </View>
+            <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+              {overallProgress.toFixed(1)}% das metas atingidas
+            </Text>
+          </Card>
+        )}
 
         {/* Metas Ativas */}
-        <View style={styles.goalsSection}>
-          <Text style={styles.sectionTitle}>Metas Ativas ({getActiveGoals().length})</Text>
-          
-          {getActiveGoals().length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Ionicons name="flag" size={48} color={COLORS.textSecondary} />
-              <Text style={styles.emptyTitle}>Nenhuma meta ativa</Text>
-              <Text style={styles.emptySubtitle}>
-                Crie sua primeira meta de poupança para começar a economizar
-              </Text>
-              <Button
-                title="Criar Primeira Meta"
-                onPress={() => navigation.navigate('AddSavingsGoal')}
-                variant="outline"
-                style={styles.emptyButton}
-              />
-            </Card>
-          ) : (
-            getActiveGoals().map((goal) => {
+        {getActiveGoals().length > 0 ? (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Metas Ativas ({getActiveGoals().length})
+            </Text>
+            {getActiveGoals().map((goal) => {
               const progress = getProgress(goal);
               const progressColor = getProgressColor(progress);
               const currentAmount = getCurrentAmount(goal);
-              const remaining = parseFloat(goal.targetAmount) - currentAmount;
-              
+              const targetAmount = parseFloat(goal.targetAmount || '0');
+              const remaining = targetAmount - currentAmount;
+              const deadline = goal.deadline || goal.targetDate;
+
               return (
-                <Card key={goal.id} style={styles.goalCard}>
+                <Card key={goal.id} variant="default" padding="md" style={styles.goalCard}>
                   <View style={styles.goalHeader}>
                     <View style={styles.goalInfo}>
-                      <Text style={styles.goalName}>{goal.name}</Text>
+                      <Text style={[styles.goalName, { color: colors.text }]}>{goal.name}</Text>
                       {goal.accountName && (
-                        <Text style={styles.goalAccount}>
-                          💳 {goal.accountName} {goal.accountBank && `(${goal.accountBank})`}
+                        <Text style={[styles.goalDate, { color: colors.primary }]}>
+                          🏦 {goal.accountName}{goal.accountBank ? ` - ${goal.accountBank}` : ''}
                         </Text>
                       )}
-                      {goal.description && (
-                        <Text style={styles.goalDescription}>{goal.description}</Text>
-                      )}
-                      {goal.targetDate && (
+                      {deadline && (
                         <Text style={[
                           styles.goalDate,
-                          isOverdue(goal) && styles.goalDateOverdue
+                          { color: isOverdue(goal) ? colors.error : colors.textSecondary }
                         ]}>
                           {isOverdue(goal) ? '⚠️ Atrasada - ' : '📅 '}
-                          Meta: {formatDate(goal.targetDate)}
+                          Meta: {formatDate(deadline)}
                         </Text>
                       )}
                     </View>
-                    <TouchableOpacity style={styles.goalMenuButton}>
-                      <Ionicons name="ellipsis-vertical" size={20} color={COLORS.textSecondary} />
+                    <TouchableOpacity
+                      onPress={() => {
+                        Alert.alert(goal.name, 'Escolha uma opção', [
+                          { text: 'Editar', onPress: () => navigation?.navigate('AddSavingsGoal', { goal }) },
+                          { text: 'Eliminar', onPress: () => handleDeleteGoal(goal), style: 'destructive' },
+                          { text: 'Cancelar', style: 'cancel' },
+                        ]);
+                      }}
+                    >
+                      <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.goalProgress}>
                     <View style={styles.goalAmounts}>
-                      <Text style={styles.goalCurrent}>
+                      <Text style={[styles.goalCurrent, { color: colors.text }]}>
                         {formatCurrency(currentAmount)}
                       </Text>
-                      <Text style={styles.goalTarget}>
-                        de {formatCurrency(parseFloat(goal.targetAmount))}
+                      <Text style={[styles.goalTarget, { color: colors.textSecondary }]}>
+                        de {formatCurrency(targetAmount)}
                       </Text>
                     </View>
-                    
+
                     <View style={styles.progressBarContainer}>
-                      <View style={styles.progressBar}>
+                      <View style={[styles.goalProgressBar, { backgroundColor: colors.surfaceSecondary }]}>
                         <View
-                          style={[
-                            styles.progressFill,
-                            {
-                              width: `${progress}%`,
-                              backgroundColor: progressColor,
-                            },
-                          ]}
+                          style={[styles.goalProgressFill, { width: `${progress}%`, backgroundColor: progressColor }]}
                         />
                       </View>
-                      <Text style={[styles.progressText, { color: progressColor }]}>
-                        {progress.toFixed(1)}%
+                      <Text style={[styles.progressPercent, { color: progressColor }]}>
+                        {progress.toFixed(0)}%
                       </Text>
                     </View>
 
                     {remaining > 0 && (
-                      <Text style={styles.remainingText}>
+                      <Text style={[styles.remainingText, { color: colors.textSecondary }]}>
                         Faltam: {formatCurrency(remaining)}
                       </Text>
                     )}
@@ -297,165 +276,167 @@ export const SavingsGoalsScreen: React.FC<SavingsGoalsScreenProps> = ({ navigati
                   <View style={styles.goalActions}>
                     <Button
                       title="Contribuir"
-                      onPress={() => {}}
-                      variant="primary"
-                      size="small"
+                      onPress={() => navigation?.navigate('AddTransaction', { 
+                        type: 'receita',
+                        savingsGoalId: goal.id 
+                      })}
+                      size="sm"
+                      icon="add-circle-outline"
+                      style={{ flex: 1 }}
                     />
                     <Button
                       title="Detalhes"
-                      onPress={() => {}}
+                      onPress={() => navigation?.navigate('AddSavingsGoal', { goal })}
                       variant="outline"
-                      size="small"
+                      size="sm"
+                      icon="eye-outline"
+                      style={{ flex: 1 }}
                     />
                   </View>
                 </Card>
               );
-            })
-          )}
-        </View>
+            })}
+          </View>
+        ) : (
+          <EmptyState
+            icon="flag-outline"
+            title="Nenhuma meta ativa"
+            description="Crie sua primeira meta de poupança para começar a economizar"
+            actionLabel="Criar Meta"
+            onAction={() => navigation?.navigate('AddSavingsGoal', {})}
+          />
+        )}
 
         {/* Metas Concluídas */}
         {getCompletedGoals().length > 0 && (
-          <View style={styles.goalsSection}>
-            <Text style={styles.sectionTitle}>Metas Concluídas ({getCompletedGoals().length})</Text>
-            
-            {getCompletedGoals().map((goal) => (
-              <Card key={goal.id} style={[styles.goalCard, styles.completedGoalCard]}>
-                <View style={styles.goalHeader}>
-                  <View style={styles.goalInfo}>
-                    <View style={styles.completedGoalHeader}>
-                      <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
-                      <Text style={styles.goalName}>{goal.name}</Text>
-                    </View>
-                    {goal.description && (
-                      <Text style={styles.goalDescription}>{goal.description}</Text>
-                    )}
-                    <Text style={styles.completedText}>
-                      ✅ Meta atingida! {formatCurrency(parseFloat(goal.targetAmount))}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Metas Concluídas ({getCompletedGoals().length})
+            </Text>
+            {getCompletedGoals().map((goal) => {
+              const currentAmount = getCurrentAmount(goal);
+              return (
+                <Card
+                  key={goal.id}
+                  variant="outlined"
+                  padding="md"
+                  style={[styles.goalCard, { borderColor: colors.success }]}
+                >
+                  <View style={styles.completedHeader}>
+                    <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                    <Text style={[styles.goalName, { color: colors.text, marginLeft: SPACING.sm }]}>
+                      {goal.name}
                     </Text>
                   </View>
-                </View>
-              </Card>
-            ))}
+                  <Text style={[styles.completedText, { color: colors.success }]}>
+                    ✅ Meta atingida! {formatCurrency(currentAmount)} de {formatCurrency(goal.targetAmount)}
+                  </Text>
+                  {goal.accountName && (
+                    <Text style={[styles.goalDate, { color: colors.textSecondary, marginTop: 4 }]}>
+                      🏦 {goal.accountName}
+                    </Text>
+                  )}
+                </Card>
+              );
+            })}
           </View>
         )}
+
+        <View style={{ height: SPACING.xxl }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '600',
   },
   addButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   scrollView: {
     flex: 1,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-    gap: SPACING.sm,
+  scrollContent: {
+    padding: SPACING.md,
   },
-  overallProgressCard: {
-    marginHorizontal: SPACING.lg,
+  statsRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: SPACING.xs,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  progressCard: {
     marginBottom: SPACING.lg,
     alignItems: 'center',
   },
-  overallProgressTitle: {
+  progressTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
     marginBottom: SPACING.md,
   },
-  overallProgressBar: {
+  progressBar: {
     width: '100%',
     height: 12,
-    backgroundColor: COLORS.border,
     borderRadius: 6,
     overflow: 'hidden',
     marginBottom: SPACING.sm,
   },
-  overallProgressFill: {
+  progressFill: {
     height: '100%',
     borderRadius: 6,
   },
-  overallProgressText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+  progressText: {
+    fontSize: 13,
   },
-  quickActionContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  goalsSection: {
-    paddingHorizontal: SPACING.lg,
+  section: {
     marginBottom: SPACING.lg,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
     marginBottom: SPACING.md,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: SPACING.xxl,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginBottom: SPACING.lg,
-  },
-  emptyButton: {
-    marginTop: SPACING.sm,
   },
   goalCard: {
-    marginBottom: SPACING.md,
-  },
-  completedGoalCard: {
-    backgroundColor: `${COLORS.success}05`,
-    borderColor: COLORS.success,
-    borderWidth: 1,
+    marginBottom: SPACING.sm,
   },
   goalHeader: {
     flexDirection: 'row',
@@ -466,37 +447,13 @@ const styles = StyleSheet.create({
   goalInfo: {
     flex: 1,
   },
-  completedGoalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
   goalName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  goalAccount: {
-    fontSize: 12,
-    color: COLORS.primary,
-    marginBottom: SPACING.xs,
-  },
-  goalDescription: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
   },
   goalDate: {
     fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  goalDateOverdue: {
-    color: COLORS.error,
-    fontWeight: '500',
-  },
-  goalMenuButton: {
-    padding: SPACING.xs,
   },
   goalProgress: {
     marginBottom: SPACING.md,
@@ -509,48 +466,48 @@ const styles = StyleSheet.create({
   },
   goalCurrent: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    fontWeight: '700',
   },
   goalTarget: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    fontSize: 13,
   },
   progressBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
-  progressBar: {
+  goalProgressBar: {
     flex: 1,
     height: 8,
-    backgroundColor: COLORS.border,
     borderRadius: 4,
     overflow: 'hidden',
   },
-  progressFill: {
+  goalProgressFill: {
     height: '100%',
     borderRadius: 4,
   },
-  progressText: {
+  progressPercent: {
     fontSize: 12,
     fontWeight: '600',
-    minWidth: 40,
+    minWidth: 35,
     textAlign: 'right',
   },
   remainingText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
     textAlign: 'center',
-  },
-  completedText: {
-    fontSize: 14,
-    color: COLORS.success,
-    fontWeight: '500',
   },
   goalActions: {
     flexDirection: 'row',
     gap: SPACING.sm,
+  },
+  completedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  completedText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

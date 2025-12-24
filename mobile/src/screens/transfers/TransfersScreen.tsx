@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,22 +9,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useDate } from '../../hooks/useDate';
 import { COLORS, SPACING } from '../../constants/config';
+import api from '../../services/api';
 
 interface Transfer {
   id: number;
   fromAccountId: number;
   toAccountId: number;
-  fromAccountName: string;
-  toAccountName: string;
+  fromAccountName?: string;
+  fromAccountBank?: string;
+  toAccountName?: string;
+  toAccountBank?: string;
   amount: string;
   description?: string;
   date: string;
+  createdAt?: string;
   userId: number;
 }
 
@@ -41,54 +46,23 @@ export const TransfersScreen: React.FC<TransfersScreenProps> = ({ navigation }) 
 
   const fetchTransfers = async () => {
     try {
-      // Simular dados de transferências
-      const mockTransfers: Transfer[] = [
-        {
-          id: 1,
-          fromAccountId: 1,
-          toAccountId: 2,
-          fromAccountName: 'Conta Corrente BAI',
-          toAccountName: 'Conta Poupança BFA',
-          amount: '50000.00',
-          description: 'Poupança mensal',
-          date: '2024-12-18T10:00:00Z',
-          userId: 1,
-        },
-        {
-          id: 2,
-          fromAccountId: 2,
-          toAccountId: 1,
-          fromAccountName: 'Conta Poupança BFA',
-          toAccountName: 'Conta Corrente BAI',
-          amount: '25000.00',
-          description: 'Emergência',
-          date: '2024-12-15T14:30:00Z',
-          userId: 1,
-        },
-        {
-          id: 3,
-          fromAccountId: 1,
-          toAccountId: 3,
-          fromAccountName: 'Conta Corrente BAI',
-          toAccountName: 'Conta Salário BIC',
-          amount: '15000.00',
-          description: 'Transferência para salário',
-          date: '2024-12-12T09:15:00Z',
-          userId: 1,
-        },
-      ];
-      setTransfers(mockTransfers);
+      const response = await api.get('/transfers');
+      const data = response.data?.data || response.data;
+      setTransfers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao carregar transferências:', error);
+      setTransfers([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchTransfers();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchTransfers();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -163,7 +137,7 @@ export const TransfersScreen: React.FC<TransfersScreenProps> = ({ navigation }) 
             onPress={() => navigation.navigate('AddTransfer')}
             variant="primary"
             fullWidth
-            size="large"
+            size="lg"
           />
         </View>
 
@@ -201,7 +175,7 @@ export const TransfersScreen: React.FC<TransfersScreenProps> = ({ navigation }) 
                       {formatCurrency(parseFloat(transfer.amount))}
                     </Text>
                     <Text style={styles.transferDate}>
-                      {formatRelativeDate(transfer.date)}
+                      {formatRelativeDate(transfer.date || transfer.createdAt || '')}
                     </Text>
                   </View>
                 </View>
@@ -210,14 +184,28 @@ export const TransfersScreen: React.FC<TransfersScreenProps> = ({ navigation }) 
                   <View style={styles.accountFlow}>
                     <View style={styles.accountItem}>
                       <Ionicons name="remove-circle" size={16} color={COLORS.error} />
-                      <Text style={styles.fromAccount}>{transfer.fromAccountName}</Text>
+                      <View style={styles.accountTextContainer}>
+                        <Text style={styles.fromAccount}>
+                          {transfer.fromAccountName || `Conta #${transfer.fromAccountId}`}
+                        </Text>
+                        {transfer.fromAccountBank && (
+                          <Text style={styles.accountBank}>{transfer.fromAccountBank}</Text>
+                        )}
+                      </View>
                     </View>
                     
                     <Ionicons name="arrow-forward" size={16} color={COLORS.textSecondary} />
                     
                     <View style={styles.accountItem}>
                       <Ionicons name="add-circle" size={16} color={COLORS.success} />
-                      <Text style={styles.toAccount}>{transfer.toAccountName}</Text>
+                      <View style={styles.accountTextContainer}>
+                        <Text style={styles.toAccount}>
+                          {transfer.toAccountName || `Conta #${transfer.toAccountId}`}
+                        </Text>
+                        {transfer.toAccountBank && (
+                          <Text style={styles.accountBankRight}>{transfer.toAccountBank}</Text>
+                        )}
+                      </View>
                     </View>
                   </View>
 
@@ -228,7 +216,7 @@ export const TransfersScreen: React.FC<TransfersScreenProps> = ({ navigation }) 
                   )}
 
                   <Text style={styles.transferFullDate}>
-                    {formatDate(transfer.date)}
+                    {formatDate(transfer.date || transfer.createdAt || '')}
                   </Text>
                 </View>
               </Card>
@@ -361,20 +349,33 @@ const styles = StyleSheet.create({
   },
   accountItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  accountTextContainer: {
+    marginLeft: SPACING.xs,
     flex: 1,
   },
   fromAccount: {
     fontSize: 12,
     color: COLORS.error,
-    marginLeft: SPACING.xs,
-    flex: 1,
+    fontWeight: '500',
   },
   toAccount: {
     fontSize: 12,
     color: COLORS.success,
-    marginLeft: SPACING.xs,
-    flex: 1,
+    fontWeight: '500',
+    textAlign: 'right',
+  },
+  accountBank: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  accountBankRight: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 2,
     textAlign: 'right',
   },
   transferDescription: {

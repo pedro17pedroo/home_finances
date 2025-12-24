@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,180 +6,261 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
+import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useToast } from '../../contexts/ToastContext';
+import { Card, Button, Loading, EmptyState, Badge } from '../../components/ui';
 import { Account } from '../../types';
-import { COLORS, SPACING } from '../../constants/config';
+import { SPACING } from '../../constants/config';
+import api from '../../services/api';
 
-export const AccountsScreen: React.FC = () => {
+interface AccountsScreenProps {
+  navigation?: any;
+}
+
+export const AccountsScreen: React.FC<AccountsScreenProps> = ({ navigation }) => {
+  const { colors } = useTheme();
+  const { showSuccess, showError } = useToast();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchAccounts = async () => {
     try {
-      // Simular dados das contas
-      const mockAccounts: Account[] = [
-        {
-          id: 1,
-          name: 'Conta Corrente BAI',
-          type: 'corrente',
-          bank: 'Banco Angolano de Investimentos',
-          balance: '150000.00',
-          userId: 1,
-        },
-        {
-          id: 2,
-          name: 'Conta Poupança BFA',
-          type: 'poupanca',
-          bank: 'Banco de Fomento Angola',
-          balance: '500000.00',
-          userId: 1,
-        },
-        {
-          id: 3,
-          name: 'Conta Salário BIC',
-          type: 'corrente',
-          bank: 'Banco BIC',
-          balance: '75000.00',
-          userId: 1,
-        },
-      ];
-      setAccounts(mockAccounts);
+      const response = await api.get('/accounts');
+      const data = response.data?.data || response.data;
+      setAccounts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao carregar contas:', error);
+      setAccounts([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchAccounts();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchAccounts();
   };
 
-  const formatCurrency = (value: string) => {
+  const formatCurrency = (value: string | number) => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
     return new Intl.NumberFormat('pt-AO', {
-      style: 'currency',
-      currency: 'AOA',
-    }).format(parseFloat(value));
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num) + ' Kz';
   };
 
-  const getAccountIcon = (type: string) => {
-    return type === 'poupanca' ? 'library' : 'card';
+  const getAccountIcon = (type: string): keyof typeof Ionicons.glyphMap => {
+    switch (type) {
+      case 'poupanca': return 'library';
+      case 'investimento': return 'trending-up';
+      case 'carteira': return 'wallet';
+      default: return 'card';
+    }
+  };
+
+  const getAccountTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      corrente: 'Conta Corrente',
+      poupanca: 'Poupança',
+      investimento: 'Investimento',
+      carteira: 'Carteira',
+      outro: 'Outro',
+    };
+    return labels[type] || type;
   };
 
   const getTotalBalance = () => {
     return accounts.reduce((total, account) => {
-      return total + parseFloat(account.balance);
+      return total + parseFloat(account.balance || '0');
     }, 0);
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text>Carregando contas...</Text>
-        </View>
-      </SafeAreaView>
+  const handleDeleteAccount = (account: Account) => {
+    Alert.alert(
+      'Eliminar Conta',
+      `Tem certeza que deseja eliminar "${account.name}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/accounts/${account.id}`);
+              showSuccess('Conta eliminada com sucesso');
+              fetchAccounts();
+            } catch (error: any) {
+              showError(error.response?.data?.message || 'Erro ao eliminar conta');
+            }
+          },
+        },
+      ]
     );
+  };
+
+  if (loading) {
+    return <Loading message="Carregando contas..." />;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Minhas Contas</Text>
-        <TouchableOpacity style={styles.addButton}>
-          <Ionicons name="add" size={24} color={COLORS.primary} />
+        <Text style={[styles.title, { color: colors.text }]}>Minhas Contas</Text>
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.surface }]}
+          onPress={() => navigation?.navigate('AddAccount', {})}
+        >
+          <Ionicons name="add" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         showsVerticalScrollIndicator={false}
       >
         {/* Saldo Total */}
-        <Card style={styles.totalCard}>
+        <Card variant="elevated" padding="lg" style={styles.totalCard}>
           <View style={styles.totalHeader}>
-            <Ionicons name="wallet" size={24} color="white" />
+            <Ionicons name="wallet" size={24} color="#FFFFFF" />
             <Text style={styles.totalLabel}>Saldo Total</Text>
           </View>
-          <Text style={styles.totalAmount}>
-            {formatCurrency(getTotalBalance().toString())}
-          </Text>
+          <Text style={styles.totalAmount}>{formatCurrency(getTotalBalance())}</Text>
+          <Text style={styles.totalAccounts}>{accounts.length} conta(s)</Text>
         </Card>
 
+        {/* Ações Rápidas */}
+        {accounts.length > 0 && (
+          <View style={styles.quickActions}>
+            <Button
+              title="Ver Todas Transferências"
+              onPress={() => navigation?.navigate('Transfers')}
+              variant="outline"
+              fullWidth
+              size="md"
+              icon="swap-horizontal-outline"
+            />
+          </View>
+        )}
+
         {/* Lista de Contas */}
-        <View style={styles.accountsList}>
-          {accounts.map((account) => (
-            <Card key={account.id} style={styles.accountCard}>
-              <View style={styles.accountHeader}>
-                <View style={styles.accountInfo}>
-                  <View style={styles.accountIconContainer}>
-                    <Ionicons
-                      name={getAccountIcon(account.type)}
-                      size={24}
-                      color={COLORS.primary}
-                    />
+        {accounts.length > 0 ? (
+          <View style={styles.accountsList}>
+            {accounts.map((account) => (
+              <Card key={account.id} variant="default" padding="md" style={styles.accountCard}>
+                <View style={styles.accountHeader}>
+                  <View style={styles.accountInfo}>
+                    <View style={[styles.accountIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                      <Ionicons
+                        name={getAccountIcon(account.type)}
+                        size={24}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <View style={styles.accountDetails}>
+                      <Text style={[styles.accountName, { color: colors.text }]}>
+                        {account.name}
+                      </Text>
+                      {account.bank && (
+                        <Text style={[styles.accountBank, { color: colors.textSecondary }]}>
+                          {account.bank}
+                        </Text>
+                      )}
+                      <Badge
+                        label={getAccountTypeLabel(account.type)}
+                        variant="info"
+                        size="sm"
+                      />
+                    </View>
                   </View>
-                  <View style={styles.accountDetails}>
-                    <Text style={styles.accountName}>{account.name}</Text>
-                    <Text style={styles.accountBank}>{account.bank}</Text>
-                    <Text style={styles.accountType}>
-                      {account.type === 'corrente' ? 'Conta Corrente' : 'Poupança'}
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.moreButton}
+                    onPress={() => {
+                      Alert.alert(
+                        account.name,
+                        'Escolha uma opção',
+                        [
+                          { text: 'Editar', onPress: () => navigation?.navigate('AddAccount', { account }) },
+                          { text: 'Eliminar', onPress: () => handleDeleteAccount(account), style: 'destructive' },
+                          { text: 'Cancelar', style: 'cancel' },
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.moreButton}>
-                  <Ionicons name="ellipsis-vertical" size={20} color={COLORS.textSecondary} />
-                </TouchableOpacity>
-              </View>
 
-              <View style={styles.accountBalance}>
-                <Text style={styles.balanceAmount}>
-                  {formatCurrency(account.balance)}
-                </Text>
-              </View>
+                <View style={styles.accountBalance}>
+                  <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Saldo</Text>
+                  <Text style={[styles.balanceAmount, { color: colors.text }]}>
+                    {formatCurrency(account.balance)}
+                  </Text>
+                </View>
 
-              <View style={styles.accountActions}>
-                <Button
-                  title="Transferir"
-                  onPress={() => {}}
-                  variant="outline"
-                  size="small"
-                />
-                <Button
-                  title="Histórico"
-                  onPress={() => {}}
-                  variant="outline"
-                  size="small"
-                />
-              </View>
-            </Card>
-          ))}
-        </View>
-
-        {/* Botão Adicionar Conta */}
-        <View style={styles.addAccountContainer}>
-          <Button
-            title="Adicionar Nova Conta"
-            onPress={() => {}}
-            variant="outline"
-            fullWidth
-            size="large"
+                <View style={styles.accountActions}>
+                  <Button
+                    title="Transferir"
+                    onPress={() => navigation?.navigate('AddTransfer', { fromAccountId: account.id })}
+                    variant="outline"
+                    size="sm"
+                    icon="swap-horizontal-outline"
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    title="Histórico"
+                    onPress={() => navigation?.navigate('TransferHistory', { accountId: account.id, accountName: account.name })}
+                    variant="outline"
+                    size="sm"
+                    icon="time-outline"
+                    style={{ flex: 1 }}
+                  />
+                </View>
+              </Card>
+            ))}
+          </View>
+        ) : (
+          <EmptyState
+            icon="wallet-outline"
+            title="Nenhuma conta"
+            description="Adicione sua primeira conta para começar a controlar suas finanças"
+            actionLabel="Adicionar Conta"
+            onAction={() => navigation?.navigate('AddAccount', {})}
           />
-        </View>
+        )}
+
+        {accounts.length > 0 && (
+          <View style={styles.addAccountContainer}>
+            <Button
+              title="Adicionar Nova Conta"
+              onPress={() => navigation?.navigate('AddAccount', {})}
+              variant="outline"
+              fullWidth
+              size="lg"
+              icon="add-circle-outline"
+            />
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -188,30 +269,22 @@ export const AccountsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
   },
   addButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -223,10 +296,13 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.xxl,
+  },
   totalCard: {
-    marginHorizontal: SPACING.lg,
     marginBottom: SPACING.lg,
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#2563EB',
   },
   totalHeader: {
     flexDirection: 'row',
@@ -241,13 +317,21 @@ const styles = StyleSheet.create({
   totalAmount: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#FFFFFF',
+  },
+  totalAccounts: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: SPACING.xs,
+  },
+  quickActions: {
+    marginBottom: SPACING.lg,
   },
   accountsList: {
-    paddingHorizontal: SPACING.lg,
+    gap: SPACING.md,
   },
   accountCard: {
-    marginBottom: SPACING.md,
+    marginBottom: 0,
   },
   accountHeader: {
     flexDirection: 'row',
@@ -263,47 +347,41 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: `${COLORS.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.sm,
   },
   accountDetails: {
     flex: 1,
+    gap: 4,
   },
   accountName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
   },
   accountBank: {
     fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
-  },
-  accountType: {
-    fontSize: 12,
-    color: COLORS.primary,
-    fontWeight: '500',
   },
   moreButton: {
     padding: SPACING.xs,
   },
   accountBalance: {
     marginBottom: SPACING.md,
+    alignItems: 'flex-end',
+  },
+  balanceLabel: {
+    fontSize: 12,
+    marginBottom: 2,
   },
   balanceAmount: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: COLORS.text,
-    textAlign: 'right',
   },
   accountActions: {
     flexDirection: 'row',
     gap: SPACING.sm,
   },
   addAccountContainer: {
-    padding: SPACING.lg,
+    marginTop: SPACING.lg,
   },
 });

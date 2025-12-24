@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useFocusEffect } from '@react-navigation/native';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Account } from '../../types';
 import { useCurrency } from '../../hooks/useCurrency';
 import { COLORS, SPACING } from '../../constants/config';
+import api from '../../services/api';
 
 const transferSchema = z.object({
   amount: z.string().min(1, 'Valor é obrigatório'),
@@ -33,14 +35,18 @@ type TransferFormData = z.infer<typeof transferSchema>;
 
 interface AddTransferScreenProps {
   navigation: any;
+  route?: any;
 }
 
-export const AddTransferScreen: React.FC<AddTransferScreenProps> = ({ navigation }) => {
+export const AddTransferScreen: React.FC<AddTransferScreenProps> = ({ navigation, route }) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [fromAccount, setFromAccount] = useState<Account | null>(null);
   const [toAccount, setToAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
   const { formatCurrency, parseCurrency } = useCurrency();
+  
+  const fromAccountId = route?.params?.fromAccountId;
 
   const {
     control,
@@ -54,44 +60,35 @@ export const AddTransferScreen: React.FC<AddTransferScreenProps> = ({ navigation
 
   const watchAmount = watch('amount');
 
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
-
   const fetchAccounts = async () => {
     try {
-      // Simular dados das contas
-      const mockAccounts: Account[] = [
-        {
-          id: 1,
-          name: 'Conta Corrente BAI',
-          type: 'corrente',
-          bank: 'Banco Angolano de Investimentos',
-          balance: '150000.00',
-          userId: 1,
-        },
-        {
-          id: 2,
-          name: 'Conta Poupança BFA',
-          type: 'poupanca',
-          bank: 'Banco de Fomento Angola',
-          balance: '500000.00',
-          userId: 1,
-        },
-        {
-          id: 3,
-          name: 'Conta Salário BIC',
-          type: 'corrente',
-          bank: 'Banco BIC',
-          balance: '75000.00',
-          userId: 1,
-        },
-      ];
-      setAccounts(mockAccounts);
+      setLoadingAccounts(true);
+      const response = await api.get('/accounts');
+      const data = response.data?.data || response.data;
+      const accountsList = Array.isArray(data) ? data : [];
+      setAccounts(accountsList);
+      
+      // Se veio com fromAccountId, pré-selecionar a conta de origem
+      if (fromAccountId && accountsList.length > 0) {
+        const preselectedAccount = accountsList.find((acc: Account) => acc.id === fromAccountId);
+        if (preselectedAccount) {
+          setFromAccount(preselectedAccount);
+          setValue('fromAccountId', preselectedAccount.id);
+        }
+      }
     } catch (error) {
       console.error('Erro ao carregar contas:', error);
+      setAccounts([]);
+    } finally {
+      setLoadingAccounts(false);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchAccounts();
+    }, [fromAccountId])
+  );
 
   const onSubmit = async (data: TransferFormData) => {
     if (!fromAccount || !toAccount) {
@@ -112,8 +109,12 @@ export const AddTransferScreen: React.FC<AddTransferScreenProps> = ({ navigation
 
     setLoading(true);
     try {
-      // Simular transferência
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await api.post('/transfers', {
+        fromAccountId: fromAccount.id,
+        toAccountId: toAccount.id,
+        amount: amount,
+        description: data.description || '',
+      });
       
       Alert.alert(
         'Transferência Realizada!',
@@ -125,8 +126,9 @@ export const AddTransferScreen: React.FC<AddTransferScreenProps> = ({ navigation
           },
         ]
       );
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível realizar a transferência');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Não foi possível realizar a transferência';
+      Alert.alert('Erro', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -333,7 +335,7 @@ export const AddTransferScreen: React.FC<AddTransferScreenProps> = ({ navigation
             onPress={handleSubmit(onSubmit)}
             loading={loading}
             fullWidth
-            size="large"
+            size="lg"
             disabled={!fromAccount || !toAccount || !watchAmount}
           />
         </View>
