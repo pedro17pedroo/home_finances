@@ -6,16 +6,24 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { COLORS, SPACING } from '../../constants/config';
+import { useToast } from '../../contexts/ToastContext';
+import { Card, Avatar, Badge, Button } from '../../components/ui';
+import { SPACING, RADIUS } from '../../constants/config';
 
-export const ProfileScreen: React.FC = () => {
+interface ProfileScreenProps {
+  navigation?: any;
+}
+
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
+  const { colors, isDark, themeMode, setThemeMode, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const { showSuccess } = useToast();
   const [loading, setLoading] = useState(false);
 
   const handleLogout = () => {
@@ -37,124 +45,214 @@ export const ProfileScreen: React.FC = () => {
     );
   };
 
-  const menuItems = [
+  const getPlanBadgeVariant = () => {
+    switch (user?.planType) {
+      case 'premium': return 'primary';
+      case 'enterprise': return 'warning';
+      default: return 'default';
+    }
+  };
+
+  const menuSections = [
     {
-      icon: 'person-outline',
-      title: 'Dados Pessoais',
-      subtitle: 'Editar informações do perfil',
-      onPress: () => {},
+      title: 'Conta',
+      items: [
+        {
+          icon: 'person-outline',
+          label: 'Dados Pessoais',
+          subtitle: 'Editar informações do perfil',
+          onPress: () => navigation?.navigate('EditProfile'),
+        },
+        {
+          icon: 'card-outline',
+          label: 'Assinatura',
+          subtitle: `Plano ${user?.planType || 'Básico'}`,
+          onPress: () => navigation?.navigate('Subscription'),
+          badge: user?.planType?.toUpperCase(),
+        },
+        {
+          icon: 'people-outline',
+          label: 'Equipe',
+          subtitle: 'Gerenciar membros',
+          onPress: () => navigation?.navigate('Team'),
+        },
+      ],
     },
     {
-      icon: 'card-outline',
-      title: 'Plano Atual',
-      subtitle: `Plano ${user?.planType || 'Basic'}`,
-      onPress: () => {},
+      title: 'Preferências',
+      items: [
+        {
+          icon: 'notifications-outline',
+          label: 'Notificações',
+          subtitle: 'Configurar alertas',
+          onPress: () => navigation?.navigate('NotificationSettings'),
+        },
+        {
+          icon: isDark ? 'sunny-outline' : 'moon-outline',
+          label: 'Tema',
+          subtitle: themeMode === 'system' ? 'Automático' : isDark ? 'Escuro' : 'Claro',
+          onPress: () => {
+            Alert.alert(
+              'Tema',
+              'Escolha o tema da aplicação',
+              [
+                { text: 'Claro', onPress: () => setThemeMode('light') },
+                { text: 'Escuro', onPress: () => setThemeMode('dark') },
+                { text: 'Automático', onPress: () => setThemeMode('system') },
+                { text: 'Cancelar', style: 'cancel' },
+              ]
+            );
+          },
+        },
+        {
+          icon: 'language-outline',
+          label: 'Idioma',
+          subtitle: 'Português',
+          onPress: () => {},
+        },
+      ],
     },
     {
-      icon: 'notifications-outline',
-      title: 'Notificações',
-      subtitle: 'Configurar alertas e lembretes',
-      onPress: () => {},
-    },
-    {
-      icon: 'shield-outline',
       title: 'Segurança',
-      subtitle: 'Senha e autenticação',
-      onPress: () => {},
+      items: [
+        {
+          icon: 'lock-closed-outline',
+          label: 'Alterar Senha',
+          subtitle: 'Atualizar sua senha',
+          onPress: () => navigation?.navigate('ChangePassword'),
+        },
+        {
+          icon: 'finger-print-outline',
+          label: 'Biometria',
+          subtitle: 'Login com impressão digital',
+          onPress: () => {},
+          toggle: true,
+        },
+      ],
     },
     {
-      icon: 'download-outline',
-      title: 'Exportar Dados',
-      subtitle: 'Backup das suas informações',
-      onPress: () => {},
-    },
-    {
-      icon: 'help-circle-outline',
-      title: 'Ajuda e Suporte',
-      subtitle: 'FAQ e contato',
-      onPress: () => {},
-    },
-    {
-      icon: 'information-circle-outline',
-      title: 'Sobre o App',
-      subtitle: 'Versão 1.0.0',
-      onPress: () => {},
+      title: 'Suporte',
+      items: [
+        {
+          icon: 'help-circle-outline',
+          label: 'Ajuda e FAQ',
+          subtitle: 'Perguntas frequentes',
+          onPress: () => navigation?.navigate('Faq'),
+        },
+        {
+          icon: 'chatbubble-outline',
+          label: 'Fale Conosco',
+          subtitle: 'Enviar mensagem',
+          onPress: () => navigation?.navigate('Contact'),
+        },
+        {
+          icon: 'document-text-outline',
+          label: 'Termos de Uso',
+          onPress: () => navigation?.navigate('Legal', { type: 'terms' }),
+        },
+        {
+          icon: 'shield-checkmark-outline',
+          label: 'Política de Privacidade',
+          onPress: () => navigation?.navigate('Legal', { type: 'privacy' }),
+        },
+      ],
     },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header do Perfil */}
-        <Card style={styles.profileCard}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Header */}
+        <Card variant="default" padding="lg" style={styles.profileCard}>
           <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <Ionicons name="person" size={40} color={COLORS.primary} />
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.userName}>
-                {user?.firstName} {user?.lastName}
-              </Text>
-              <Text style={styles.userEmail}>
-                {user?.email || user?.phone}
-              </Text>
-              <View style={styles.planBadge}>
-                <Text style={styles.planText}>
-                  {user?.planType?.toUpperCase() || 'BASIC'}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.editButton}>
-              <Ionicons name="pencil" size={20} color={COLORS.primary} />
+            <Avatar
+              name={`${user?.firstName || ''} ${user?.lastName || ''}`}
+              size="xl"
+            />
+            <TouchableOpacity
+              style={[styles.editAvatarButton, { backgroundColor: colors.primary }]}
+            >
+              <Ionicons name="camera" size={16} color="#FFFFFF" />
             </TouchableOpacity>
+          </View>
+          
+          <Text style={[styles.userName, { color: colors.text }]}>
+            {user?.firstName} {user?.lastName}
+          </Text>
+          <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
+            {user?.email || user?.phone}
+          </Text>
+          
+          <View style={styles.badgeContainer}>
+            <Badge
+              label={user?.planType?.toUpperCase() || 'BÁSICO'}
+              variant={getPlanBadgeVariant()}
+              size="md"
+            />
+            <Badge
+              label={user?.subscriptionStatus === 'active' ? 'ATIVO' : 'TESTE'}
+              variant={user?.subscriptionStatus === 'active' ? 'success' : 'info'}
+              size="md"
+            />
           </View>
         </Card>
 
-        {/* Estatísticas Rápidas */}
-        <View style={styles.statsContainer}>
-          <Card style={styles.statCard}>
-            <Text style={styles.statNumber}>3</Text>
-            <Text style={styles.statLabel}>Contas</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Text style={styles.statNumber}>45</Text>
-            <Text style={styles.statLabel}>Transações</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Text style={styles.statNumber}>2</Text>
-            <Text style={styles.statLabel}>Metas</Text>
-          </Card>
-        </View>
-
-        {/* Menu de Opções */}
-        <View style={styles.menuContainer}>
-          {menuItems.map((item, index) => (
-            <Card key={index} style={styles.menuItem} onPress={item.onPress}>
-              <View style={styles.menuItemContent}>
-                <View style={styles.menuItemLeft}>
-                  <View style={styles.menuIconContainer}>
-                    <Ionicons
-                      name={item.icon as any}
-                      size={24}
-                      color={COLORS.primary}
+        {/* Menu Sections */}
+        {menuSections.map((section, sectionIndex) => (
+          <View key={sectionIndex} style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              {section.title}
+            </Text>
+            <Card variant="default" padding="none">
+              {section.items.map((item, itemIndex) => (
+                <TouchableOpacity
+                  key={itemIndex}
+                  style={[
+                    styles.menuItem,
+                    itemIndex < section.items.length - 1 && {
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.border,
+                    },
+                  ]}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.menuItemIcon, { backgroundColor: `${colors.primary}15` }]}>
+                    <Ionicons name={item.icon as any} size={20} color={colors.primary} />
+                  </View>
+                  <View style={styles.menuItemContent}>
+                    <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                      {item.label}
+                    </Text>
+                    {item.subtitle && (
+                      <Text style={[styles.menuItemSubtitle, { color: colors.textTertiary }]}>
+                        {item.subtitle}
+                      </Text>
+                    )}
+                  </View>
+                  {'badge' in item && item.badge && (
+                    <Badge label={item.badge} variant="primary" size="sm" />
+                  )}
+                  {'toggle' in item && item.toggle ? (
+                    <Switch
+                      value={false}
+                      onValueChange={() => {}}
+                      trackColor={{ false: colors.border, true: colors.primary }}
                     />
-                  </View>
-                  <View style={styles.menuItemText}>
-                    <Text style={styles.menuItemTitle}>{item.title}</Text>
-                    <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
-                  </View>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={COLORS.textSecondary}
-                />
-              </View>
+                  ) : (
+                    <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                  )}
+                </TouchableOpacity>
+              ))}
             </Card>
-          ))}
-        </View>
+          </View>
+        ))}
 
-        {/* Botão de Logout */}
+        {/* Logout Button */}
         <View style={styles.logoutContainer}>
           <Button
             title="Sair da Conta"
@@ -162,15 +260,16 @@ export const ProfileScreen: React.FC = () => {
             variant="outline"
             fullWidth
             loading={loading}
+            icon="log-out-outline"
           />
         </View>
 
-        {/* Versão do App */}
+        {/* App Version */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>
+          <Text style={[styles.versionText, { color: colors.textTertiary }]}>
             FinanceControl Mobile v1.0.0
           </Text>
-          <Text style={styles.versionSubtext}>
+          <Text style={[styles.versionSubtext, { color: colors.textTertiary }]}>
             © 2024 FinanceControl. Todos os direitos reservados.
           </Text>
         </View>
@@ -182,136 +281,93 @@ export const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.xxl,
+  },
   profileCard: {
-    margin: SPACING.lg,
-    marginBottom: SPACING.md,
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
   },
   profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    position: 'relative',
+    marginBottom: SPACING.md,
   },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${COLORS.primary}15`,
+  editAvatarButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  profileInfo: {
-    flex: 1,
   },
   userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: '700',
     marginBottom: SPACING.xs,
   },
   userEmail: {
     fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
   },
-  planBadge: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  planText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'white',
-  },
-  editButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${COLORS.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statsContainer: {
+  badgeContainer: {
     flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
     gap: SPACING.sm,
   },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
+  section: {
+    marginBottom: SPACING.lg,
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    marginBottom: SPACING.xs,
-  },
-  statLabel: {
+  sectionTitle: {
     fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  menuContainer: {
-    paddingHorizontal: SPACING.lg,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: SPACING.sm,
+    marginLeft: SPACING.xs,
   },
   menuItem: {
-    marginBottom: SPACING.sm,
-  },
-  menuItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    padding: SPACING.md,
   },
-  menuItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  menuIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${COLORS.primary}15`,
+  menuItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.sm,
   },
-  menuItemText: {
+  menuItemContent: {
     flex: 1,
   },
-  menuItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
+  menuItemLabel: {
+    fontSize: 15,
+    fontWeight: '500',
   },
   menuItemSubtitle: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   logoutContainer: {
-    padding: SPACING.lg,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   versionContainer: {
     alignItems: 'center',
-    paddingBottom: SPACING.lg,
   },
   versionText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
   },
   versionSubtext: {
     fontSize: 10,
-    color: COLORS.textSecondary,
     textAlign: 'center',
   },
 });
