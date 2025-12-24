@@ -46,7 +46,7 @@ export class RecurringTransactionService {
   /**
    * Verifica se uma transação recorrente deve ser processada hoje
    */
-  private static async shouldProcessTransaction(transaction: any, today: Date): Promise<boolean> {
+  static async shouldProcessTransaction(transaction: any, today: Date): Promise<boolean> {
     if (!transaction.isRecurring || !transaction.recurringFrequency) {
       return false;
     }
@@ -120,7 +120,7 @@ export class RecurringTransactionService {
   /**
    * Cria uma nova transação baseada na recorrente
    */
-  private static async createRecurringTransaction(originalTransaction: any): Promise<void> {
+  private static async createRecurringTransaction(originalTransaction: any): Promise<any> {
     const account = await AccountRepository.findById(originalTransaction.accountId);
     if (!account) {
       throw new Error(`Conta não encontrada: ${originalTransaction.accountId}`);
@@ -133,13 +133,14 @@ export class RecurringTransactionService {
       
       if (currentBalance < amount) {
         logger.warn(`Saldo insuficiente para transação recorrente ${originalTransaction.id}`);
-        return;
+        return null;
       }
     }
 
     // Criar nova transação
     const newTransaction: InsertTransaction = {
       userId: originalTransaction.userId,
+      organizationId: originalTransaction.organizationId,
       accountId: originalTransaction.accountId,
       amount: originalTransaction.amount,
       description: `${originalTransaction.description} (Recorrente)`,
@@ -162,10 +163,9 @@ export class RecurringTransactionService {
 
     await AccountRepository.updateBalance(originalTransaction.accountId, newBalance);
 
-    // Registrar execução
-    await TransactionRepository.recordRecurringExecution(originalTransaction.id, new Date());
-
     logger.info(`Transação recorrente criada: ${createdTransaction.id} para transação pai: ${originalTransaction.id}`);
+    
+    return createdTransaction;
   }
 
   /**
@@ -189,9 +189,38 @@ export class RecurringTransactionService {
     const frequency = transaction.recurringFrequency;
     let currentDate = new Date(fromDate);
     const endDate = new Date(fromDate.getTime() + (days * 24 * 60 * 60 * 1000));
+    const transactionDate = new Date(transaction.date);
 
     while (currentDate <= endDate) {
-      if (this.shouldProcessTransaction(transaction, currentDate)) {
+      // Simple check without async - just check if the date matches the frequency pattern
+      let shouldAdd = false;
+      
+      if (transaction.isRecurring && frequency) {
+        switch (frequency) {
+          case 'daily':
+            shouldAdd = currentDate >= transactionDate;
+            break;
+          case 'weekly':
+            if (currentDate >= transactionDate) {
+              const daysDiff = Math.floor((currentDate.getTime() - transactionDate.getTime()) / (1000 * 60 * 60 * 24));
+              shouldAdd = daysDiff % 7 === 0;
+            }
+            break;
+          case 'monthly':
+            if (currentDate >= transactionDate) {
+              shouldAdd = currentDate.getDate() === transactionDate.getDate();
+            }
+            break;
+          case 'yearly':
+            if (currentDate >= transactionDate) {
+              shouldAdd = currentDate.getMonth() === transactionDate.getMonth() && 
+                         currentDate.getDate() === transactionDate.getDate();
+            }
+            break;
+        }
+      }
+
+      if (shouldAdd) {
         executions.push({
           transactionId: transaction.id,
           description: transaction.description,
@@ -224,6 +253,91 @@ export class RecurringTransactionService {
   }
 
   /**
+   * Calcula a próxima execução de uma transação recorrente
+   */
+  static calculateNextExecution(transaction: any): string {
+    if (!transaction.isRecurring || !transaction.recurringFrequency) {
+      return new Date().toISOString();
+    }
+
+    const frequency = transaction.recurringFrequency;
+    const transactionDate = new Date(transaction.date);
+    const today = new Date();
+    let nextDate = new Date(transactionDate);
+
+    // Avançar até encontrar a próxima data futura
+    while (nextDate <= today) {
+      switch (frequency) {
+        case 'daily':
+          nextDate.setDate(nextDate.getDate() + 1);
+          break;
+        case 'weekly':
+          nextDate.setDate(nextDate.getDate() + 7);
+          break;
+        case 'monthly':
+          nextDate.setMonth(nextDate.getMonth() + 1);
+          break;
+        case 'yearly':
+          nextDate.setFullYear(nextDate.getFullYear() + 1);
+          break;
+      }
+    }
+
+    return nextDate.toISOString();
+  }
+
+  /**
+   * Conta quantas vezes uma transação recorrente foi executada
+   */
+  static async getExecutionCount(transactionId: number): Promise<number> {
+    const lastExecution = await TransactionRepository.getLastRecurringExecution(transactionId);
+    if (!lastExecution) return 0;
+    
+    // Contar transações filhas
+    const transaction = await TransactionRepository.findById(transactionId);
+    if (!transaction) return 0;
+    
+    const startDate = new Date(transaction.date);
+    const today = new Date();
+    const frequency = transaction.recurringFrequency;
+    
+    if (!frequency) return 0;
+    
+    const diffTime = today.getTime() - startDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    switch (frequency) {
+      case 'daily':
+        return Math.max(0, diffDays);
+      case 'weekly':
+        return Math.max(0, Math.floor(diffDays / 7));
+      case 'monthly':
+        return Math.max(0, Math.floor(diffDays / 30));
+      case 'yearly':
+        return Math.max(0, Math.floor(diffDays / 365));
+      default:
+        return 0;
+    }
+  }
+
+  /**
+   * Ativa uma transação recorrente
+   */
+  static async activateRecurringTransaction(userId: number, transactionId: number): Promise<void> {
+    const transaction = await TransactionRepository.findById(transactionId);
+    
+    if (!transaction || transaction.userId !== userId) {
+      throw new Error("Transação não encontrada");
+    }
+
+    await TransactionRepository.update(transactionId, {
+      isRecurring: true,
+    });
+
+    logger.info(`Transação recorrente ativada: ${transactionId}`);
+  }
+
+  /**
    * Desativa uma transação recorrente
    */
   static async deactivateRecurringTransaction(userId: number, transactionId: number): Promise<void> {
@@ -235,9 +349,31 @@ export class RecurringTransactionService {
 
     await TransactionRepository.update(transactionId, {
       isRecurring: false,
-      recurringFrequency: null
     });
 
     logger.info(`Transação recorrente desativada: ${transactionId}`);
+  }
+
+  /**
+   * Executa uma transação recorrente imediatamente
+   */
+  static async executeRecurringTransactionNow(userId: number, transactionId: number): Promise<any> {
+    const transaction = await TransactionRepository.findById(transactionId);
+    
+    if (!transaction || transaction.userId !== userId) {
+      throw new Error("Transação não encontrada");
+    }
+
+    if (!transaction.isRecurring) {
+      throw new Error("Transação não é recorrente");
+    }
+
+    const newTransaction = await this.createRecurringTransaction(transaction);
+    
+    if (!newTransaction) {
+      throw new Error("Saldo insuficiente para executar a transação");
+    }
+
+    return newTransaction;
   }
 }

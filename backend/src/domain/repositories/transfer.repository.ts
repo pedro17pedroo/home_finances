@@ -1,4 +1,5 @@
 import { eq, sql, and, or, desc, gte, lte } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../core/database/db.js";
 import { transfers, accounts, type Transfer, type InsertTransfer } from "../../core/database/schema.js";
 
@@ -7,6 +8,17 @@ export interface TransferFilters {
   endDate?: Date;
   accountId?: number;
 }
+
+export interface TransferWithAccounts extends Transfer {
+  fromAccountName?: string;
+  fromAccountBank?: string;
+  toAccountName?: string;
+  toAccountBank?: string;
+}
+
+// Aliases for self-join on accounts table
+const fromAccount = alias(accounts, 'fromAccount');
+const toAccount = alias(accounts, 'toAccount');
 
 export class TransferRepository {
   static async findById(id: number): Promise<Transfer | null> {
@@ -19,7 +31,7 @@ export class TransferRepository {
     return result[0] || null;
   }
 
-  static async findByUserId(userId: number, filters?: TransferFilters): Promise<Transfer[]> {
+  static async findByUserId(userId: number, filters?: TransferFilters): Promise<TransferWithAccounts[]> {
     const conditions = [eq(transfers.userId, userId)];
 
     if (filters?.startDate) {
@@ -37,15 +49,34 @@ export class TransferRepository {
       );
     }
 
-    return db
-      .select()
+    const result = await db
+      .select({
+        id: transfers.id,
+        userId: transfers.userId,
+        organizationId: transfers.organizationId,
+        fromAccountId: transfers.fromAccountId,
+        toAccountId: transfers.toAccountId,
+        amount: transfers.amount,
+        description: transfers.description,
+        date: transfers.date,
+        createdAt: transfers.createdAt,
+        updatedAt: transfers.updatedAt,
+        fromAccountName: fromAccount.name,
+        fromAccountBank: fromAccount.bank,
+        toAccountName: toAccount.name,
+        toAccountBank: toAccount.bank,
+      })
       .from(transfers)
+      .leftJoin(fromAccount, eq(transfers.fromAccountId, fromAccount.id))
+      .leftJoin(toAccount, eq(transfers.toAccountId, toAccount.id))
       .where(and(...conditions))
       .orderBy(desc(transfers.createdAt));
+
+    return result as TransferWithAccounts[];
   }
 
   // Find by organization ID (multi-tenant)
-  static async findByOrganizationId(organizationId: number, filters?: TransferFilters): Promise<Transfer[]> {
+  static async findByOrganizationId(organizationId: number, filters?: TransferFilters): Promise<TransferWithAccounts[]> {
     const conditions = [eq(transfers.organizationId, organizationId)];
 
     if (filters?.startDate) {
@@ -63,25 +94,61 @@ export class TransferRepository {
       );
     }
 
-    return db
-      .select()
+    const result = await db
+      .select({
+        id: transfers.id,
+        userId: transfers.userId,
+        organizationId: transfers.organizationId,
+        fromAccountId: transfers.fromAccountId,
+        toAccountId: transfers.toAccountId,
+        amount: transfers.amount,
+        description: transfers.description,
+        date: transfers.date,
+        createdAt: transfers.createdAt,
+        updatedAt: transfers.updatedAt,
+        fromAccountName: fromAccount.name,
+        fromAccountBank: fromAccount.bank,
+        toAccountName: toAccount.name,
+        toAccountBank: toAccount.bank,
+      })
       .from(transfers)
+      .leftJoin(fromAccount, eq(transfers.fromAccountId, fromAccount.id))
+      .leftJoin(toAccount, eq(transfers.toAccountId, toAccount.id))
       .where(and(...conditions))
       .orderBy(desc(transfers.createdAt));
+
+    return result as TransferWithAccounts[];
   }
 
   // Find by organization or user (for migration period)
-  static async findByOrganizationOrUser(organizationId: number | null, userId: number, filters?: TransferFilters): Promise<Transfer[]> {
+  static async findByOrganizationOrUser(organizationId: number | null, userId: number, filters?: TransferFilters): Promise<TransferWithAccounts[]> {
     if (organizationId) {
       return this.findByOrganizationId(organizationId, filters);
     }
     return this.findByUserId(userId, filters);
   }
 
-  static async findByAccountId(accountId: number): Promise<Transfer[]> {
-    return db
-      .select()
+  static async findByAccountId(accountId: number): Promise<TransferWithAccounts[]> {
+    const result = await db
+      .select({
+        id: transfers.id,
+        userId: transfers.userId,
+        organizationId: transfers.organizationId,
+        fromAccountId: transfers.fromAccountId,
+        toAccountId: transfers.toAccountId,
+        amount: transfers.amount,
+        description: transfers.description,
+        date: transfers.date,
+        createdAt: transfers.createdAt,
+        updatedAt: transfers.updatedAt,
+        fromAccountName: fromAccount.name,
+        fromAccountBank: fromAccount.bank,
+        toAccountName: toAccount.name,
+        toAccountBank: toAccount.bank,
+      })
       .from(transfers)
+      .leftJoin(fromAccount, eq(transfers.fromAccountId, fromAccount.id))
+      .leftJoin(toAccount, eq(transfers.toAccountId, toAccount.id))
       .where(
         or(
           eq(transfers.fromAccountId, accountId),
@@ -89,6 +156,8 @@ export class TransferRepository {
         )
       )
       .orderBy(desc(transfers.createdAt));
+
+    return result as TransferWithAccounts[];
   }
 
   static async create(data: InsertTransfer): Promise<Transfer> {

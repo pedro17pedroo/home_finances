@@ -14,6 +14,9 @@ router.get("/plans", PublicController.getPublicPlans);
 // Legal content
 router.get("/legal/:type", PublicController.getLegalContent);
 
+// FAQ
+router.get("/faq", PublicController.getFaq);
+
 // Contact form
 router.post("/contact", PublicController.submitContact);
 

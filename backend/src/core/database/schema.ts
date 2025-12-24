@@ -337,6 +337,35 @@ export const legalContent = pgTable("legal_content", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// FAQ table
+export const faqItems = pgTable("faq_items", {
+  id: serial("id").primaryKey(),
+  category: varchar("category", { length: 100 }).notNull(), // 'geral', 'conta', 'pagamentos', 'seguranca'
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  order: integer("order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Contact messages table
+export const contactMessages = pgTable("contact_messages", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  status: varchar("status", { length: 50 }).default('pending'), // 'pending', 'read', 'replied', 'closed'
+  adminNotes: text("admin_notes"),
+  repliedAt: timestamp("replied_at"),
+  repliedBy: integer("replied_by").references(() => adminUsers.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Contas bancárias
 export const accounts = pgTable("accounts", {
   id: serial("id").primaryKey(),
@@ -817,6 +846,12 @@ export type InsertLandingContent = typeof landingContent.$inferInsert;
 
 export type LegalContent = typeof legalContent.$inferSelect;
 export type InsertLegalContent = typeof legalContent.$inferInsert;
+
+export type FaqItem = typeof faqItems.$inferSelect;
+export type InsertFaqItem = typeof faqItems.$inferInsert;
+
+export type ContactMessage = typeof contactMessages.$inferSelect;
+export type InsertContactMessage = typeof contactMessages.$inferInsert;
 
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 export type InsertPaymentTransaction = typeof paymentTransactions.$inferInsert;

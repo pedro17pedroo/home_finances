@@ -89,19 +89,73 @@ export class PublicController {
   }
 
   /**
+   * Obter FAQ
+   */
+  static async getFaq(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { category } = req.query;
+      
+      let items;
+      if (category && typeof category === 'string') {
+        items = await AdminRepository.getFaqByCategory(category);
+      } else {
+        items = await AdminRepository.getAllFaqItems();
+      }
+
+      // Agrupar por categoria
+      const grouped = items.reduce((acc, item) => {
+        if (!acc[item.category]) {
+          acc[item.category] = [];
+        }
+        acc[item.category].push({
+          id: item.id,
+          question: item.question,
+          answer: item.answer
+        });
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      res.json({
+        status: "success",
+        data: {
+          items,
+          grouped,
+          categories: Object.keys(grouped)
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Endpoint de contato (formulário da landing page)
    */
   static async submitContact(req: Request, res: Response, next: NextFunction) {
     try {
-      const { name, email, message, subject } = req.body;
+      const { name, email, phone, message, subject } = req.body;
 
-      // TODO: Implementar envio de email ou salvar em base de dados
-      // Por agora, apenas log
-      console.log('Novo contato:', { name, email, subject, message });
+      if (!name || !email || !message || !subject) {
+        return res.status(400).json({
+          status: "error",
+          message: "Nome, email, assunto e mensagem são obrigatórios"
+        });
+      }
+
+      // Salvar na base de dados
+      const contactMessage = await AdminRepository.createContactMessage({
+        name,
+        email,
+        phone: phone || null,
+        subject,
+        message,
+        status: 'pending'
+      });
 
       res.json({
         status: "success",
-        message: "Mensagem enviada com sucesso. Entraremos em contato em breve."
+        message: "Mensagem enviada com sucesso. Entraremos em contato em breve.",
+        data: { id: contactMessage.id }
       });
     } catch (error) {
       next(error);
