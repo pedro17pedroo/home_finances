@@ -281,7 +281,7 @@ export class ExportService {
   }
 
   /**
-   * Gera relatório de resumo financeiro
+   * Gera relatório de resumo financeiro em texto
    */
   static async generateFinancialSummaryReport(userId: number): Promise<ExportResult> {
     const [accounts, transactions, loans, debts, savingsGoals] = await Promise.all([
@@ -292,41 +292,92 @@ export class ExportService {
       SavingsGoalRepository.findByUserId(userId)
     ]);
 
-    const summary = {
-      generated_at: new Date().toISOString(),
-      user_id: userId,
-      summary: {
-        total_accounts: accounts.length,
-        total_balance: accounts.reduce((sum, acc) => sum + parseFloat(acc.balance), 0),
-        total_transactions: transactions.length,
-        total_income: transactions
-          .filter(t => t.type === 'receita')
-          .reduce((sum, t) => sum + parseFloat(t.amount), 0),
-        total_expenses: transactions
-          .filter(t => t.type === 'despesa')
-          .reduce((sum, t) => sum + parseFloat(t.amount), 0),
-        total_loans: loans.length,
-        total_loan_amount: loans
-          .filter(l => l.status === 'pendente')
-          .reduce((sum, l) => sum + parseFloat(l.amount), 0),
-        total_debts: debts.length,
-        total_debt_amount: debts
-          .filter(d => d.status === 'pendente')
-          .reduce((sum, d) => sum + parseFloat(d.amount), 0),
-        total_savings_goals: savingsGoals.length,
-        total_savings_target: savingsGoals.reduce((sum, g) => sum + parseFloat(g.targetAmount), 0),
-        total_savings_current: savingsGoals.reduce((sum, g) => sum + parseFloat(g.currentAmount), 0)
-      }
-    };
+    const totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance), 0);
+    const totalIncome = transactions
+      .filter(t => t.type === 'receita')
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalExpenses = transactions
+      .filter(t => t.type === 'despesa')
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalLoanAmount = loans
+      .filter(l => l.status === 'pendente')
+      .reduce((sum, l) => sum + parseFloat(l.amount), 0);
+    const totalDebtAmount = debts
+      .filter(d => d.status === 'pendente')
+      .reduce((sum, d) => sum + parseFloat(d.amount), 0);
+    const totalSavingsTarget = savingsGoals.reduce((sum, g) => sum + parseFloat(g.targetAmount), 0);
+    const totalSavingsCurrent = savingsGoals.reduce((sum, g) => sum + parseFloat(g.currentAmount), 0);
 
-    const jsonData = JSON.stringify(summary, null, 2);
-    const filename = `financial_summary_${userId}_${new Date().toISOString().split('T')[0]}.json`;
+    const formatCurrency = (value: number) => `${value.toLocaleString('pt-AO')} Kz`;
+    const dateStr = new Date().toLocaleDateString('pt-AO', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    const textReport = `
+═══════════════════════════════════════════════════════════════
+                    RESUMO FINANCEIRO
+                    Finance Control
+═══════════════════════════════════════════════════════════════
+
+Data do Relatório: ${dateStr}
+
+───────────────────────────────────────────────────────────────
+                         CONTAS
+───────────────────────────────────────────────────────────────
+Total de Contas: ${accounts.length}
+Saldo Total: ${formatCurrency(totalBalance)}
+
+${accounts.map(acc => `  • ${acc.name}: ${formatCurrency(parseFloat(acc.balance))}`).join('\n')}
+
+───────────────────────────────────────────────────────────────
+                       TRANSAÇÕES
+───────────────────────────────────────────────────────────────
+Total de Transações: ${transactions.length}
+Total de Receitas: ${formatCurrency(totalIncome)}
+Total de Despesas: ${formatCurrency(totalExpenses)}
+Balanço: ${formatCurrency(totalIncome - totalExpenses)}
+
+───────────────────────────────────────────────────────────────
+                   EMPRÉSTIMOS (A Receber)
+───────────────────────────────────────────────────────────────
+Total de Empréstimos: ${loans.length}
+Valor Pendente: ${formatCurrency(totalLoanAmount)}
+
+───────────────────────────────────────────────────────────────
+                    DÍVIDAS (A Pagar)
+───────────────────────────────────────────────────────────────
+Total de Dívidas: ${debts.length}
+Valor Pendente: ${formatCurrency(totalDebtAmount)}
+
+───────────────────────────────────────────────────────────────
+                   METAS DE POUPANÇA
+───────────────────────────────────────────────────────────────
+Total de Metas: ${savingsGoals.length}
+Meta Total: ${formatCurrency(totalSavingsTarget)}
+Poupado: ${formatCurrency(totalSavingsCurrent)}
+Progresso: ${totalSavingsTarget > 0 ? ((totalSavingsCurrent / totalSavingsTarget) * 100).toFixed(1) : 0}%
+
+───────────────────────────────────────────────────────────────
+                    RESUMO GERAL
+───────────────────────────────────────────────────────────────
+Patrimônio Líquido: ${formatCurrency(totalBalance + totalLoanAmount - totalDebtAmount)}
+  (Saldo + Empréstimos a Receber - Dívidas a Pagar)
+
+═══════════════════════════════════════════════════════════════
+          Gerado por Finance Control - ${new Date().toISOString()}
+═══════════════════════════════════════════════════════════════
+`.trim();
+
+    const filename = `resumo_financeiro_${new Date().toISOString().split('T')[0]}.txt`;
 
     return {
       filename,
-      data: jsonData,
-      mimeType: 'application/json',
-      size: Buffer.byteLength(jsonData, 'utf8')
+      data: textReport,
+      mimeType: 'text/plain',
+      size: Buffer.byteLength(textReport, 'utf8')
     };
   }
 }
