@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, pgEnum, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, pgEnum, jsonb, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -42,6 +42,7 @@ export const users = pgTable("users", {
   planType: planTypeEnum("plan_type").default('basic'),
   trialEndsAt: timestamp("trial_ends_at"),
   organizationId: integer("organization_id"),
+  activeOrganizationId: integer("active_organization_id"),
   role: varchar("role", { length: 50 }).default('member'), // 'owner', 'admin', 'member'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -63,7 +64,8 @@ export const organizations = pgTable("organizations", {
 export const teamInvitations = pgTable("team_invitations", {
   id: serial("id").primaryKey(),
   organizationId: integer("organization_id").references(() => organizations.id).notNull(),
-  email: varchar("email", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
   role: varchar("role", { length: 50 }).default('member'),
   invitedBy: integer("invited_by").references(() => users.id).notNull(),
   token: varchar("token", { length: 255 }).notNull().unique(),
@@ -71,6 +73,22 @@ export const teamInvitations = pgTable("team_invitations", {
   acceptedAt: timestamp("accepted_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Organization memberships table for multi-organization support
+export const organizationMemberships = pgTable("organization_memberships", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  role: varchar("role", { length: 50 }).notNull().default('member'), // 'owner', 'admin', 'member'
+  joinedAt: timestamp("joined_at").defaultNow(),
+  invitedBy: integer("invited_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueMembership: unique().on(table.userId, table.organizationId),
+  userIdx: index("idx_memberships_user").on(table.userId),
+  orgIdx: index("idx_memberships_org").on(table.organizationId),
+}));
 
 // Billing cycle enum
 export const billingCycleEnum = pgEnum('billing_cycle', ['monthly', 'quarterly', 'yearly', 'one_time']);
@@ -237,6 +255,7 @@ export const paymentMethods = pgTable("payment_methods", {
   processingTime: varchar("processing_time", { length: 100 }), // "Imediato", "1-3 dias úteis", etc.
   fees: varchar("fees", { length: 100 }), // Fee information
   icon: varchar("icon", { length: 100 }), // Icon identifier (lucide icon name)
+  logoUrl: varchar("logo_url", { length: 500 }), // URL da imagem do logotipo
   displayOrder: integer("display_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -366,6 +385,21 @@ export const contactMessages = pgTable("contact_messages", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Bancos disponíveis
+export const banks = pgTable("banks", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 20 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  shortName: varchar("short_name", { length: 50 }),
+  logoUrl: varchar("logo_url", { length: 500 }),
+  swiftCode: varchar("swift_code", { length: 20 }),
+  country: varchar("country", { length: 2 }).default('AO'),
+  isActive: boolean("is_active").default(true),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Contas bancárias
 export const accounts = pgTable("accounts", {
   id: serial("id").primaryKey(),
@@ -373,7 +407,8 @@ export const accounts = pgTable("accounts", {
   organizationId: integer("organization_id").references(() => organizations.id),
   name: varchar("name", { length: 255 }).notNull(),
   type: accountTypeEnum("type").notNull(),
-  bank: varchar("bank", { length: 255 }).notNull(),
+  bank: varchar("bank", { length: 255 }),
+  bankId: integer("bank_id").references(() => banks.id),
   balance: decimal("balance", { precision: 10, scale: 2 }).notNull().default('0'),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
@@ -490,7 +525,13 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.organizationId],
     references: [organizations.id],
   }),
+  activeOrganization: one(organizations, {
+    fields: [users.activeOrganizationId],
+    references: [organizations.id],
+    relationName: "activeOrganization",
+  }),
   ownedOrganizations: many(organizations),
+  memberships: many(organizationMemberships),
   sentInvitations: many(teamInvitations),
   accounts: many(accounts),
   transactions: many(transactions),
@@ -579,6 +620,7 @@ export const organizationsRelations = relations(organizations, ({ one, many }) =
     references: [users.id],
   }),
   members: many(users),
+  memberships: many(organizationMemberships),
   invitations: many(teamInvitations),
 }));
 
@@ -590,6 +632,23 @@ export const teamInvitationsRelations = relations(teamInvitations, ({ one }) => 
   invitedBy: one(users, {
     fields: [teamInvitations.invitedBy],
     references: [users.id],
+  }),
+}));
+
+// Organization Memberships Relations
+export const organizationMembershipsRelations = relations(organizationMemberships, ({ one }) => ({
+  user: one(users, {
+    fields: [organizationMemberships.userId],
+    references: [users.id],
+  }),
+  organization: one(organizations, {
+    fields: [organizationMemberships.organizationId],
+    references: [organizations.id],
+  }),
+  inviter: one(users, {
+    fields: [organizationMemberships.invitedBy],
+    references: [users.id],
+    relationName: "inviter",
   }),
 }));
 
@@ -685,6 +744,12 @@ export const insertOrganizationSchema = createInsertSchema(organizations).omit({
 export const insertTeamInvitationSchema = createInsertSchema(teamInvitations).omit({
   id: true,
   createdAt: true
+});
+
+export const insertOrganizationMembershipSchema = createInsertSchema(organizationMemberships).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
 });
 
 // Admin schemas
@@ -820,6 +885,9 @@ export type InsertOrganization = typeof organizations.$inferInsert;
 
 export type TeamInvitation = typeof teamInvitations.$inferSelect;
 export type InsertTeamInvitation = typeof teamInvitations.$inferInsert;
+
+export type OrganizationMembership = typeof organizationMemberships.$inferSelect;
+export type InsertOrganizationMembership = typeof organizationMemberships.$inferInsert;
 
 // Admin types
 export type AdminUser = typeof adminUsers.$inferSelect;

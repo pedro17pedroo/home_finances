@@ -23,4 +23,7 @@ router.post("/contact", PublicController.submitContact);
 // Public stats
 router.get("/stats", PublicController.getPublicStats);
 
+// Banks list
+router.get("/banks", PublicController.getBanks);
+
 export default router;

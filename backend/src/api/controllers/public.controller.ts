@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { AdminRepository } from "../../domain/repositories/admin.repository.js";
+import { db } from "../../core/database/db.js";
+import { banks } from "../../core/database/schema.js";
+import { eq } from "drizzle-orm";
 
 export class PublicController {
   /**
@@ -177,6 +180,34 @@ export class PublicController {
           activeUsers: userStats.active,
           // Adicionar outras métricas públicas se necessário
         }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Obter lista de bancos disponíveis
+   */
+  static async getBanks(req: Request, res: Response, next: NextFunction) {
+    try {
+      const banksList = await db
+        .select({
+          id: banks.id,
+          code: banks.code,
+          name: banks.name,
+          shortName: banks.shortName,
+          logoUrl: banks.logoUrl,
+          swiftCode: banks.swiftCode,
+          country: banks.country,
+        })
+        .from(banks)
+        .where(eq(banks.isActive, true))
+        .orderBy(banks.displayOrder, banks.name);
+
+      res.json({
+        status: "success",
+        data: { banks: banksList }
       });
     } catch (error) {
       next(error);
