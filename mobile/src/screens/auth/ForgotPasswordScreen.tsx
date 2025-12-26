@@ -20,15 +20,19 @@ interface ForgotPasswordScreenProps {
   navigation?: any;
 }
 
-type Step = 'email' | 'code' | 'newPassword' | 'success';
+type Step = 'method' | 'code' | 'newPassword' | 'success';
+type RecoveryMethod = 'email' | 'phone';
 
 export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation }) => {
   const { colors } = useTheme();
   const { showError, showSuccess } = useToast();
   
-  const [step, setStep] = useState<Step>('email');
+  const [step, setStep] = useState<Step>('method');
+  const [recoveryMethod, setRecoveryMethod] = useState<RecoveryMethod>('email');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,6 +45,21 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setErrors({ email: 'Email inválido' });
+      return false;
+    }
+    setErrors({});
+    return true;
+  };
+
+  const validatePhone = (): boolean => {
+    if (!phone.trim()) {
+      setErrors({ phone: 'Número de telefone é obrigatório' });
+      return false;
+    }
+    // Aceitar formatos: +244XXXXXXXXX, 244XXXXXXXXX, 9XXXXXXXX
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 9) {
+      setErrors({ phone: 'Número de telefone inválido' });
       return false;
     }
     setErrors({});
@@ -77,14 +96,59 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
     return Object.keys(newErrors).length === 0;
   };
 
+  const formatPhoneNumber = (value: string): string => {
+    // Remove tudo que não é número
+    let cleaned = value.replace(/\D/g, '');
+    
+    // Se começar com 244, formatar como +244 XXX XXX XXX
+    if (cleaned.startsWith('244')) {
+      cleaned = cleaned.slice(3);
+    }
+    
+    // Limitar a 9 dígitos
+    cleaned = cleaned.slice(0, 9);
+    
+    // Formatar
+    if (cleaned.length > 6) {
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+    } else if (cleaned.length > 3) {
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+    }
+    return cleaned;
+  };
+
   const handleSendCode = async () => {
-    if (!validateEmail()) return;
+    if (recoveryMethod === 'email') {
+      if (!validateEmail()) return;
+    } else {
+      if (!validatePhone()) return;
+    }
 
     setLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email: email.trim() });
-      showSuccess('Código enviado para seu email');
-      setStep('code');
+      if (recoveryMethod === 'email') {
+        const response = await api.post('/auth/forgot-password/email', { email: email.trim() });
+        if (response.data.success) {
+          showSuccess('Código enviado para seu email');
+          setStep('code');
+        } else {
+          showError(response.data.message || 'Erro ao enviar código');
+        }
+      } else {
+        // Formatar telefone para envio
+        let phoneToSend = phone.replace(/\D/g, '');
+        if (!phoneToSend.startsWith('244')) {
+          phoneToSend = '244' + phoneToSend;
+        }
+        
+        const response = await api.post('/auth/forgot-password/sms', { phone: phoneToSend });
+        if (response.data.success) {
+          showSuccess('Código enviado por SMS');
+          setStep('code');
+        } else {
+          showError(response.data.message || 'Erro ao enviar código');
+        }
+      }
     } catch (error: any) {
       showError(error.response?.data?.message || 'Erro ao enviar código');
     } finally {
@@ -97,8 +161,34 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
     setLoading(true);
     try {
-      await api.post('/auth/verify-reset-code', { email: email.trim(), code: code.trim() });
-      setStep('newPassword');
+      if (recoveryMethod === 'email') {
+        // Para email, verificar código e obter token
+        const response = await api.post('/auth/verify-reset-code', { 
+          email: email.trim(), 
+          code: code.trim() 
+        });
+        if (response.data.token) {
+          setResetToken(response.data.token);
+        }
+        setStep('newPassword');
+      } else {
+        // Para SMS, verificar código
+        let phoneToSend = phone.replace(/\D/g, '');
+        if (!phoneToSend.startsWith('244')) {
+          phoneToSend = '244' + phoneToSend;
+        }
+        
+        const response = await api.post('/auth/forgot-password/verify-code', { 
+          phone: phoneToSend, 
+          code: code.trim() 
+        });
+        if (response.data.success && response.data.token) {
+          setResetToken(response.data.token);
+          setStep('newPassword');
+        } else {
+          showError(response.data.message || 'Código inválido');
+        }
+      }
     } catch (error: any) {
       showError(error.response?.data?.message || 'Código inválido');
     } finally {
@@ -111,12 +201,16 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
     setLoading(true);
     try {
-      await api.post('/auth/reset-password', {
-        email: email.trim(),
-        code: code.trim(),
-        newPassword,
+      const response = await api.post('/auth/forgot-password/reset', {
+        token: resetToken,
+        password: newPassword,
       });
-      setStep('success');
+      
+      if (response.data.success) {
+        setStep('success');
+      } else {
+        showError(response.data.message || 'Erro ao redefinir senha');
+      }
     } catch (error: any) {
       showError(error.response?.data?.message || 'Erro ao redefinir senha');
     } finally {
@@ -124,11 +218,11 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
     }
   };
 
-  const renderEmailStep = () => (
+  const renderMethodStep = () => (
     <>
       <View style={styles.iconContainer}>
         <View style={[styles.iconCircle, { backgroundColor: colors.primaryBackground }]}>
-          <Ionicons name="mail-outline" size={48} color={colors.primary} />
+          <Ionicons name="key-outline" size={48} color={colors.primary} />
         </View>
       </View>
       
@@ -136,22 +230,86 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
         Esqueceu sua senha?
       </Text>
       <Text style={[styles.stepDescription, { color: colors.textSecondary }]}>
-        Digite seu email e enviaremos um código para redefinir sua senha.
+        Escolha como deseja receber o código de recuperação.
       </Text>
 
-      <Input
-        label="Email"
-        placeholder="seu@email.com"
-        value={email}
-        onChangeText={(text) => {
-          setEmail(text);
-          if (errors.email) setErrors({});
-        }}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        leftIcon="mail-outline"
-        error={errors.email}
-      />
+      {/* Method Tabs */}
+      <View style={[styles.tabContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            recoveryMethod === 'email' && { backgroundColor: colors.primary },
+          ]}
+          onPress={() => {
+            setRecoveryMethod('email');
+            setErrors({});
+          }}
+        >
+          <Ionicons 
+            name="mail-outline" 
+            size={18} 
+            color={recoveryMethod === 'email' ? '#FFFFFF' : colors.textSecondary} 
+          />
+          <Text style={[
+            styles.tabText,
+            { color: recoveryMethod === 'email' ? '#FFFFFF' : colors.textSecondary }
+          ]}>
+            Email
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            recoveryMethod === 'phone' && { backgroundColor: colors.primary },
+          ]}
+          onPress={() => {
+            setRecoveryMethod('phone');
+            setErrors({});
+          }}
+        >
+          <Ionicons 
+            name="phone-portrait-outline" 
+            size={18} 
+            color={recoveryMethod === 'phone' ? '#FFFFFF' : colors.textSecondary} 
+          />
+          <Text style={[
+            styles.tabText,
+            { color: recoveryMethod === 'phone' ? '#FFFFFF' : colors.textSecondary }
+          ]}>
+            Telefone
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {recoveryMethod === 'email' ? (
+        <Input
+          label="Email"
+          placeholder="seu@email.com"
+          value={email}
+          onChangeText={(text) => {
+            setEmail(text);
+            if (errors.email) setErrors({});
+          }}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          leftIcon="mail-outline"
+          error={errors.email}
+        />
+      ) : (
+        <Input
+          label="Número de Telefone (Angola)"
+          placeholder="923 456 789"
+          value={phone}
+          onChangeText={(text) => {
+            setPhone(formatPhoneNumber(text));
+            if (errors.phone) setErrors({});
+          }}
+          keyboardType="phone-pad"
+          leftIcon="phone-portrait-outline"
+          error={errors.phone}
+          hint="Formato: 9XX XXX XXX"
+        />
+      )}
 
       <Button
         title="Enviar Código"
@@ -177,7 +335,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
         Digite o código
       </Text>
       <Text style={[styles.stepDescription, { color: colors.textSecondary }]}>
-        Enviamos um código de 6 dígitos para {email}
+        Enviamos um código de 6 dígitos para {recoveryMethod === 'email' ? email : `+244 ${phone}`}
       </Text>
 
       <Input
@@ -296,8 +454,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
   const getStepContent = () => {
     switch (step) {
-      case 'email':
-        return renderEmailStep();
+      case 'method':
+        return renderMethodStep();
       case 'code':
         return renderCodeStep();
       case 'newPassword':
@@ -309,7 +467,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
   const getProgress = () => {
     switch (step) {
-      case 'email': return 1;
+      case 'method': return 1;
       case 'code': return 2;
       case 'newPassword': return 3;
       case 'success': return 4;
@@ -333,10 +491,11 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
               <TouchableOpacity
                 style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}
                 onPress={() => {
-                  if (step === 'email') {
+                  if (step === 'method') {
                     navigation?.goBack();
                   } else if (step === 'code') {
-                    setStep('email');
+                    setStep('method');
+                    setCode('');
                   } else if (step === 'newPassword') {
                     setStep('code');
                   }
@@ -434,6 +593,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: SPACING.xl,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    borderRadius: RADIUS.md,
+    padding: 4,
+    marginBottom: SPACING.lg,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    gap: SPACING.xs,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   resendButton: {
     alignItems: 'center',

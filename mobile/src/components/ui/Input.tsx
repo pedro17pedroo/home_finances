@@ -23,6 +23,7 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
   containerStyle?: ViewStyle;
   inputStyle?: TextStyle;
   disabled?: boolean;
+  prefix?: string;
 }
 
 export const Input = forwardRef<TextInput, InputProps>(({
@@ -36,6 +37,7 @@ export const Input = forwardRef<TextInput, InputProps>(({
   inputStyle,
   disabled = false,
   secureTextEntry,
+  prefix,
   ...props
 }, ref) => {
   const { colors } = useTheme();
@@ -65,6 +67,7 @@ export const Input = forwardRef<TextInput, InputProps>(({
     styles.input,
     { color: colors.text },
     leftIcon && styles.inputWithLeftIcon,
+    prefix && !leftIcon && styles.inputWithPrefix,
     (rightIcon || secureTextEntry) && styles.inputWithRightIcon,
     inputStyle,
   ];
@@ -83,6 +86,10 @@ export const Input = forwardRef<TextInput, InputProps>(({
             color={isFocused ? colors.primary : colors.textSecondary}
             style={styles.leftIcon}
           />
+        )}
+        
+        {prefix && !leftIcon && (
+          <Text style={[styles.prefix, { color: colors.textSecondary }]}>{prefix}</Text>
         )}
         
         <TextInput
@@ -166,12 +173,22 @@ const styles = StyleSheet.create({
   inputWithLeftIcon: {
     paddingLeft: 44,
   },
+  inputWithPrefix: {
+    paddingLeft: 60,
+  },
   inputWithRightIcon: {
     paddingRight: 44,
   },
   leftIcon: {
     position: 'absolute',
     left: SPACING.md,
+    zIndex: 1,
+  },
+  prefix: {
+    position: 'absolute',
+    left: SPACING.md,
+    fontSize: 16,
+    fontWeight: '500',
     zIndex: 1,
   },
   rightIcon: {
