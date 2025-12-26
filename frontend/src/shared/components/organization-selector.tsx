@@ -169,7 +169,7 @@ export function OrganizationSelector({ variant = 'compact', className = '' }: Or
       {/* Modal */}
       {isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md max-h-[70vh] overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md max-h-[70vh] overflow-hidden relative">
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Minhas Organizações
@@ -184,42 +184,37 @@ export function OrganizationSelector({ variant = 'compact', className = '' }: Or
             </div>
             
             <div className="overflow-y-auto max-h-96">
-              {organizations.map((org) => {
-                const isActive = org.organizationId === activeOrganization?.id;
-                const isSwitching = switchMutation.isPending && switchMutation.variables === org.organizationId;
-
-                return (
-                  <button
-                    key={org.organizationId}
-                    onClick={() => handleSwitch(org.organizationId)}
-                    disabled={switchMutation.isPending}
-                    className={`w-full flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${
-                      isActive ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                    }`}
-                  >
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isActive ? 'bg-blue-600' : 'bg-gray-100 dark:bg-gray-700'
+              {organizations.map((org) => (
+                <button
+                  key={org.organizationId}
+                  onClick={() => handleSwitch(org.organizationId)}
+                  disabled={switchMutation.isPending}
+                  className={`w-full flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${
+                    org.organizationId === activeOrganization?.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    org.organizationId === activeOrganization?.id ? 'bg-blue-600' : 'bg-gray-100 dark:bg-gray-700'
+                  }`}>
+                    <Building2 className={`w-5 h-5 ${org.organizationId === activeOrganization?.id ? 'text-white' : 'text-gray-500'}`} />
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className={`text-sm font-medium truncate ${
+                      org.organizationId === activeOrganization?.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'
                     }`}>
-                      <Building2 className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                    </div>
-                    <div className="flex-1 text-left min-w-0">
-                      <p className={`text-sm font-medium truncate ${
-                        isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'
-                      }`}>
-                        {org.organizationName}
-                      </p>
-                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${getRoleBadgeColor(org.role)}`}>
-                        {getRoleLabel(org.role)}
-                      </span>
-                    </div>
-                    {isSwitching ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                    ) : isActive ? (
-                      <Check className="w-5 h-5 text-blue-600" />
-                    ) : null}
-                  </button>
-                );
-              })}
+                      {org.organizationName}
+                    </p>
+                    <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${getRoleBadgeColor(org.role)}`}>
+                      {getRoleLabel(org.role)}
+                    </span>
+                  </div>
+                  {switchMutation.isPending && switchMutation.variables === org.organizationId ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  ) : org.organizationId === activeOrganization?.id ? (
+                    <Check className="w-5 h-5 text-blue-600" />
+                  ) : null}
+                </button>
+              ))}
             </div>
 
             {switchMutation.isPending && (
