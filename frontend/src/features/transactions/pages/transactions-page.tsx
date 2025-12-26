@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, TrendingUp, TrendingDown, Filter, Search, ArrowUpDown, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTransactions, useTransactionSummary, useCreateTransaction } from '../hooks/use-transactions';
 import { useAccounts, useCreateAccount } from '../../accounts/hooks/use-accounts';
+import { useBanks } from '../../accounts/hooks/use-banks';
 import { useCategories, useCreateCategory } from '../../categories/hooks/use-categories';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
@@ -14,22 +15,11 @@ import type { CreateTransactionRequest, CreateAccountRequest } from '../../../sh
 import type { CreateCategoryRequest } from '../../../shared/api/categories';
 import { useSearch } from 'wouter';
 
-const angolaBanks = [
-  'BAI',
-  'BFA',
-  'BIC',
-  'Millennium Atlântico',
-  'Standard Bank',
-  'BPC',
-  'Banco Sol',
-  'Banco Económico',
-  'Outros',
-];
-
 export function TransactionsPage() {
   const { data: transactions, isLoading: transactionsLoading } = useTransactions();
   const { data: summary, isLoading: summaryLoading } = useTransactionSummary();
   const { data: accounts } = useAccounts();
+  const { data: banks } = useBanks();
   const { data: categoriesData } = useCategories();
   const createTransactionMutation = useCreateTransaction();
   const createAccountMutation = useCreateAccount();
@@ -833,8 +823,8 @@ export function TransactionsPage() {
                     required
                   >
                     <option value="">Selecione</option>
-                    {angolaBanks.map((bank) => (
-                      <option key={bank} value={bank}>{bank}</option>
+                    {banks?.map((bank) => (
+                      <option key={bank.id} value={bank.name}>{bank.name}</option>
                     ))}
                   </Select>
                 </div>
