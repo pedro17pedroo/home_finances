@@ -98,7 +98,7 @@ export function OrganizationSelector({ variant = 'compact', className = '' }: Or
 
                   return (
                     <button
-                      key={org.organizationId}
+                      key={`org-compact-${org.id || org.organizationId}`}
                       onClick={() => handleSwitch(org.organizationId)}
                       disabled={switchMutation.isPending}
                       className={`w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
@@ -186,7 +186,7 @@ export function OrganizationSelector({ variant = 'compact', className = '' }: Or
             <div className="overflow-y-auto max-h-96">
               {organizations.map((org) => (
                 <button
-                  key={org.organizationId}
+                  key={`org-full-${org.id || org.organizationId}`}
                   onClick={() => handleSwitch(org.organizationId)}
                   disabled={switchMutation.isPending}
                   className={`w-full flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${
