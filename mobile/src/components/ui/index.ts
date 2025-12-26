@@ -9,3 +9,6 @@ export { Loading, Skeleton, LoadingOverlay } from './Loading';
 export { Toast } from './Toast';
 export { StatCard } from './StatCard';
 export { EmptyState } from './EmptyState';
+
+// Note: OrganizationSelector is NOT exported here to avoid circular dependency
+// Import it directly from '../OrganizationSelector' when needed

@@ -219,6 +219,35 @@ export interface OrganizationMember {
   joinedAt?: string;
 }
 
+// Organization membership for multi-org support
+export interface OrganizationMembership {
+  organizationId: number;
+  organizationName: string;
+  role: 'owner' | 'admin' | 'member';
+}
+
+// Active organization with full details
+export interface ActiveOrganization {
+  id: number;
+  name: string;
+  role: string;
+  planType: string | null;
+  subscriptionStatus: string | null;
+}
+
+// Organization with user's membership info
+export interface OrganizationWithMembership {
+  id: number;
+  name: string;
+  role: 'owner' | 'admin' | 'member';
+  subscription: {
+    planType: string;
+    status: string;
+  };
+  memberCount: number;
+  isActive: boolean;
+}
+
 export interface TeamInvitation {
   id: number;
   email: string;

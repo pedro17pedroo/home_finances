@@ -12,8 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useToast } from '../../contexts/ToastContext';
-import { Card, StatCard, Loading, Badge } from '../../components/ui';
+import { Card, Loading, Badge } from '../../components/ui';
+import { OrganizationSelector } from '../../components/OrganizationSelector';
 import { SPACING, RADIUS } from '../../constants/config';
 import api from '../../services/api';
 
@@ -32,8 +32,7 @@ interface DashboardScreenProps {
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const { colors, isDark, toggleTheme } = useTheme();
-  const { user } = useAuth();
-  const { showError } = useToast();
+  const { user, activeOrganization } = useAuth();
   
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -99,6 +98,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
     }, [])
   );
 
+  // Refresh data when active organization changes - Requirements: 3.3
+  useEffect(() => {
+    if (activeOrganization?.id) {
+      setIsLoading(true);
+      fetchDashboardData();
+    }
+  }, [activeOrganization?.id]);
+
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     fetchDashboardData();
@@ -160,7 +167,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             <Text style={[styles.greeting, { color: colors.textSecondary }]}>
               Olá, {user?.firstName || 'Usuário'}! 👋
             </Text>
@@ -183,6 +190,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Organization Selector - Requirements: 3.4 */}
+        <OrganizationSelector variant="compact" style={styles.orgSelector} />
 
         {/* Balance Card */}
         <Card variant="elevated" padding="lg" style={styles.balanceCard}>
@@ -301,7 +311,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  headerLeft: {
+    flex: 1,
   },
   greeting: {
     fontSize: 14,
@@ -321,6 +334,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  orgSelector: {
+    marginBottom: SPACING.lg,
+    alignSelf: 'flex-start',
   },
   balanceCard: {
     marginBottom: SPACING.lg,
