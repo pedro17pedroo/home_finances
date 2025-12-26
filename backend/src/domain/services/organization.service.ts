@@ -1,4 +1,5 @@
 import { OrganizationRepository } from "../repositories/organization.repository.js";
+import { OrganizationMembershipRepository } from "../repositories/organization-membership.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
 import { CategoryService } from "./category.service.js";
 import { 
@@ -18,7 +19,8 @@ export interface CreateOrganizationRequest {
 }
 
 export interface InviteMemberRequest {
-  email: string;
+  email?: string;
+  phone?: string;
   role?: 'admin' | 'member';
 }
 
@@ -143,6 +145,11 @@ export class OrganizationService {
   ): Promise<TeamInvitation> {
     const organization = await this.getOrganization(organizationId);
     
+    // Validate that either email or phone is provided
+    if (!data.email && !data.phone) {
+      throw new BadRequestError("Email ou telefone é obrigatório");
+    }
+    
     // Check if inviter is owner (only owner can invite)
     const inviter = await UserRepository.findById(inviterId);
     if (!inviter || inviter.organizationId !== organizationId) {
@@ -167,16 +174,30 @@ export class OrganizationService {
       throw new BadRequestError(`Limite de membros atingido (${totalUsersAndInvites}/${maxUsers}). Faça upgrade do plano para adicionar mais membros.`);
     }
 
-    // Check if email is already a member
-    const existingUser = await UserRepository.findByEmail(data.email);
+    // Check if user is already a member (by email or phone)
+    let existingUser = null;
+    if (data.email) {
+      existingUser = await UserRepository.findByEmail(data.email);
+    }
+    if (!existingUser && data.phone) {
+      existingUser = await UserRepository.findByPhone(data.phone);
+    }
+    
     if (existingUser && existingUser.organizationId === organizationId) {
-      throw new ConflictError("Este email já é membro da organização");
+      throw new ConflictError("Este utilizador já é membro da organização");
     }
 
-    // Check if there's already a pending invitation
-    const existingInvitation = await OrganizationRepository.findInvitationByEmail(data.email, organizationId);
+    // Check if there's already a pending invitation (by email or phone)
+    let existingInvitation = null;
+    if (data.email) {
+      existingInvitation = await OrganizationRepository.findInvitationByEmail(data.email, organizationId);
+    }
+    if (!existingInvitation && data.phone) {
+      existingInvitation = await OrganizationRepository.findInvitationByPhone(data.phone, organizationId);
+    }
+    
     if (existingInvitation) {
-      throw new ConflictError("Já existe um convite pendente para este email");
+      throw new ConflictError("Já existe um convite pendente para este utilizador");
     }
 
     // Generate invitation token
@@ -188,25 +209,33 @@ export class OrganizationService {
 
     const invitation = await OrganizationRepository.createInvitation({
       organizationId,
-      email: data.email,
+      email: data.email || null,
+      phone: data.phone || null,
       role: data.role || 'member',
       invitedBy: inviterId,
       token,
       expiresAt,
     });
 
-    // Send invitation email
+    // Send invitation notification
     const inviterName = `${inviter.firstName || ''} ${inviter.lastName || ''}`.trim() || 'Um administrador';
-    emailService.sendTeamInvitationEmail(
-      data.email,
-      inviterName,
-      organization.name,
-      token,
-      data.role || 'member'
-    ).catch(err => {
-      console.error('Error sending invitation email:', err);
-    });
-
+    
+    if (data.email) {
+      // Send email invitation
+      emailService.sendTeamInvitationEmail(
+        data.email,
+        inviterName,
+        organization.name,
+        token,
+        data.role || 'member'
+      ).catch(err => {
+        console.error('Error sending invitation email:', err);
+      });
+    }
+    
+    // TODO: If phone is provided, send SMS invitation
+    // For now, the user will see the invitation in the app
+    
     return invitation;
   }
 
@@ -250,9 +279,13 @@ export class OrganizationService {
   }
 
   /**
-   * Accept an invitation and create user account
+   * Accept an invitation and create user account or add membership for existing user
+   * 
+   * Requirements: 5.1, 5.2, 5.3, 5.4
+   * - For existing users: Add membership without creating new user
+   * - For new users: Create account, create own organization, add to inviting org
    */
-  static async acceptInvitation(data: AcceptInvitationRequest): Promise<{ user: User; organization: Organization }> {
+  static async acceptInvitation(data: AcceptInvitationRequest): Promise<{ user: User; organization: Organization; isExistingUser: boolean }> {
     const invitation = await OrganizationRepository.findInvitationByToken(data.token);
     if (!invitation) {
       throw new NotFoundError("Convite inválido ou expirado");
@@ -261,7 +294,46 @@ export class OrganizationService {
     // Get organization to inherit plan info
     const organization = await this.getOrganization(invitation.organizationId);
     
-    // Get organization's subscription status
+    // Import OrganizationMembershipService for membership operations
+    const { OrganizationMembershipService } = await import("./organization-membership.service.js");
+
+    // Check if email is already registered
+    // Requirements: 5.1, 5.2
+    const existingUser = await UserRepository.findByEmail(invitation.email);
+    if (existingUser) {
+      // Check if user is already a member of this organization
+      const existingMembership = await OrganizationMembershipService.isMember(
+        existingUser.id, 
+        invitation.organizationId
+      );
+      
+      if (existingMembership) {
+        throw new ConflictError("Utilizador já é membro desta organização");
+      }
+
+      // Add membership to the inviting organization without creating new user
+      // Requirements: 5.2 - Add membership without creating new account
+      await OrganizationMembershipService.addMember(
+        invitation.organizationId,
+        existingUser.id,
+        invitation.role || 'member',
+        invitation.invitedBy
+      );
+
+      // Mark invitation as accepted
+      await OrganizationRepository.acceptInvitation(invitation.id);
+
+      // Return existing user with the organization they were invited to
+      return { user: existingUser, organization, isExistingUser: true };
+    }
+
+    // For new users: Validate required fields
+    // Requirements: 5.3, 5.4
+    if (!data.firstName || !data.lastName || !data.password) {
+      throw new BadRequestError("Nome, sobrenome e senha são obrigatórios para novos utilizadores");
+    }
+    
+    // Get organization's subscription status for the new user
     const { db } = await import("../../core/database/db.js");
     const { subscriptions } = await import("../../core/database/schema.js");
     const { desc, eq } = await import("drizzle-orm");
@@ -290,27 +362,6 @@ export class OrganizationService {
       memberSubscriptionStatus = organization.subscriptionStatus || 'active';
     }
 
-    // Check if email is already registered
-    const existingUser = await UserRepository.findByEmail(invitation.email);
-    if (existingUser) {
-      // If user exists, just add them to the organization
-      if (existingUser.organizationId) {
-        throw new ConflictError("Este email já está associado a outra organização");
-      }
-
-      await UserRepository.update(existingUser.id, {
-        organizationId: invitation.organizationId,
-        role: invitation.role || 'member',
-        // Inherit organization's plan
-        planType: organization.planType || 'basic',
-        subscriptionStatus: memberSubscriptionStatus,
-      });
-
-      await OrganizationRepository.acceptInvitation(invitation.id);
-
-      return { user: existingUser, organization };
-    }
-
     // Create new user
     const hashedPassword = await hashPassword(data.password);
     
@@ -320,23 +371,64 @@ export class OrganizationService {
       password: hashedPassword,
       firstName: data.firstName,
       lastName: data.lastName,
-      organizationId: invitation.organizationId,
-      role: invitation.role || 'member',
-      // Inherit organization's plan
-      planType: organization.planType || 'basic',
-      subscriptionStatus: memberSubscriptionStatus,
+      // Don't set organizationId here - we'll use memberships
+      planType: 'basic',
+      subscriptionStatus: 'trialing',
     });
 
-    // Create default categories for the new user
+    // Create user's own default organization
+    // Requirements: 5.4 - Create their own default Organization
+    let userOwnOrg: Organization | null = null;
     try {
-      await CategoryService.createDefaultCategoriesForUser(newUser.id);
+      const orgName = `${data.firstName} ${data.lastName}`.trim() || 'Minha Organização';
+      userOwnOrg = await OrganizationRepository.create({
+        name: orgName,
+        ownerId: newUser.id,
+        planType: 'basic',
+        subscriptionStatus: 'trialing',
+        maxUsers: 1,
+      });
+
+      // Create membership with role 'owner' for user's own organization
+      await OrganizationMembershipService.addMember(
+        userOwnOrg.id,
+        newUser.id,
+        'owner'
+      );
+
+      // Set activeOrganizationId to user's own organization
+      await UserRepository.update(newUser.id, {
+        activeOrganizationId: userOwnOrg.id,
+        organizationId: userOwnOrg.id,
+        role: 'owner',
+      });
+    } catch (error) {
+      console.error('Error creating own organization for invited user:', error);
+    }
+
+    // Add membership to the inviting organization
+    // Requirements: 5.4 - Add them to the inviting Organization
+    await OrganizationMembershipService.addMember(
+      invitation.organizationId,
+      newUser.id,
+      invitation.role || 'member',
+      invitation.invitedBy
+    );
+
+    // Create default categories for the new user's organization
+    try {
+      await CategoryService.createDefaultCategories(newUser.id, userOwnOrg?.id || null);
     } catch (error) {
       console.error('Error creating default categories for invited user:', error);
     }
 
+    // Mark invitation as accepted
     await OrganizationRepository.acceptInvitation(invitation.id);
 
-    return { user: newUser, organization };
+    // Fetch updated user
+    const updatedUser = await UserRepository.findById(newUser.id);
+
+    return { user: updatedUser || newUser, organization, isExistingUser: false };
   }
 
   /**
@@ -413,5 +505,118 @@ export class OrganizationService {
 
     const organization = await this.getOrganization(invitation.organizationId);
     return { invitation, organization };
+  }
+
+  /**
+   * Get invitations received by a user (by their email or phone)
+   */
+  static async getReceivedInvitations(userId: number): Promise<any[]> {
+    const user = await UserRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("Utilizador");
+    }
+
+    const invitations = await OrganizationRepository.findInvitationsForUser(user.email, user.phone);
+    
+    // Enrich with organization info
+    const enrichedInvitations = await Promise.all(
+      invitations.map(async (inv) => {
+        const org = await OrganizationRepository.findById(inv.organizationId);
+        const inviter = inv.invitedBy ? await UserRepository.findById(inv.invitedBy) : null;
+        return {
+          ...inv,
+          organizationName: org?.name || 'Organização',
+          inviterName: inviter ? `${inviter.firstName || ''} ${inviter.lastName || ''}`.trim() : 'Desconhecido',
+        };
+      })
+    );
+
+    return enrichedInvitations;
+  }
+
+  /**
+   * Accept an invitation by ID (for logged-in users)
+   */
+  static async acceptInvitationById(invitationId: number, userId: number): Promise<any> {
+    const invitation = await OrganizationRepository.findInvitationById(invitationId);
+    if (!invitation) {
+      throw new NotFoundError("Convite não encontrado");
+    }
+
+    // Check if invitation is expired
+    if (new Date() > invitation.expiresAt) {
+      throw new BadRequestError("Este convite expirou");
+    }
+
+    // Check if already accepted
+    if (invitation.acceptedAt) {
+      throw new BadRequestError("Este convite já foi aceite");
+    }
+
+    const user = await UserRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("Utilizador");
+    }
+
+    // Verify the invitation is for this user (by email or phone)
+    const isForUser = 
+      (invitation.email && user.email && invitation.email.toLowerCase() === user.email.toLowerCase()) ||
+      (invitation.phone && user.phone && invitation.phone === user.phone);
+
+    if (!isForUser) {
+      throw new ForbiddenError("Este convite não é para você");
+    }
+
+    // Check if user is already a member
+    const existingMembership = await OrganizationMembershipRepository.findByUserAndOrg(userId, invitation.organizationId);
+    if (existingMembership) {
+      throw new ConflictError("Você já é membro desta organização");
+    }
+
+    // Create membership
+    const membership = await OrganizationMembershipRepository.create({
+      userId,
+      organizationId: invitation.organizationId,
+      role: invitation.role || 'member',
+      invitedBy: invitation.invitedBy,
+    });
+
+    // Mark invitation as accepted
+    await OrganizationRepository.acceptInvitation(invitationId);
+
+    // Get organization info
+    const organization = await OrganizationRepository.findById(invitation.organizationId);
+
+    return {
+      membership,
+      organization,
+    };
+  }
+
+  /**
+   * Reject an invitation
+   */
+  static async rejectInvitation(invitationId: number, userId: number): Promise<void> {
+    const invitation = await OrganizationRepository.findInvitationById(invitationId);
+    if (!invitation) {
+      throw new NotFoundError("Convite não encontrado");
+    }
+
+    const user = await UserRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("Utilizador");
+    }
+
+    // Verify the invitation is for this user
+    const isForUser = 
+      (invitation.email && user.email && invitation.email.toLowerCase() === user.email.toLowerCase()) ||
+      (invitation.phone && user.phone && invitation.phone === user.phone);
+
+    if (!isForUser) {
+      throw new ForbiddenError("Este convite não é para você");
+    }
+
+    // Delete the invitation
+    await OrganizationRepository.deleteInvitation(invitationId);
   }
 }

@@ -29,11 +29,15 @@ import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
 // Subscription & Team Screens
 import { SubscriptionScreen } from '../screens/subscription/SubscriptionScreen';
 import { TeamScreen } from '../screens/team/TeamScreen';
+import { ReceivedInvitationsScreen } from '../screens/profile/ReceivedInvitationsScreen';
 
 // Support Screens
 import { FaqScreen } from '../screens/support/FaqScreen';
 import { ContactScreen } from '../screens/support/ContactScreen';
 import { LegalScreen } from '../screens/support/LegalScreen';
+
+// Organizations Screen
+import { OrganizationsScreen } from '../screens/organizations/OrganizationsScreen';
 
 // Other Screens
 import { AddTransactionScreen } from '../screens/forms/AddTransactionScreen';
@@ -68,12 +72,13 @@ const AuthNavigator = () => {
   const { isFirstLaunch, completeOnboarding } = useAuth();
 
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      {isFirstLaunch && (
-        <AuthStack.Screen name="Onboarding">
-          {(props) => <OnboardingScreen {...props} onComplete={completeOnboarding} />}
-        </AuthStack.Screen>
-      )}
+    <AuthStack.Navigator 
+      screenOptions={{ headerShown: false }}
+      initialRouteName={isFirstLaunch ? 'Onboarding' : 'Login'}
+    >
+      <AuthStack.Screen name="Onboarding">
+        {(props) => <OnboardingScreen {...props} onComplete={completeOnboarding} />}
+      </AuthStack.Screen>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
@@ -151,6 +156,8 @@ const ProfileStackNavigator = () => {
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
       <ProfileStack.Screen name="Subscription" component={SubscriptionScreen} />
       <ProfileStack.Screen name="Team" component={TeamScreen} />
+      <ProfileStack.Screen name="Organizations" component={OrganizationsScreen} />
+      <ProfileStack.Screen name="ReceivedInvitations" component={ReceivedInvitationsScreen} />
       <ProfileStack.Screen name="Faq" component={FaqScreen} />
       <ProfileStack.Screen name="Contact" component={ContactScreen} />
       <ProfileStack.Screen name="Legal" component={LegalScreen} />

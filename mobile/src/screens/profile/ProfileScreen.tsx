@@ -14,6 +14,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Card, Avatar, Badge, Button } from '../../components/ui';
+import { OrganizationSelector } from '../../components/OrganizationSelector';
 import { SPACING, RADIUS } from '../../constants/config';
 
 interface ProfileScreenProps {
@@ -71,10 +72,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           badge: user?.planType?.toUpperCase(),
         },
         {
+          icon: 'business-outline',
+          label: 'Organizações',
+          subtitle: 'Gerenciar organizações',
+          onPress: () => navigation?.navigate('Organizations'),
+        },
+        {
           icon: 'people-outline',
           label: 'Equipe',
           subtitle: 'Gerenciar membros',
           onPress: () => navigation?.navigate('Team'),
+        },
+        {
+          icon: 'mail-outline',
+          label: 'Convites Recebidos',
+          subtitle: 'Ver e aceitar convites',
+          onPress: () => navigation?.navigate('ReceivedInvitations'),
         },
       ],
     },
@@ -201,6 +214,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           </View>
         </Card>
 
+        {/* Organization Selector - Requirements: 3.4 */}
+        <OrganizationSelector variant="full" style={styles.orgSelectorCard} />
+
         {/* Menu Sections */}
         {menuSections.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.section}>
@@ -319,6 +335,9 @@ const styles = StyleSheet.create({
   badgeContainer: {
     flexDirection: 'row',
     gap: SPACING.sm,
+  },
+  orgSelectorCard: {
+    marginBottom: SPACING.lg,
   },
   section: {
     marginBottom: SPACING.lg,

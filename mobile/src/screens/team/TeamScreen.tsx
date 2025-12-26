@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -51,7 +51,7 @@ interface TeamScreenProps {
 
 export const TeamScreen: React.FC<TeamScreenProps> = ({ navigation }) => {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, activeOrganization } = useAuth();
   const { showSuccess, showError } = useToast();
   
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -62,10 +62,34 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ navigation }) => {
   // Invite modal
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
+  const [inviteType, setInviteType] = useState<'email' | 'phone'>('email');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [inviting, setInviting] = useState(false);
 
-  const isOwner = user?.role === 'owner' || (organization && user?.id === organization.ownerId);
+  // Check user role in active organization
+  // Requirements: 7.4 - Only owners should be able to manage team members
+  const isOwner = useMemo(() => {
+    // First check activeOrganization role (most reliable source)
+    if (activeOrganization?.role === 'owner') {
+      return true;
+    }
+    // Fallback to checking if user is the organization owner
+    if (organization && user?.id === organization.ownerId) {
+      return true;
+    }
+    // Check user.role as last fallback
+    if (user?.role === 'owner') {
+      return true;
+    }
+    return false;
+  }, [activeOrganization, organization, user]);
+
+  // Check if user can manage team (owners and admins can view, only owners can invite/remove)
+  const canManageTeam = useMemo(() => {
+    const role = activeOrganization?.role;
+    return role === 'owner' || role === 'admin';
+  }, [activeOrganization]);
 
   useEffect(() => {
     loadData();
@@ -96,24 +120,54 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ navigation }) => {
   };
 
   const handleInvite = async () => {
-    if (!inviteEmail.trim()) {
-      showError('Digite um email válido');
+    const inviteValue = inviteType === 'email' ? inviteEmail.trim() : invitePhone.trim();
+    
+    if (!inviteValue) {
+      showError(inviteType === 'email' ? 'Digite um email válido' : 'Digite um número de telefone válido');
       return;
     }
 
     setInviting(true);
     try {
-      await api.post('/organizations/invite', {
-        email: inviteEmail,
-        role: inviteRole,
-      });
-      showSuccess('Convite enviado com sucesso!');
+      const payload: any = { role: inviteRole };
+      if (inviteType === 'email') {
+        payload.email = inviteEmail;
+      } else {
+        payload.phone = invitePhone;
+      }
+      
+      const response = await api.post('/organizations/invite', payload);
+      
+      // Check if the invited email belongs to an existing user
+      // Requirements: 5.1, 5.2 - Handle case where invited email already has account
+      const responseData = response.data?.data || response.data;
+      const isExistingUser = responseData?.isExistingUser;
+      
+      if (isExistingUser) {
+        // Show specific message for existing users
+        showSuccess('Convite enviado! O utilizador já possui conta e receberá uma notificação para aceitar o convite.');
+      } else {
+        showSuccess('Convite enviado com sucesso!');
+      }
+      
       setShowInviteModal(false);
       setInviteEmail('');
+      setInvitePhone('');
+      setInviteType('email');
       setInviteRole('member');
       loadData();
     } catch (error: any) {
-      showError(error.response?.data?.message || 'Erro ao enviar convite');
+      const errorMessage = error.response?.data?.message || 'Erro ao enviar convite';
+      
+      // Handle specific error cases for existing users
+      // Requirements: 5.5 - Show appropriate error messages
+      if (errorMessage.includes('já é membro') || errorMessage.includes('already a member')) {
+        showError('Este utilizador já é membro desta organização');
+      } else if (errorMessage.includes('já existe') || errorMessage.includes('already exists')) {
+        showError('Já existe um convite pendente para este email');
+      } else {
+        showError(errorMessage);
+      }
     } finally {
       setInviting(false);
     }
@@ -238,6 +292,57 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ navigation }) => {
           title="Nenhuma organização"
           description="Você não pertence a nenhuma organização"
         />
+      </SafeAreaView>
+    );
+  }
+
+  // Requirements: 7.4 - Show restricted view for members who are not owners/admins
+  if (!canManageTeam) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}
+            onPress={() => navigation?.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Equipe</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.restrictedContainer}>
+          <View style={[styles.restrictedIconContainer, { backgroundColor: colors.surfaceSecondary }]}>
+            <Ionicons name="lock-closed" size={48} color={colors.textSecondary} />
+          </View>
+          <Text style={[styles.restrictedTitle, { color: colors.text }]}>
+            Acesso Restrito
+          </Text>
+          <Text style={[styles.restrictedDescription, { color: colors.textSecondary }]}>
+            Apenas proprietários e administradores podem gerenciar a equipe desta organização.
+          </Text>
+          <Card variant="outlined" padding="md" style={[styles.roleInfoCard, { borderColor: colors.info }]}>
+            <View style={styles.roleInfoRow}>
+              <Ionicons name="information-circle" size={20} color={colors.info} />
+              <View style={styles.roleInfoContent}>
+                <Text style={[styles.roleInfoLabel, { color: colors.textSecondary }]}>
+                  Sua função atual:
+                </Text>
+                <View style={[styles.roleTag, { backgroundColor: colors.surfaceSecondary }]}>
+                  <Ionicons name="person" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.roleText, { color: colors.text }]}>
+                    {getRoleLabel(activeOrganization?.role)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Card>
+          <Button
+            title="Voltar"
+            variant="outline"
+            onPress={() => navigation?.goBack()}
+            style={styles.backButtonLarge}
+          />
+        </View>
       </SafeAreaView>
     );
   }
@@ -410,19 +515,90 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ navigation }) => {
             </View>
 
             <View style={styles.modalBody}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Email</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: colors.surfaceSecondary, color: colors.text, borderColor: colors.border },
-                ]}
-                value={inviteEmail}
-                onChangeText={setInviteEmail}
-                placeholder="email@exemplo.com"
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+              {/* Invite Type Tabs */}
+              <View style={[styles.inviteTypeTabs, { backgroundColor: colors.surfaceSecondary }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.inviteTypeTab,
+                    inviteType === 'email' && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setInviteType('email')}
+                >
+                  <Ionicons 
+                    name="mail-outline" 
+                    size={16} 
+                    color={inviteType === 'email' ? '#FFF' : colors.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.inviteTypeTabText, 
+                    { color: inviteType === 'email' ? '#FFF' : colors.textSecondary }
+                  ]}>
+                    Email
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inviteTypeTab,
+                    inviteType === 'phone' && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setInviteType('phone')}
+                >
+                  <Ionicons 
+                    name="call-outline" 
+                    size={16} 
+                    color={inviteType === 'phone' ? '#FFF' : colors.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.inviteTypeTabText, 
+                    { color: inviteType === 'phone' ? '#FFF' : colors.textSecondary }
+                  ]}>
+                    Telefone
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {inviteType === 'email' ? (
+                <>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Email</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      { backgroundColor: colors.surfaceSecondary, color: colors.text, borderColor: colors.border },
+                    ]}
+                    value={inviteEmail}
+                    onChangeText={setInviteEmail}
+                    placeholder="email@exemplo.com"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Telefone</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      { backgroundColor: colors.surfaceSecondary, color: colors.text, borderColor: colors.border },
+                    ]}
+                    value={invitePhone}
+                    onChangeText={setInvitePhone}
+                    placeholder="923456789"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="phone-pad"
+                  />
+                </>
+              )}
+              
+              {/* Info about existing users - Requirements: 5.1, 5.2 */}
+              <View style={[styles.inviteInfoBox, { backgroundColor: colors.surfaceSecondary }]}>
+                <Ionicons name="information-circle-outline" size={16} color={colors.info} />
+                <Text style={[styles.inviteInfoText, { color: colors.textSecondary }]}>
+                  {inviteType === 'email' 
+                    ? 'Se o email já tiver uma conta, o utilizador receberá um convite para se juntar à organização sem perder os seus dados.'
+                    : 'Se o telefone já tiver uma conta, o utilizador receberá um convite para se juntar à organização sem perder os seus dados.'}
+                </Text>
+              </View>
 
               <Text style={[styles.inputLabel, { color: colors.textSecondary, marginTop: SPACING.md }]}>
                 Função
@@ -503,6 +679,52 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: SPACING.md,
+  },
+  // Restricted view styles - Requirements: 7.4
+  restrictedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  restrictedIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  restrictedTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  restrictedDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
+    lineHeight: 20,
+  },
+  roleInfoCard: {
+    width: '100%',
+    marginBottom: SPACING.lg,
+  },
+  roleInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  roleInfoContent: {
+    marginLeft: SPACING.sm,
+    flex: 1,
+  },
+  roleInfoLabel: {
+    fontSize: 13,
+    marginBottom: SPACING.xs,
+  },
+  backButtonLarge: {
+    minWidth: 150,
   },
   orgCard: {
     marginBottom: SPACING.lg,
@@ -660,6 +882,40 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: SPACING.md,
     fontSize: 16,
+  },
+  // Invite type tabs styles
+  inviteTypeTabs: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: SPACING.md,
+  },
+  inviteTypeTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.sm,
+    borderRadius: 6,
+    gap: 6,
+  },
+  inviteTypeTabText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  // Invite info box styles - Requirements: 5.1, 5.2
+  inviteInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: SPACING.sm,
+    borderRadius: 8,
+    marginTop: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  inviteInfoText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
   },
   roleOptions: {
     flexDirection: 'row',

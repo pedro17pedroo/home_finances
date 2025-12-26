@@ -1,4 +1,4 @@
-import { eq, and, isNull, gt } from "drizzle-orm";
+import { eq, and, isNull, gt, or, desc } from "drizzle-orm";
 import { db } from "../../core/database/db.js";
 import { 
   organizations, 
@@ -102,6 +102,20 @@ export class OrganizationRepository {
     return result[0] || null;
   }
 
+  static async findInvitationByPhone(phone: string, organizationId: number): Promise<TeamInvitation | null> {
+    const result = await db
+      .select()
+      .from(teamInvitations)
+      .where(and(
+        eq(teamInvitations.phone, phone),
+        eq(teamInvitations.organizationId, organizationId),
+        isNull(teamInvitations.acceptedAt)
+      ))
+      .limit(1);
+    
+    return result[0] || null;
+  }
+
   static async findPendingInvitations(organizationId: number): Promise<TeamInvitation[]> {
     return db
       .select()
@@ -111,6 +125,31 @@ export class OrganizationRepository {
         isNull(teamInvitations.acceptedAt),
         gt(teamInvitations.expiresAt, new Date())
       ));
+  }
+
+  static async findInvitationsForUser(email: string | null, phone: string | null): Promise<TeamInvitation[]> {
+    const conditions = [];
+    
+    if (email) {
+      conditions.push(eq(teamInvitations.email, email));
+    }
+    if (phone) {
+      conditions.push(eq(teamInvitations.phone, phone));
+    }
+    
+    if (conditions.length === 0) {
+      return [];
+    }
+
+    return db
+      .select()
+      .from(teamInvitations)
+      .where(and(
+        or(...conditions),
+        isNull(teamInvitations.acceptedAt),
+        gt(teamInvitations.expiresAt, new Date())
+      ))
+      .orderBy(desc(teamInvitations.createdAt));
   }
 
   static async acceptInvitation(id: number): Promise<TeamInvitation> {
