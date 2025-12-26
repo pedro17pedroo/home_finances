@@ -1,6 +1,7 @@
 import { UserRepository } from "../repositories/user.repository.js";
 import { CategoryService } from "./category.service.js";
 import { OrganizationService } from "./organization.service.js";
+import { OrganizationMembershipService, type MembershipInfo } from "./organization-membership.service.js";
 import { eq } from "drizzle-orm";
 import { 
   hashPassword, 
@@ -29,6 +30,7 @@ export interface RegisterRequest {
   firstName: string;
   lastName: string;
   planType?: 'basic' | 'premium' | 'enterprise';
+  invitationToken?: string; // For invitation flow
 }
 
 export interface AuthResponse {
@@ -41,7 +43,20 @@ export interface AuthResponse {
     planType: string;
     subscriptionStatus: string;
     organizationId?: number;
+    activeOrganizationId?: number;
+    activeOrganization?: {
+      id: number;
+      name: string;
+      role: string;
+      planType: string | null;
+      subscriptionStatus: string | null;
+    };
     role?: string;
+    memberships?: Array<{
+      organizationId: number;
+      organizationName: string;
+      role: string;
+    }>;
   };
   token: string;
   refreshToken: string;
@@ -63,11 +78,63 @@ export class AuthService {
       throw new UnauthorizedError("Invalid credentials");
     }
 
+    // Get all memberships for the user
+    // Requirements: 3.4, 3.5
+    let memberships: Array<{ organizationId: number; organizationName: string; role: string }> = [];
+    let activeOrganization: {
+      id: number;
+      name: string;
+      role: string;
+      planType: string | null;
+      subscriptionStatus: string | null;
+    } | undefined;
+
+    try {
+      const userMemberships = await OrganizationMembershipService.getUserMemberships(user.id);
+      memberships = userMemberships.map(m => ({
+        organizationId: m.organizationId,
+        organizationName: m.organizationName,
+        role: m.role,
+      }));
+
+      // Find active organization details
+      const activeMembership = userMemberships.find(m => m.isActive);
+      if (activeMembership) {
+        activeOrganization = {
+          id: activeMembership.organizationId,
+          name: activeMembership.organizationName,
+          role: activeMembership.role,
+          planType: activeMembership.planType,
+          subscriptionStatus: activeMembership.subscriptionStatus,
+        };
+      } else if (userMemberships.length > 0) {
+        // If no active org set, use first membership and update user
+        const firstMembership = userMemberships[0];
+        activeOrganization = {
+          id: firstMembership.organizationId,
+          name: firstMembership.organizationName,
+          role: firstMembership.role,
+          planType: firstMembership.planType,
+          subscriptionStatus: firstMembership.subscriptionStatus,
+        };
+        // Update user's activeOrganizationId
+        await UserRepository.update(user.id, {
+          activeOrganizationId: firstMembership.organizationId,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching memberships during login:', error);
+    }
+
     // For members (non-owners), get plan info from organization
     let planType = user.planType || "basic";
     let subscriptionStatus = user.subscriptionStatus || "trialing";
 
-    if (user.organizationId && user.role !== 'owner') {
+    // Use active organization's plan info if available
+    if (activeOrganization) {
+      planType = activeOrganization.planType || planType;
+      subscriptionStatus = activeOrganization.subscriptionStatus || subscriptionStatus;
+    } else if (user.organizationId && user.role !== 'owner') {
       const { OrganizationRepository } = await import("../repositories/organization.repository.js");
       const organization = await OrganizationRepository.findById(user.organizationId);
       
@@ -123,7 +190,10 @@ export class AuthService {
         planType,
         subscriptionStatus,
         organizationId: user.organizationId || undefined,
+        activeOrganizationId: user.activeOrganizationId || activeOrganization?.id || undefined,
+        activeOrganization,
         role: user.role || undefined,
+        memberships,
       },
       token,
       refreshToken,
@@ -131,7 +201,7 @@ export class AuthService {
   }
 
   static async register(data: RegisterRequest): Promise<AuthResponse> {
-    const { email, phone, password, firstName, lastName, planType = "basic" } = data;
+    const { email, phone, password, firstName, lastName, planType = "basic", invitationToken } = data;
 
     // Validate that either email or phone is provided
     if (!email && !phone) {
@@ -176,6 +246,7 @@ export class AuthService {
 
     // Create organization for the new user FIRST (they become the owner)
     let organizationId: number | null = null;
+    let organizationName: string = '';
     try {
       const orgName = `${firstName} ${lastName}`.trim() || 'Minha Organização';
       const organization = await OrganizationService.createOrganization({
@@ -183,9 +254,64 @@ export class AuthService {
         ownerId: user.id,
       });
       organizationId = organization.id;
+      organizationName = organization.name;
+
+      // Create membership with role 'owner' for the new organization
+      // Requirements: 1.2, 2.2
+      await OrganizationMembershipService.addMember(
+        organization.id,
+        user.id,
+        'owner'
+      );
+
+      // Set activeOrganizationId to the new organization
+      await UserRepository.update(user.id, {
+        activeOrganizationId: organization.id,
+      });
     } catch (error) {
       // Log error but don't fail registration
       console.error('Error creating organization for user:', error);
+    }
+
+    // If invitation token provided, also add to inviting org
+    // Requirements: 5.4
+    let invitingOrgMembership: MembershipInfo | null = null;
+    if (invitationToken && organizationId) {
+      try {
+        const { OrganizationRepository } = await import("../repositories/organization.repository.js");
+        const invitation = await OrganizationRepository.findInvitationByToken(invitationToken);
+        
+        if (invitation) {
+          // Add membership to inviting organization
+          await OrganizationMembershipService.addMember(
+            invitation.organizationId,
+            user.id,
+            invitation.role || 'member',
+            invitation.invitedBy
+          );
+
+          // Mark invitation as accepted
+          await OrganizationRepository.acceptInvitation(invitation.id);
+
+          // Get inviting org details for response
+          const invitingOrg = await OrganizationRepository.findById(invitation.organizationId);
+          if (invitingOrg) {
+            invitingOrgMembership = {
+              id: 0, // Will be set properly when fetching memberships
+              organizationId: invitingOrg.id,
+              organizationName: invitingOrg.name,
+              role: invitation.role || 'member',
+              planType: invitingOrg.planType,
+              subscriptionStatus: invitingOrg.subscriptionStatus,
+              joinedAt: new Date(),
+              isActive: false,
+            };
+          }
+        }
+      } catch (error) {
+        // Log error but don't fail registration - user still gets their own org
+        console.error('Error processing invitation during registration:', error);
+      }
     }
 
     // Create default categories for the new user/organization
@@ -198,6 +324,19 @@ export class AuthService {
 
     // Fetch updated user to get organizationId and role
     const updatedUser = await UserRepository.findById(user.id);
+
+    // Get all memberships for the user
+    let memberships: Array<{ organizationId: number; organizationName: string; role: string }> = [];
+    try {
+      const userMemberships = await OrganizationMembershipService.getUserMemberships(user.id);
+      memberships = userMemberships.map(m => ({
+        organizationId: m.organizationId,
+        organizationName: m.organizationName,
+        role: m.role,
+      }));
+    } catch (error) {
+      console.error('Error fetching memberships:', error);
+    }
 
     // Send welcome email
     if (user.email) {
@@ -228,7 +367,16 @@ export class AuthService {
         planType: user.planType || "basic",
         subscriptionStatus: user.subscriptionStatus || "trialing",
         organizationId: updatedUser?.organizationId || undefined,
+        activeOrganizationId: updatedUser?.activeOrganizationId || organizationId || undefined,
+        activeOrganization: organizationId ? {
+          id: organizationId,
+          name: organizationName,
+          role: 'owner',
+          planType: 'basic',
+          subscriptionStatus: 'trialing',
+        } : undefined,
         role: updatedUser?.role || 'owner',
+        memberships,
       },
       token,
       refreshToken,
@@ -245,6 +393,42 @@ export class AuthService {
     let planType = user.planType || "basic";
     let subscriptionStatus = user.subscriptionStatus || "trialing";
     let trialEndsAt = user.trialEndsAt;
+
+    // Get all memberships for the user
+    let memberships: Array<{ organizationId: number; organizationName: string; role: string }> = [];
+    let activeOrganization: {
+      id: number;
+      name: string;
+      role: string;
+      planType: string | null;
+      subscriptionStatus: string | null;
+    } | undefined;
+
+    try {
+      const userMemberships = await OrganizationMembershipService.getUserMemberships(userId);
+      memberships = userMemberships.map(m => ({
+        organizationId: m.organizationId,
+        organizationName: m.organizationName,
+        role: m.role,
+      }));
+
+      // Find active organization details
+      const activeMembership = userMemberships.find(m => m.isActive);
+      if (activeMembership) {
+        activeOrganization = {
+          id: activeMembership.organizationId,
+          name: activeMembership.organizationName,
+          role: activeMembership.role,
+          planType: activeMembership.planType,
+          subscriptionStatus: activeMembership.subscriptionStatus,
+        };
+        // Use active organization's plan info
+        planType = activeMembership.planType || planType;
+        subscriptionStatus = activeMembership.subscriptionStatus || subscriptionStatus;
+      }
+    } catch (error) {
+      console.error('Error fetching memberships:', error);
+    }
 
     if (user.organizationId && user.role !== 'owner') {
       // Import here to avoid circular dependency
@@ -293,7 +477,10 @@ export class AuthService {
       subscriptionStatus,
       trialEndsAt,
       organizationId: user.organizationId || undefined,
+      activeOrganizationId: user.activeOrganizationId || undefined,
+      activeOrganization,
       role: user.role || undefined,
+      memberships,
       createdAt: user.createdAt,
     };
   }
