@@ -14,6 +14,8 @@ import {
   ChevronRight,
   Repeat,
   Tag,
+  Wallet,
+  Building2,
 } from 'lucide-react';
 import { useAdminAuth } from '../../contexts/admin-auth-context';
 import { useState } from 'react';
@@ -33,6 +35,8 @@ const menuItems: MenuItem[] = [
   { id: 'subscriptions', label: 'Assinaturas', icon: <Repeat className="w-5 h-5" />, path: '/subscriptions' },
   { id: 'campaigns', label: 'Campanhas', icon: <Tag className="w-5 h-5" />, path: '/campaigns' },
   { id: 'payments', label: 'Pagamentos', icon: <CreditCard className="w-5 h-5" />, path: '/payments' },
+  { id: 'payment-methods', label: 'Métodos Pagamento', icon: <Wallet className="w-5 h-5" />, path: '/payment-methods' },
+  { id: 'banks', label: 'Bancos', icon: <Building2 className="w-5 h-5" />, path: '/banks' },
   { id: 'reports', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, path: '/reports' },
   { id: 'content', label: 'Conteúdo', icon: <FileText className="w-5 h-5" />, path: '/content' },
   { id: 'notifications', label: 'Notificações', icon: <Bell className="w-5 h-5" />, path: '/notifications' },

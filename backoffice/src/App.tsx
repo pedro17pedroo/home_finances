@@ -10,6 +10,8 @@ import { PlansPage } from './features/plans/pages/plans-page';
 import { SubscriptionsPage } from './features/subscriptions/pages/subscriptions-page';
 import { CampaignsPage } from './features/campaigns/pages/campaigns-page';
 import { PaymentsPage } from './features/payments/pages/payments-page';
+import { PaymentMethodsPage } from './features/payments/pages/payment-methods-page';
+import { BanksPage } from './features/banks/pages/banks-page';
 import { ReportsPage } from './features/reports/pages/reports-page';
 import { ContentPage } from './features/content/pages/content-page';
 import { NotificationsPage } from './features/notifications/pages/notifications-page';
@@ -59,6 +61,12 @@ function AppRoutes() {
       </Route>
       <Route path="/payments">
         <ProtectedRoute><PaymentsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/payment-methods">
+        <ProtectedRoute><PaymentMethodsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/banks">
+        <ProtectedRoute><BanksPage /></ProtectedRoute>
       </Route>
       <Route path="/reports">
         <ProtectedRoute><ReportsPage /></ProtectedRoute>
