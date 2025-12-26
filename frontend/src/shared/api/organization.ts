@@ -69,7 +69,19 @@ export async function getMyOrganization(): Promise<Organization> {
 // Get all user's organizations (memberships)
 export async function getMyOrganizations(): Promise<OrganizationMembership[]> {
   const response = await apiClient.get('/organizations/my');
-  return response.data.data?.organizations || [];
+  const organizations = response.data.data?.organizations || [];
+  
+  // Map backend response to frontend interface
+  return organizations.map((org: any) => ({
+    id: org.id,
+    organizationId: org.id,
+    organizationName: org.name,
+    role: org.role,
+    planType: org.subscription?.planType || null,
+    subscriptionStatus: org.subscription?.status || null,
+    joinedAt: null,
+    isActive: org.isActive,
+  }));
 }
 
 // Switch active organization

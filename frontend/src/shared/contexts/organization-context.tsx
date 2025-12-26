@@ -34,14 +34,17 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
       if (response.data?.status === 'success' && response.data?.data) {
         setOrganization(response.data.data);
         
-        // Fetch members count
-        try {
-          const membersResponse = await apiClient.get(`/organizations/${response.data.data.id}/members`);
-          if (membersResponse.data?.status === 'success' && membersResponse.data?.data) {
-            setMembersCount(membersResponse.data.data.length);
+        // Fetch members count only if we have a valid organization ID
+        const orgId = response.data.data.id;
+        if (orgId) {
+          try {
+            const membersResponse = await apiClient.get(`/organizations/${orgId}/members`);
+            if (membersResponse.data?.status === 'success' && membersResponse.data?.data) {
+              setMembersCount(membersResponse.data.data.length);
+            }
+          } catch (err) {
+            setMembersCount(1); // Default to 1 (owner)
           }
-        } catch (err) {
-          setMembersCount(1); // Default to 1 (owner)
         }
       }
     } catch (error) {
