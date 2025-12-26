@@ -210,9 +210,9 @@ export function NavigationHeader() {
           </nav>
 
           {/* Right side - Mobile menu button, Theme toggle and User menu */}
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            {/* Organization Selector - Desktop */}
-            <div className="hidden md:block">
+          <div className="flex items-center space-x-1 sm:space-x-2">
+            {/* Organization Selector - Desktop only (hidden on tablet and mobile) */}
+            <div className="hidden xl:block">
               <OrganizationSelector variant="compact" />
             </div>
 
@@ -245,6 +245,10 @@ export function NavigationHeader() {
                 <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                   <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                     {user?.firstName} {user?.lastName}
+                  </div>
+                  {/* Organization Selector in user menu for tablet screens */}
+                  <div className="xl:hidden px-2 py-2 border-b border-gray-200 dark:border-gray-700">
+                    <OrganizationSelector variant="compact" className="w-full" />
                   </div>
                   <Link href="/profile">
                     <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
