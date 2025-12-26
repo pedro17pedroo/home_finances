@@ -22,7 +22,7 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchOrganization = async () => {
-    if (!isAuthenticated || !user?.organizationId) {
+    if (!isAuthenticated) {
       setOrganization(null);
       setMembersCount(1);
       return;
@@ -30,30 +30,67 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
 
     setIsLoading(true);
     try {
-      const response = await apiClient.get('/organizations/my');
-      if (response.data?.status === 'success' && response.data?.data) {
-        setOrganization(response.data.data);
-        
-        // Fetch members count only if we have a valid organization ID
-        const orgId = response.data.data.id;
-        if (orgId) {
+      // Use activeOrganization from user if available
+      if (user?.activeOrganization) {
+        const activeOrg = user.activeOrganization;
+        setOrganization({
+          id: activeOrg.id,
+          name: activeOrg.name,
+          ownerId: user.role === 'owner' ? user.id : 0,
+          planType: activeOrg.planType || user.planType || 'basic',
+          subscriptionStatus: activeOrg.subscriptionStatus || user.subscriptionStatus || 'trialing',
+          maxUsers: 10,
+        });
+
+        // Fetch members count
+        if (activeOrg.id) {
           try {
-            const membersResponse = await apiClient.get(`/organizations/${orgId}/members`);
+            const membersResponse = await apiClient.get(`/organizations/${activeOrg.id}/members`);
             if (membersResponse.data?.status === 'success' && membersResponse.data?.data) {
               setMembersCount(membersResponse.data.data.length);
             }
           } catch (err) {
-            setMembersCount(1); // Default to 1 (owner)
+            setMembersCount(1);
+          }
+        }
+      } else if (user?.organizationId) {
+        // Fallback: fetch from /organizations/my
+        const response = await apiClient.get('/organizations/my');
+        if (response.data?.status === 'success' && response.data?.data) {
+          const orgs = response.data.data.organizations || [];
+          const activeOrg = orgs.find((o: any) => o.isActive) || orgs[0];
+          
+          if (activeOrg) {
+            setOrganization({
+              id: activeOrg.id,
+              name: activeOrg.name,
+              ownerId: user.role === 'owner' ? user.id : 0,
+              planType: activeOrg.subscription?.planType || user.planType || 'basic',
+              subscriptionStatus: activeOrg.subscription?.status || user.subscriptionStatus || 'trialing',
+              maxUsers: 10,
+            });
+
+            // Fetch members count
+            if (activeOrg.id) {
+              try {
+                const membersResponse = await apiClient.get(`/organizations/${activeOrg.id}/members`);
+                if (membersResponse.data?.status === 'success' && membersResponse.data?.data) {
+                  setMembersCount(membersResponse.data.data.length);
+                }
+              } catch (err) {
+                setMembersCount(1);
+              }
+            }
           }
         }
       }
     } catch (error) {
       console.error('Failed to fetch organization:', error);
-      // If the endpoint doesn't exist yet, create a mock organization from user data
+      // Fallback: create from user data
       if (user) {
         setOrganization({
           id: user.organizationId || 0,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Minha Organização',
+          name: user.activeOrganization?.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Minha Organização',
           ownerId: user.id,
           planType: user.planType,
           subscriptionStatus: user.subscriptionStatus,
@@ -68,7 +105,7 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     fetchOrganization();
-  }, [isAuthenticated, user?.organizationId]);
+  }, [isAuthenticated, user?.organizationId, user?.activeOrganization?.id]);
 
   const isOwner = user?.role === 'owner' || (organization?.ownerId === user?.id);
   const isAdmin = isOwner || user?.role === 'admin';
