@@ -34,6 +34,7 @@ router.get('/payment-methods', async (req, res) => {
         requiresReference: m.requiresReference,
         processingTime: m.processingTime,
         icon: m.icon,
+        logoUrl: m.logoUrl,
         displayOrder: m.displayOrder,
       }))
     });
@@ -68,10 +69,14 @@ router.get('/plans/:id', async (req, res) => {
 });
 
 // Get user's plan access info (limits and features)
+// Requirements: 4.3, 4.5 - Use active organization's subscription for feature access
 router.get('/access-info', authenticate, async (req, res) => {
   try {
     const userId = (req as any).user.id;
-    const accessInfo = await planAccessService.getUserAccessInfo(userId);
+    const organizationId = (req as any).user.organizationId; // activeOrganizationId from auth middleware
+    
+    // Use organization-based access if available (multi-organization support)
+    const accessInfo = await planAccessService.getAccessInfoFromContext(userId, organizationId);
     res.json({ success: true, ...accessInfo });
   } catch (error: any) {
     console.error('Get access info error:', error);
@@ -80,11 +85,15 @@ router.get('/access-info', authenticate, async (req, res) => {
 });
 
 // Check if user has access to a specific feature
+// Requirements: 4.3, 4.5 - Apply limits based on active org's plan
 router.get('/check-feature/:featureKey', authenticate, async (req, res) => {
   try {
     const userId = (req as any).user.id;
+    const organizationId = (req as any).user.organizationId; // activeOrganizationId from auth middleware
     const { featureKey } = req.params;
-    const hasAccess = await planAccessService.hasFeature(userId, featureKey);
+    
+    // Use organization-based feature check if available (multi-organization support)
+    const hasAccess = await planAccessService.hasFeatureFromContext(userId, organizationId, featureKey);
     res.json({ success: true, hasAccess, featureKey });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

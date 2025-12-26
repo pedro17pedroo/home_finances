@@ -20,6 +20,7 @@ import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
 import {
   getPlans,
+  getPaymentMethods,
   getCurrentSubscription,
   subscribe,
   checkPaymentStatus,
@@ -29,6 +30,7 @@ import {
   Subscription,
   SubscriptionPayment,
   PaymentMethod,
+  PaymentMethodConfig,
   PaymentType,
   paymentMethodNames,
   paymentMethodDescriptions,
@@ -44,6 +46,7 @@ export function SubscriptionPage() {
   
   const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl || 'assinatura');
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [paymentMethodsConfig, setPaymentMethodsConfig] = useState<PaymentMethodConfig[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
@@ -73,12 +76,14 @@ export function SubscriptionPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [plansData, subscriptionData, paymentsData] = await Promise.all([
+      const [plansData, paymentMethodsData, subscriptionData, paymentsData] = await Promise.all([
         getPlans(),
+        getPaymentMethods(),
         getCurrentSubscription(),
         getPaymentHistory(),
       ]);
       setPlans(plansData);
+      setPaymentMethodsConfig(paymentMethodsData);
       setCurrentSubscription(subscriptionData.subscription);
       setCurrentPlan(subscriptionData.plan);
       setPayments(paymentsData);
@@ -719,50 +724,49 @@ export function SubscriptionPage() {
                       Selecione o método de pagamento
                     </h4>
                     <div className="space-y-3">
-                      <button
-                        onClick={() => setSelectedPaymentMethod('ekwanza')}
-                        className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
-                          selectedPaymentMethod === 'ekwanza'
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        <Smartphone className="w-6 h-6 text-orange-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">E-Kwanza</p>
-                          <p className="text-sm text-gray-500">{paymentMethodDescriptions.ekwanza}</p>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedPaymentMethod('gpo')}
-                        className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
-                          selectedPaymentMethod === 'gpo'
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        <Zap className="w-6 h-6 text-blue-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">Multicaixa Express</p>
-                          <p className="text-sm text-gray-500">{paymentMethodDescriptions.gpo}</p>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedPaymentMethod('ref')}
-                        className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
-                          selectedPaymentMethod === 'ref'
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        <Building2 className="w-6 h-6 text-green-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">Referência Multicaixa</p>
-                          <p className="text-sm text-gray-500">{paymentMethodDescriptions.ref}</p>
-                        </div>
-                      </button>
+                      {paymentMethodsConfig.map((method) => (
+                        <button
+                          key={method.code}
+                          onClick={() => setSelectedPaymentMethod(method.code as PaymentMethod)}
+                          className={`w-full p-4 rounded-lg border-2 text-left flex items-start space-x-3 ${
+                            selectedPaymentMethod === method.code
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {method.logoUrl ? (
+                              <img 
+                                src={method.logoUrl} 
+                                alt={method.displayName}
+                                className="w-8 h-8 object-contain"
+                              />
+                            ) : method.code === 'ekwanza' ? (
+                              <Smartphone className="w-5 h-5 text-orange-500" />
+                            ) : method.code === 'gpo' ? (
+                              <Zap className="w-5 h-5 text-blue-500" />
+                            ) : method.code === 'ref' ? (
+                              <Building2 className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <CreditCard className="w-5 h-5 text-gray-500" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900 dark:text-white">{method.displayName}</p>
+                              {method.isInstant && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                  Instantâneo
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500">{method.description}</p>
+                            {method.processingTime && (
+                              <p className="text-xs text-gray-400 mt-1">⏱ {method.processingTime}</p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -778,7 +782,7 @@ export function SubscriptionPage() {
                     </p>
                     
                     <div className="space-y-4">
-                      {(selectedPaymentMethod === 'ekwanza' || selectedPaymentMethod === 'gpo') && (
+                      {paymentMethodsConfig.find(m => m.code === selectedPaymentMethod)?.requiresPhone && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Número de Telefone *
@@ -791,9 +795,9 @@ export function SubscriptionPage() {
                             className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                           />
                           <p className="text-xs text-gray-500 mt-1">
-                            {selectedPaymentMethod === 'ekwanza' 
-                              ? 'O código de pagamento será enviado para este número'
-                              : 'A notificação de pagamento será enviada para este número'}
+                            {paymentMethodsConfig.find(m => m.code === selectedPaymentMethod)?.isInstant
+                              ? 'A notificação de pagamento será enviada para este número'
+                              : 'O código de pagamento será enviado para este número'}
                           </p>
                         </div>
                       )}
@@ -844,7 +848,7 @@ export function SubscriptionPage() {
                           <div className="flex justify-between">
                             <span className="text-gray-500">Método</span>
                             <span className="font-medium text-gray-900 dark:text-white">
-                              {paymentMethodNames[selectedPaymentMethod]}
+                              {paymentMethodsConfig.find(m => m.code === selectedPaymentMethod)?.displayName || paymentMethodNames[selectedPaymentMethod]}
                             </span>
                           </div>
                           <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
@@ -885,7 +889,7 @@ export function SubscriptionPage() {
                 ) : (
                   <Button
                     onClick={() => handleSubscribe(selectedPlan, selectedPaymentType, selectedPaymentMethod)}
-                    disabled={subscribing || ((selectedPaymentMethod === 'ekwanza' || selectedPaymentMethod === 'gpo') && !payerPhone)}
+                    disabled={subscribing || (paymentMethodsConfig.find(m => m.code === selectedPaymentMethod)?.requiresPhone && !payerPhone)}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     {subscribing ? (

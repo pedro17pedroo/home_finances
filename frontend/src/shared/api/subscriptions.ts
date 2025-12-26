@@ -18,6 +18,7 @@ export interface PaymentMethodConfig {
   requiresReference: boolean;
   processingTime: string;
   icon: string;
+  logoUrl?: string;
   displayOrder: number;
 }
 

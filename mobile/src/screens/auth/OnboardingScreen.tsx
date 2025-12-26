@@ -13,6 +13,7 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +50,7 @@ interface PaymentMethod {
   requiresEmail: boolean;
   processingTime: string;
   icon: string;
+  logoUrl?: string;
 }
 
 interface OnboardingScreenProps {
@@ -143,6 +145,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
   useEffect(() => {
     if (currentStep === 'plan') {
       loadPlans();
+      loadPaymentMethods();
+    }
+    // Also load payment methods when entering payment step
+    if (currentStep === 'payment' && paymentMethods.length === 0) {
       loadPaymentMethods();
     }
   }, [currentStep]);
@@ -250,8 +256,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
         });
         
         const token = loginResponse.data.data?.token || loginResponse.data.token;
+        const userData = loginResponse.data.data?.user || loginResponse.data.user;
         if (token) {
-          await AsyncStorage.setItem('token', token);
+          await AsyncStorage.setItem('auth_token', token);
+          if (userData) {
+            await AsyncStorage.setItem('user_data', JSON.stringify(userData));
+          }
           setIsRegistered(true);
           prefillPayerData();
           setRegistrationSuccess(true);
@@ -260,11 +270,27 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
     } catch (error: any) {
       if (error.response?.status === 409) {
         // User already exists - show error and suggest login
-        setFormErrors({ 
-          general: 'Este email/telefone já está cadastrado. Use a opção "Entrar" para fazer login na sua conta existente.' 
-        });
+        const errorMessage = error.response?.data?.message || '';
+        const isEmailError = errorMessage.toLowerCase().includes('email');
+        const isPhoneError = errorMessage.toLowerCase().includes('phone');
+        
+        let translatedMessage = 'Este email/telefone já está cadastrado. Use a opção "Entrar" para fazer login na sua conta existente.';
+        if (isEmailError && !isPhoneError) {
+          translatedMessage = 'Este email já está cadastrado. Use a opção "Entrar" para fazer login na sua conta existente.';
+        } else if (isPhoneError && !isEmailError) {
+          translatedMessage = 'Este número de telefone já está cadastrado. Use a opção "Entrar" para fazer login na sua conta existente.';
+        }
+        
+        setFormErrors({ general: translatedMessage });
       } else {
-        setFormErrors({ general: error.response?.data?.message || 'Erro ao criar conta' });
+        // Translate common error messages
+        let message = error.response?.data?.message || 'Erro ao criar conta';
+        if (message.includes('User with this email already exists')) {
+          message = 'Este email já está cadastrado. Use a opção "Entrar" para fazer login na sua conta existente.';
+        } else if (message.includes('User with this phone already exists')) {
+          message = 'Este número de telefone já está cadastrado. Use a opção "Entrar" para fazer login na sua conta existente.';
+        }
+        setFormErrors({ general: message });
       }
     } finally {
       setSubmitting(false);
@@ -293,8 +319,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
         });
         
         const token = loginResponse.data.data?.token || loginResponse.data.token;
+        const userData = loginResponse.data.data?.user || loginResponse.data.user;
         if (token) {
-          await AsyncStorage.setItem('token', token);
+          await AsyncStorage.setItem('auth_token', token);
+          if (userData) {
+            await AsyncStorage.setItem('user_data', JSON.stringify(userData));
+          }
           
           // Subscribe to free plan
           await api.post('/subscriptions/subscribe', {
@@ -512,6 +542,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           bounces={false}
+          getItemLayout={(_, index) => ({
+            length: width,
+            offset: width * index,
+            index,
+          })}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { x: scrollX } } }],
             { useNativeDriver: false }
@@ -544,7 +579,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
             title={welcomeIndex === welcomeSlides.length - 1 ? 'Começar' : 'Próximo'}
             onPress={() => {
               if (welcomeIndex < welcomeSlides.length - 1) {
-                flatListRef.current?.scrollToIndex({ index: welcomeIndex + 1 });
+                const nextIndex = welcomeIndex + 1;
+                flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+                setWelcomeIndex(nextIndex);
               } else {
                 setCurrentStep('plan');
               }
@@ -1023,52 +1060,69 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
               <Text style={[styles.sectionLabel, { color: colors.text, marginTop: SPACING.lg }]}>
                 Método de Pagamento
               </Text>
-              {paymentMethods.map((method) => (
-                <TouchableOpacity
-                  key={method.id}
-                  style={[
-                    styles.paymentMethodCard,
-                    { 
-                      backgroundColor: colors.surface,
-                      borderColor: selectedPaymentMethod?.id === method.id ? colors.primary : colors.border,
-                      borderWidth: selectedPaymentMethod?.id === method.id ? 2 : 1,
-                    },
-                  ]}
-                  onPress={() => setSelectedPaymentMethod(method)}
-                >
-                  <View style={[
-                    styles.paymentMethodIcon,
-                    { backgroundColor: selectedPaymentMethod?.id === method.id ? colors.primary : colors.surfaceSecondary }
-                  ]}>
-                    <Ionicons 
-                      name={method.code === 'gpo' ? 'phone-portrait' : method.code === 'ekwanza' ? 'flash' : 'business'} 
-                      size={24} 
-                      color={selectedPaymentMethod?.id === method.id ? '#FFF' : colors.primary} 
-                    />
-                  </View>
-                  <View style={styles.paymentMethodInfo}>
-                    <View style={styles.paymentMethodHeader}>
-                      <Text style={[styles.paymentMethodName, { color: colors.text }]}>
-                        {method.displayName}
-                      </Text>
-                      {method.isInstant && (
-                        <View style={[styles.instantBadge, { backgroundColor: `${colors.success}20` }]}>
-                          <Text style={[styles.instantText, { color: colors.success }]}>Instantâneo</Text>
-                        </View>
+              {paymentMethods.length === 0 ? (
+                <View style={[styles.emptyPaymentMethods, { backgroundColor: colors.surfaceSecondary }]}>
+                  <Ionicons name="card-outline" size={32} color={colors.textTertiary} />
+                  <Text style={[styles.emptyPaymentText, { color: colors.textSecondary }]}>
+                    Carregando métodos de pagamento...
+                  </Text>
+                </View>
+              ) : (
+                paymentMethods.map((method) => (
+                  <TouchableOpacity
+                    key={method.id}
+                    style={[
+                      styles.paymentMethodCard,
+                      { 
+                        backgroundColor: colors.surface,
+                        borderColor: selectedPaymentMethod?.id === method.id ? colors.primary : colors.border,
+                        borderWidth: selectedPaymentMethod?.id === method.id ? 2 : 1,
+                      },
+                    ]}
+                    onPress={() => setSelectedPaymentMethod(method)}
+                  >
+                    <View style={[
+                      styles.paymentMethodIcon,
+                      { backgroundColor: selectedPaymentMethod?.id === method.id ? colors.primary : colors.surfaceSecondary }
+                    ]}>
+                      {method.logoUrl ? (
+                        <Image 
+                          source={{ uri: method.logoUrl }} 
+                          style={styles.paymentMethodLogo}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <Ionicons 
+                          name={method.code === 'gpo' ? 'phone-portrait' : method.code === 'ekwanza' ? 'flash' : 'business'} 
+                          size={24} 
+                          color={selectedPaymentMethod?.id === method.id ? '#FFF' : colors.primary} 
+                        />
                       )}
                     </View>
-                    <Text style={[styles.paymentMethodDesc, { color: colors.textSecondary }]}>
-                      {method.description}
-                    </Text>
-                    <View style={styles.processingTime}>
-                      <Ionicons name="time-outline" size={12} color={colors.textTertiary} />
-                      <Text style={[styles.processingTimeText, { color: colors.textTertiary }]}>
-                        {method.processingTime}
+                    <View style={styles.paymentMethodInfo}>
+                      <View style={styles.paymentMethodHeader}>
+                        <Text style={[styles.paymentMethodName, { color: colors.text }]}>
+                          {method.displayName}
+                        </Text>
+                        {method.isInstant && (
+                          <View style={[styles.instantBadge, { backgroundColor: `${colors.success}20` }]}>
+                            <Text style={[styles.instantText, { color: colors.success }]}>Instantâneo</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.paymentMethodDesc, { color: colors.textSecondary }]}>
+                        {method.description}
                       </Text>
+                      <View style={styles.processingTime}>
+                        <Ionicons name="time-outline" size={12} color={colors.textTertiary} />
+                        <Text style={[styles.processingTimeText, { color: colors.textTertiary }]}>
+                          {method.processingTime}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                ))
+              )}
 
               <Button
                 title="Continuar"
@@ -1679,6 +1733,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
+    overflow: 'hidden',
+  },
+  paymentMethodLogo: {
+    width: 36,
+    height: 36,
   },
   paymentMethodInfo: {
     flex: 1,
@@ -1783,5 +1842,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: SPACING.sm,
     flex: 1,
+  },
+  // Empty payment methods styles
+  emptyPaymentMethods: {
+    padding: SPACING.xl,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+  },
+  emptyPaymentText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
   },
 });
