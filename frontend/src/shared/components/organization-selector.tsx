@@ -7,9 +7,10 @@ import { showSuccessToast, showErrorToast } from '../lib/alerts';
 interface OrganizationSelectorProps {
   variant?: 'compact' | 'full';
   className?: string;
+  dropdownAlign?: 'left' | 'right';
 }
 
-export function OrganizationSelector({ variant = 'compact', className = '' }: OrganizationSelectorProps) {
+export function OrganizationSelector({ variant = 'compact', className = '', dropdownAlign = 'left' }: OrganizationSelectorProps) {
   const { user, refreshUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   
@@ -85,7 +86,9 @@ export function OrganizationSelector({ variant = 'compact', className = '' }: Or
         {isOpen && (
           <div>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-            <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+            <div className={`absolute top-full mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden ${
+              dropdownAlign === 'right' ? 'right-0' : 'left-0'
+            }`}>
               <div className="p-3 border-b border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   Minhas Organizações

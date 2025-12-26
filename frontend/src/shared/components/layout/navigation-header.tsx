@@ -213,7 +213,7 @@ export function NavigationHeader() {
           <div className="flex items-center space-x-1 sm:space-x-2">
             {/* Organization Selector - Desktop only (hidden on tablet and mobile) */}
             <div className="hidden xl:block">
-              <OrganizationSelector variant="compact" />
+              <OrganizationSelector variant="compact" dropdownAlign="right" />
             </div>
 
             {/* Mobile Menu Button */}
@@ -248,7 +248,7 @@ export function NavigationHeader() {
                   </div>
                   {/* Organization Selector in user menu for tablet screens */}
                   <div className="xl:hidden px-2 py-2 border-b border-gray-200 dark:border-gray-700">
-                    <OrganizationSelector variant="compact" className="w-full" />
+                    <OrganizationSelector variant="compact" dropdownAlign="right" className="w-full" />
                   </div>
                   <Link href="/profile">
                     <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
