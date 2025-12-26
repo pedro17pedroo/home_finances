@@ -259,23 +259,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
       }
     } catch (error: any) {
       if (error.response?.status === 409) {
-        // User already exists - try to login
-        try {
-          const loginResponse = await api.post('/auth/login', {
-            emailOrPhone: formData.email || formData.phone,
-            password: formData.password,
-          });
-          const token = loginResponse.data.data?.token || loginResponse.data.token;
-          if (token) {
-            await AsyncStorage.setItem('token', token);
-            setIsRegistered(true);
-            prefillPayerData();
-            setRegistrationSuccess(true);
-            return;
-          }
-        } catch {
-          setFormErrors({ general: 'Este email já está cadastrado. Verifique a senha ou faça login.' });
-        }
+        // User already exists - show error and suggest login
+        setFormErrors({ 
+          general: 'Este email/telefone já está cadastrado. Use a opção "Entrar" para fazer login na sua conta existente.' 
+        });
       } else {
         setFormErrors({ general: error.response?.data?.message || 'Erro ao criar conta' });
       }
@@ -848,7 +835,19 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
                   {formErrors.general ? (
                     <View style={[styles.errorBox, { backgroundColor: `${colors.error}15`, borderColor: colors.error }]}>
                       <Ionicons name="alert-circle" size={20} color={colors.error} />
-                      <Text style={[styles.errorText, { color: colors.error }]}>{formErrors.general}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.errorText, { color: colors.error }]}>{formErrors.general}</Text>
+                        {formErrors.general.includes('cadastrado') ? (
+                          <TouchableOpacity 
+                            onPress={() => navigation?.navigate('Login')}
+                            style={{ marginTop: SPACING.sm }}
+                          >
+                            <Text style={[styles.loginLink, { color: colors.primary }]}>
+                              Ir para Login →
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
                     </View>
                   ) : null}
 
