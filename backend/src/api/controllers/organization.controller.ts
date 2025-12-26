@@ -652,9 +652,9 @@ export class OrganizationController {
   }
 
   /**
-   * Accept an invitation
+   * Accept an invitation by ID (for authenticated users)
    */
-  static async acceptInvitation(req: Request, res: Response, next: NextFunction) {
+  static async acceptInvitationById(req: Request, res: Response, next: NextFunction) {
     try {
       const authReq = req as AuthenticatedRequest;
       const userId = authReq.user!.id;

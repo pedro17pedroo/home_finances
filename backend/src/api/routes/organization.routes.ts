@@ -55,7 +55,7 @@ router.post("/invite", OrganizationController.inviteToMyOrg);
 router.get("/my-invitations", OrganizationController.getMyReceivedInvitations);
 
 // Accept an invitation
-router.post("/invitations/:invitationId/accept", OrganizationController.acceptInvitation);
+router.post("/invitations/:invitationId/accept", OrganizationController.acceptInvitationById);
 
 // Reject an invitation
 router.post("/invitations/:invitationId/reject", OrganizationController.rejectInvitation);

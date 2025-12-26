@@ -127,20 +127,20 @@ export class AuthService {
     }
 
     // For members (non-owners), get plan info from organization
-    let planType = user.planType || "basic";
-    let subscriptionStatus = user.subscriptionStatus || "trialing";
+    let planType = (user.planType || "basic") as "basic" | "premium" | "enterprise";
+    let subscriptionStatus = (user.subscriptionStatus || "trialing") as "active" | "canceled" | "past_due" | "trialing";
 
     // Use active organization's plan info if available
     if (activeOrganization) {
-      planType = activeOrganization.planType || planType;
-      subscriptionStatus = activeOrganization.subscriptionStatus || subscriptionStatus;
+      planType = (activeOrganization.planType || planType) as "basic" | "premium" | "enterprise";
+      subscriptionStatus = (activeOrganization.subscriptionStatus || subscriptionStatus) as "active" | "canceled" | "past_due" | "trialing";
     } else if (user.organizationId && user.role !== 'owner') {
       const { OrganizationRepository } = await import("../repositories/organization.repository.js");
       const organization = await OrganizationRepository.findById(user.organizationId);
       
       if (organization) {
-        planType = organization.planType || planType;
-        subscriptionStatus = organization.subscriptionStatus || subscriptionStatus;
+        planType = (organization.planType || planType) as "basic" | "premium" | "enterprise";
+        subscriptionStatus = (organization.subscriptionStatus || subscriptionStatus) as "active" | "canceled" | "past_due" | "trialing";
         
         // Check for active subscription on the organization
         const { subscriptions } = await import("../../core/database/schema.js");
@@ -423,8 +423,8 @@ export class AuthService {
           subscriptionStatus: activeMembership.subscriptionStatus,
         };
         // Use active organization's plan info
-        planType = activeMembership.planType || planType;
-        subscriptionStatus = activeMembership.subscriptionStatus || subscriptionStatus;
+        planType = (activeMembership.planType || planType) as "basic" | "premium" | "enterprise";
+        subscriptionStatus = (activeMembership.subscriptionStatus || subscriptionStatus) as "active" | "canceled" | "past_due" | "trialing";
       }
     } catch (error) {
       console.error('Error fetching memberships:', error);
