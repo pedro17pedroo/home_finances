@@ -243,7 +243,7 @@ export function TeamPage() {
                   Plano {organization.planType === 'basic' ? 'Base' : 
                          organization.planType === 'premium' ? 'Premium' :
                          organization.planType === 'enterprise' ? 'Empresarial' :
-                         organization.planType.charAt(0).toUpperCase() + organization.planType.slice(1)}
+                         organization.planType ? organization.planType.charAt(0).toUpperCase() + organization.planType.slice(1) : 'Base'}
                 </span>
               </div>
             </div>
