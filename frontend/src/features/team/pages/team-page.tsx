@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, UserPlus, Mail, Trash2, Shield, User, Crown, X, Loader2, Clock, Copy, Check } from 'lucide-react';
+import { Users, UserPlus, Mail, Phone, Trash2, Shield, User, Crown, X, Loader2, Clock, Copy, Check } from 'lucide-react';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
@@ -21,7 +21,9 @@ import type { OrganizationMember, TeamInvitation } from '../../../shared/api/org
 export function TeamPage() {
   const { user } = useAuth();
   const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteType, setInviteType] = useState<'email' | 'phone'>('email');
   const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
@@ -41,13 +43,33 @@ export function TeamPage() {
     e.preventDefault();
     if (!organization || !isOwner) return;
 
+    const inviteValue = inviteType === 'email' ? inviteEmail.trim() : invitePhone.trim();
+    if (!inviteValue) {
+      showErrorToast(inviteType === 'email' ? 'Digite um email válido' : 'Digite um número de telefone válido');
+      return;
+    }
+
     try {
-      await inviteMemberMutation.mutateAsync({
+      const payload: { organizationId: number; email?: string; phone?: string; role: string } = {
         organizationId: organization.id,
-        email: inviteEmail,
         role: inviteRole,
-      });
+      };
+      
+      if (inviteType === 'email') {
+        payload.email = inviteEmail;
+      } else {
+        // Format phone for Angola (+244)
+        let phone = invitePhone.replace(/\D/g, '');
+        if (!phone.startsWith('244')) {
+          phone = '244' + phone;
+        }
+        payload.phone = '+' + phone;
+      }
+
+      await inviteMemberMutation.mutateAsync(payload);
       setInviteEmail('');
+      setInvitePhone('');
+      setInviteType('email');
       setInviteRole('member');
       setShowInviteForm(false);
       showSuccessToast('Convite enviado com sucesso!');
@@ -317,11 +339,15 @@ export function TeamPage() {
                   >
                     <div className="flex items-center space-x-4">
                       <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-                        <Mail className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                        {invitation.phone ? (
+                          <Phone className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                        ) : (
+                          <Mail className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                        )}
                       </div>
                       <div>
                         <div className="font-medium text-gray-900 dark:text-white">
-                          {invitation.email}
+                          {invitation.email || invitation.phone}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                           Função: {invitation.role === 'admin' ? 'Administrador' : 'Membro'} •
@@ -387,18 +413,76 @@ export function TeamPage() {
               </p>
 
               <form onSubmit={handleInvite} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {/* Invite Type Tabs */}
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => setInviteType('email')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      inviteType === 'email'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    <Mail className="w-4 h-4" />
                     Email
-                  </label>
-                  <Input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="email@exemplo.com"
-                    required
-                  />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInviteType('phone')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      inviteType === 'phone'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    <Phone className="w-4 h-4" />
+                    Telefone
+                  </button>
                 </div>
+
+                {inviteType === 'email' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Email
+                    </label>
+                    <Input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="email@exemplo.com"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Telefone
+                    </label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-sm">
+                        +244
+                      </span>
+                      <Input
+                        type="tel"
+                        value={invitePhone}
+                        onChange={(e) => setInvitePhone(e.target.value.replace(/\D/g, ''))}
+                        placeholder="923456789"
+                        className="rounded-l-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Info about existing users */}
+                <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <Mail className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    {inviteType === 'email'
+                      ? 'Se o email já tiver uma conta, o utilizador receberá um convite para se juntar à organização sem perder os seus dados.'
+                      : 'Se o telefone já tiver uma conta, o utilizador receberá um convite para se juntar à organização sem perder os seus dados.'}
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Função

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'wouter';
 import { useAuth } from '../../contexts/auth-context';
 import { NotificationBell } from '../notifications/notification-bell';
+import { OrganizationSelector } from '../organization-selector';
 import { Button } from '../ui/button';
 
 export function Header() {
@@ -45,6 +46,9 @@ export function Header() {
 
           {/* Right side */}
           <div className="flex items-center space-x-4">
+            {/* Organization Selector */}
+            <OrganizationSelector variant="compact" />
+            
             <NotificationBell />
             
             {/* User menu */}

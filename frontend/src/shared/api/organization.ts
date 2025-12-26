@@ -11,6 +11,17 @@ export interface Organization {
   updatedAt: string;
 }
 
+export interface OrganizationMembership {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  role: string;
+  planType: string | null;
+  subscriptionStatus: string | null;
+  joinedAt: string | null;
+  isActive: boolean;
+}
+
 export interface OrganizationMember {
   id: number;
   email?: string;
@@ -24,9 +35,20 @@ export interface OrganizationMember {
 export interface TeamInvitation {
   id: number;
   organizationId: number;
-  email: string;
+  email?: string;
+  phone?: string;
   role: string;
   token: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ReceivedInvitation {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  role: string;
+  invitedByName: string;
   expiresAt: string;
   createdAt: string;
 }
@@ -44,6 +66,18 @@ export async function getMyOrganization(): Promise<Organization> {
   return response.data.data;
 }
 
+// Get all user's organizations (memberships)
+export async function getMyOrganizations(): Promise<OrganizationMembership[]> {
+  const response = await apiClient.get('/organizations/my');
+  return response.data.data?.organizations || [];
+}
+
+// Switch active organization
+export async function switchOrganization(organizationId: number): Promise<{ user: any; activeOrganization: any }> {
+  const response = await apiClient.post('/organizations/switch', { organizationId });
+  return response.data.data;
+}
+
 // Update organization
 export async function updateOrganization(organizationId: number, data: { name: string }): Promise<Organization> {
   const response = await apiClient.put(`/organizations/${organizationId}`, data);
@@ -56,8 +90,8 @@ export async function getOrganizationMembers(organizationId: number): Promise<Or
   return response.data.data;
 }
 
-// Invite a new member
-export async function inviteMember(organizationId: number, data: { email: string; role?: string }): Promise<TeamInvitation> {
+// Invite a new member (by email or phone)
+export async function inviteMember(organizationId: number, data: { email?: string; phone?: string; role?: string }): Promise<TeamInvitation> {
   const response = await apiClient.post(`/organizations/${organizationId}/invitations`, data);
   return response.data.data;
 }
@@ -89,6 +123,22 @@ export async function acceptInvitation(data: {
 }): Promise<{ user: any; organization: Organization }> {
   const response = await apiClient.post('/organizations/invitations/accept', data);
   return response.data.data;
+}
+
+// Get received invitations for current user
+export async function getReceivedInvitations(): Promise<ReceivedInvitation[]> {
+  const response = await apiClient.get('/organizations/my-invitations');
+  return response.data.data || [];
+}
+
+// Accept a received invitation
+export async function acceptReceivedInvitation(invitationId: number): Promise<void> {
+  await apiClient.post(`/organizations/invitations/${invitationId}/accept`);
+}
+
+// Reject a received invitation
+export async function rejectReceivedInvitation(invitationId: number): Promise<void> {
+  await apiClient.post(`/organizations/invitations/${invitationId}/reject`);
 }
 
 // Remove a member

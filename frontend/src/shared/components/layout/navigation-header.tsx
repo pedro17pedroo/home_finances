@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ChevronDown, Moon, Sun, User, LogOut, Menu, X, Users } from 'lucide-react';
+import { ChevronDown, Moon, Sun, User, LogOut, Menu, X, Users, Mail } from 'lucide-react';
 import { useTheme } from '../../contexts/theme-context';
 import { useAuth } from '../../contexts/auth-context';
 import { useMySubscription } from '../../hooks/use-subscription';
+import { OrganizationSelector } from '../organization-selector';
 
 // Badge configuration based on subscription status
 const getSubscriptionBadge = (subscription: any) => {
@@ -210,6 +211,11 @@ export function NavigationHeader() {
 
           {/* Right side - Mobile menu button, Theme toggle and User menu */}
           <div className="flex items-center space-x-2 sm:space-x-4">
+            {/* Organization Selector - Desktop */}
+            <div className="hidden md:block">
+              <OrganizationSelector variant="compact" />
+            </div>
+
             {/* Mobile Menu Button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -251,6 +257,12 @@ export function NavigationHeader() {
                       Equipe
                     </div>
                   </Link>
+                  <Link href="/invitations">
+                    <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center">
+                      <Mail className="w-4 h-4 mr-2" />
+                      Convites Recebidos
+                    </div>
+                  </Link>
                   <button
                     onClick={logout}
                     className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -269,6 +281,11 @@ export function NavigationHeader() {
       {showMobileMenu && (
         <div className="lg:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
           <nav className="px-4 py-3 space-y-1">
+            {/* Organization Selector - Mobile */}
+            <div className="pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
+              <OrganizationSelector variant="full" />
+            </div>
+
             <Link href="/dashboard" onClick={closeMobileMenu}>
               <div
                 className={`block px-3 py-2 rounded-md text-base font-medium ${

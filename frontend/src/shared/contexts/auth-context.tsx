@@ -2,11 +2,35 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import type { User } from '../types';
 
+interface ActiveOrganization {
+  id: number;
+  name: string;
+  role: string;
+  planType?: string;
+  subscriptionStatus?: string;
+}
+
+interface OrganizationMembership {
+  id: number;
+  organizationId: number;
+  organizationName: string;
+  role: string;
+  planType: string | null;
+  subscriptionStatus: string | null;
+  joinedAt: string | null;
+  isActive: boolean;
+}
+
+interface ExtendedUser extends User {
+  activeOrganization?: ActiveOrganization;
+  memberships?: OrganizationMembership[];
+}
+
 interface AuthContextType {
-  user: User | null;
+  user: ExtendedUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (user: User, token: string) => void;
+  login: (user: ExtendedUser, token: string) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -14,7 +38,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -25,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (storedUser && storedToken) {
       try {
         setUser(JSON.parse(storedUser));
+        // Refresh user data to get latest memberships
+        refreshUserData();
       } catch (error) {
         // Invalid stored data, clear it
         localStorage.removeItem('user');
@@ -36,7 +62,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = (userData: User, token: string) => {
+  const refreshUserData = async () => {
+    try {
+      const response = await apiClient.get('/auth/me');
+      if (response.data?.status === 'success' && response.data?.data) {
+        const userData = response.data.data;
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  };
+
+  const login = (userData: ExtendedUser, token: string) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('token', token);
@@ -50,16 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshUser = async () => {
-    try {
-      const response = await apiClient.get('/auth/me');
-      if (response.data?.status === 'success' && response.data?.data) {
-        const userData = response.data.data;
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
-      }
-    } catch (error) {
-      console.error('Failed to refresh user:', error);
-    }
+    await refreshUserData();
   };
 
   const value = {
