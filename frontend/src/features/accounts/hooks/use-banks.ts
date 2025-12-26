@@ -11,7 +11,8 @@ interface Bank {
 }
 
 async function fetchBanks(): Promise<Bank[]> {
-  const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/public/banks`);
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const response = await fetch(`${baseUrl}/public/banks`);
   if (!response.ok) {
     throw new Error('Failed to fetch banks');
   }
