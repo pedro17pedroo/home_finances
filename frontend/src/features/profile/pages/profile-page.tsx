@@ -17,6 +17,7 @@ export function ProfilePage() {
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   
@@ -36,6 +37,21 @@ export function ProfilePage() {
     newPassword: '',
     confirmPassword: '',
   });
+
+  // Load fresh user data when page mounts
+  useEffect(() => {
+    const loadData = async () => {
+      setInitialLoading(true);
+      try {
+        await refreshUser();
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   // Initialize form data when user loads
   useEffect(() => {
@@ -172,7 +188,7 @@ export function ProfilePage() {
     }
   };
 
-  if (!user) {
+  if (!user || initialLoading) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center min-h-[400px]">
