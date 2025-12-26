@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, CreditCard, PiggyBank, History, ArrowRightLeft, X, Building2, Wallet } from 'lucide-react';
 import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount, useAccountSummary } from '../hooks/use-accounts';
+import { useBanks } from '../hooks/use-banks';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
@@ -10,13 +11,10 @@ import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../sh
 import type { CreateAccountRequest, Account } from '../../../shared/types';
 import { Link } from 'wouter';
 
-const angolaBanks = [
-  'BAI', 'BFA', 'BIC', 'Millennium Atlântico', 'Standard Bank', 'BPC', 'Banco Sol', 'Banco Económico', 'Outros',
-];
-
 export function AccountsPage() {
   const { data: accounts, isLoading } = useAccounts();
   const { data: summary } = useAccountSummary();
+  const { data: banks } = useBanks();
   const createAccountMutation = useCreateAccount();
   const updateAccountMutation = useUpdateAccount();
   const deleteAccountMutation = useDeleteAccount();
@@ -259,7 +257,7 @@ export function AccountsPage() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Banco</label>
                   <Select value={formData.bank} onChange={(e) => setFormData({ ...formData, bank: e.target.value })} required>
                     <option value="">Selecione o banco</option>
-                    {angolaBanks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                    {banks?.map((bank) => <option key={bank.id} value={bank.shortName || bank.name}>{bank.shortName || bank.name}</option>)}
                   </Select>
                 </div>
                 

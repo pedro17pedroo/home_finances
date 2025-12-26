@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, CreditCard, PiggyBank, X, Building2, Wallet, ArrowLeftRight, ArrowRight, Undo2 } from 'lucide-react';
 import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount, useAccountSummary } from '../hooks/use-accounts';
+import { useBanks } from '../hooks/use-banks';
 import { useTransfers, useCreateTransfer, useReverseTransfer } from '../../transfers/hooks/use-transfers';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
@@ -10,10 +11,6 @@ import { formatCurrency, formatDate } from '../../../shared/lib/utils';
 import { showDeleteConfirm, showSuccessToast, showErrorToast, showConfirm } from '../../../shared/lib/alerts';
 import type { CreateAccountRequest, Account, CreateTransferRequest } from '../../../shared/types';
 
-const angolaBanks = [
-  'BAI', 'BFA', 'BIC', 'Millennium Atlântico', 'Standard Bank', 'BPC', 'Banco Sol', 'Banco Económico', 'Outros',
-];
-
 type TabType = 'contas' | 'transferencias';
 
 export function AccountsPageImproved() {
@@ -22,6 +19,7 @@ export function AccountsPageImproved() {
   // Accounts state
   const { data: accounts, isLoading } = useAccounts();
   const { data: summary } = useAccountSummary();
+  const { data: banks } = useBanks();
   const createAccountMutation = useCreateAccount();
   const updateAccountMutation = useUpdateAccount();
   const deleteAccountMutation = useDeleteAccount();
@@ -400,7 +398,7 @@ export function AccountsPageImproved() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Banco</label>
                   <Select value={accountFormData.bank} onChange={(e) => setAccountFormData({ ...accountFormData, bank: e.target.value })} required>
                     <option value="">Selecione</option>
-                    {angolaBanks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                    {banks?.map((bank) => <option key={bank.id} value={bank.shortName || bank.name}>{bank.shortName || bank.name}</option>)}
                   </Select>
                 </div>
                 <div>

@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +15,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Button, Input, Card, Select } from '../../components/ui';
 import { Account } from '../../types';
-import { SPACING } from '../../constants/config';
+import { SPACING, APP_CONFIG } from '../../constants/config';
 import api from '../../services/api';
 
 interface AddAccountScreenProps {
@@ -24,6 +25,14 @@ interface AddAccountScreenProps {
       account?: Account;
     };
   };
+}
+
+interface Bank {
+  id: number;
+  code: string;
+  name: string;
+  shortName: string | null;
+  logoUrl: string | null;
 }
 
 const ACCOUNT_TYPES = [
@@ -47,11 +56,34 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
 
   const [name, setName] = useState(editAccount?.name || '');
   const [type, setType] = useState(editAccount?.type || 'corrente');
-  const [bank, setBank] = useState(editAccount?.bank || '');
+  const [bankId, setBankId] = useState<string>(editAccount?.bankId?.toString() || '');
   const [balance, setBalance] = useState(editAccount?.balance || '0');
   const [color, setColor] = useState(editAccount?.color || ACCOUNT_COLORS[0]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [loadingBanks, setLoadingBanks] = useState(true);
+
+  // Carregar lista de bancos
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        // Usar endpoint público (sem autenticação)
+        // Remove /api do final pois já está incluído no APP_CONFIG.API_BASE_URL
+        const baseUrl = APP_CONFIG.API_BASE_URL.replace(/\/api$/, '');
+        const response = await fetch(`${baseUrl}/api/public/banks`);
+        const data = await response.json();
+        if (data.status === 'success') {
+          setBanks(data.data.banks);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar bancos:', error);
+      } finally {
+        setLoadingBanks(false);
+      }
+    };
+    fetchBanks();
+  }, []);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -76,7 +108,7 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
       const data = {
         name: name.trim(),
         type,
-        bank: bank.trim() || undefined,
+        bankId: bankId ? parseInt(bankId) : undefined,
         balance: parseFloat(balance) || 0,
         color,
       };
@@ -147,13 +179,28 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
               error={errors.type}
             />
 
-            <Input
-              label="Banco (opcional)"
-              placeholder="Ex: Banco Angolano de Investimentos"
-              value={bank}
-              onChangeText={setBank}
-              leftIcon="business-outline"
-            />
+            {loadingBanks ? (
+              <View style={styles.loadingBanks}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                  A carregar bancos...
+                </Text>
+              </View>
+            ) : (
+              <Select
+                label="Banco (opcional)"
+                value={bankId}
+                onValueChange={setBankId}
+                options={[
+                  { value: '', label: 'Selecione um banco' },
+                  ...banks.map(b => ({
+                    value: b.id.toString(),
+                    label: b.shortName || b.name,
+                  }))
+                ]}
+                placeholder="Selecione um banco"
+              />
+            )}
 
             <Input
               label="Saldo Inicial"
@@ -265,5 +312,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  loadingBanks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    gap: SPACING.sm,
+  },
+  loadingText: {
+    fontSize: 14,
   },
 });

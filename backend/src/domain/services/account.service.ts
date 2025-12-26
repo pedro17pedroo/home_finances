@@ -10,7 +10,8 @@ import type { Account, InsertAccount } from "../../core/database/schema.js";
 export interface CreateAccountRequest {
   name: string;
   type: 'corrente' | 'poupanca';
-  bank: string;
+  bank?: string;
+  bankId?: number;
   balance: number;
   interestRate?: number;
 }
@@ -19,6 +20,7 @@ export interface UpdateAccountRequest {
   name?: string;
   type?: 'corrente' | 'poupanca';
   bank?: string;
+  bankId?: number;
   interestRate?: number;
 }
 
@@ -111,6 +113,7 @@ export class AccountService {
       name: data.name,
       type: data.type,
       bank: data.bank,
+      bankId: data.bankId,
       balance: data.balance.toString(),
       interestRate: data.interestRate?.toString(),
     };
@@ -139,6 +142,7 @@ export class AccountService {
     if (data.name !== undefined) updateData.name = data.name;
     if (data.type !== undefined) updateData.type = data.type;
     if (data.bank !== undefined) updateData.bank = data.bank;
+    if (data.bankId !== undefined) updateData.bankId = data.bankId;
     if (data.interestRate !== undefined) updateData.interestRate = data.interestRate.toString();
 
     return AccountRepository.update(id, updateData);
