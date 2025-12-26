@@ -1,4 +1,4 @@
-import { eq, desc, and, sql, like, or } from "drizzle-orm";
+import { eq, desc, and, sql, like, or, asc } from "drizzle-orm";
 import { db } from "../../core/database/db.js";
 import { 
   adminUsers, 
@@ -13,6 +13,7 @@ import {
   subscriptionPayments,
   securityLogs,
   blockedIPs,
+  paymentMethods,
   type AdminUser, 
   type InsertAdminUser,
   type Plan,
@@ -778,5 +779,122 @@ export class AdminRepository {
   static async deleteContactMessage(id: number): Promise<boolean> {
     const result = await db.delete(contactMessages).where(eq(contactMessages.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // Payment Methods
+  static async getPaymentMethods() {
+    return await db
+      .select()
+      .from(paymentMethods)
+      .orderBy(asc(paymentMethods.displayOrder));
+  }
+
+  static async updatePaymentMethod(id: number, data: any) {
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+    
+    // Only update fields that are provided
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.displayName !== undefined) updateData.displayName = data.displayName;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.processingTime !== undefined) updateData.processingTime = data.processingTime;
+    if (data.icon !== undefined) updateData.icon = data.icon;
+    if (data.logoUrl !== undefined) updateData.logoUrl = data.logoUrl;
+    if (data.displayOrder !== undefined) updateData.displayOrder = data.displayOrder;
+    if (data.waitTimeSeconds !== undefined) updateData.waitTimeSeconds = data.waitTimeSeconds;
+    if (data.maxWaitTimeSeconds !== undefined) updateData.maxWaitTimeSeconds = data.maxWaitTimeSeconds;
+    if (data.isInstant !== undefined) updateData.isInstant = data.isInstant;
+    if (data.requiresPhone !== undefined) updateData.requiresPhone = data.requiresPhone;
+    if (data.requiresEmail !== undefined) updateData.requiresEmail = data.requiresEmail;
+    if (data.requiresReference !== undefined) updateData.requiresReference = data.requiresReference;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+    const [method] = await db
+      .update(paymentMethods)
+      .set(updateData)
+      .where(eq(paymentMethods.id, id))
+      .returning();
+    
+    return method || null;
+  }
+
+  static async togglePaymentMethod(id: number, isActive: boolean) {
+    const [method] = await db
+      .update(paymentMethods)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(paymentMethods.id, id))
+      .returning();
+    
+    return method || null;
+  }
+
+  // Banks Management
+  static async getBanks() {
+    const { banks } = await import("../../core/database/schema.js");
+    return await db
+      .select()
+      .from(banks)
+      .orderBy(asc(banks.displayOrder), asc(banks.name));
+  }
+
+  static async createBank(data: {
+    code: string;
+    name: string;
+    shortName?: string;
+    logoUrl?: string;
+    swiftCode?: string;
+    country?: string;
+    displayOrder?: number;
+  }) {
+    const { banks } = await import("../../core/database/schema.js");
+    const [bank] = await db
+      .insert(banks)
+      .values({
+        code: data.code,
+        name: data.name,
+        shortName: data.shortName || null,
+        logoUrl: data.logoUrl || null,
+        swiftCode: data.swiftCode || null,
+        country: data.country || 'AO',
+        displayOrder: data.displayOrder || 0,
+        isActive: true,
+      })
+      .returning();
+    return bank;
+  }
+
+  static async updateBank(id: number, data: {
+    code?: string;
+    name?: string;
+    shortName?: string;
+    logoUrl?: string;
+    swiftCode?: string;
+    country?: string;
+    displayOrder?: number;
+  }) {
+    const { banks } = await import("../../core/database/schema.js");
+    const [bank] = await db
+      .update(banks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(banks.id, id))
+      .returning();
+    return bank || null;
+  }
+
+  static async toggleBank(id: number, isActive: boolean) {
+    const { banks } = await import("../../core/database/schema.js");
+    const [bank] = await db
+      .update(banks)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(banks.id, id))
+      .returning();
+    return bank || null;
+  }
+
+  static async deleteBank(id: number) {
+    const { banks } = await import("../../core/database/schema.js");
+    const result = await db.delete(banks).where(eq(banks.id, id));
+    return result.rowCount > 0;
   }
 }

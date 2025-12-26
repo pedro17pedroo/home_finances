@@ -429,4 +429,108 @@ export class AdminController {
       next(error);
     }
   }
+
+  // Payment Methods Management
+  static async getPaymentMethods(req: Request, res: Response, next: NextFunction) {
+    try {
+      const methods = await AdminService.getPaymentMethods();
+      res.json({ paymentMethods: methods });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updatePaymentMethod(req: Request, res: Response, next: NextFunction) {
+    try {
+      const methodId = parseInt(req.params.id);
+      const method = await AdminService.updatePaymentMethod(methodId, req.body);
+      res.json({
+        status: "success",
+        data: { method },
+        message: "Método de pagamento atualizado com sucesso"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async togglePaymentMethod(req: Request, res: Response, next: NextFunction) {
+    try {
+      const methodId = parseInt(req.params.id);
+      const { isActive } = req.body;
+      const method = await AdminService.togglePaymentMethod(methodId, isActive);
+      res.json({
+        status: "success",
+        data: { method },
+        message: `Método de pagamento ${isActive ? 'ativado' : 'desativado'} com sucesso`
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Banks Management
+  static async getBanks(req: Request, res: Response, next: NextFunction) {
+    try {
+      const banks = await AdminService.getBanks();
+      res.json({ banks });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async createBank(req: Request, res: Response, next: NextFunction) {
+    try {
+      const bank = await AdminService.createBank(req.body);
+      res.status(201).json({
+        status: "success",
+        data: { bank },
+        message: "Banco criado com sucesso"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateBank(req: Request, res: Response, next: NextFunction) {
+    try {
+      const bankId = parseInt(req.params.id);
+      const bank = await AdminService.updateBank(bankId, req.body);
+      res.json({
+        status: "success",
+        data: { bank },
+        message: "Banco atualizado com sucesso"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async toggleBank(req: Request, res: Response, next: NextFunction) {
+    try {
+      const bankId = parseInt(req.params.id);
+      const { isActive } = req.body;
+      const bank = await AdminService.toggleBank(bankId, isActive);
+      res.json({
+        status: "success",
+        data: { bank },
+        message: `Banco ${isActive ? 'ativado' : 'desativado'} com sucesso`
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteBank(req: Request, res: Response, next: NextFunction) {
+    try {
+      const bankId = parseInt(req.params.id);
+      await AdminService.deleteBank(bankId);
+      res.json({
+        status: "success",
+        message: "Banco eliminado com sucesso"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

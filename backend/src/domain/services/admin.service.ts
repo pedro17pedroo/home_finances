@@ -372,4 +372,76 @@ export class AdminService {
     await AdminRepository.updateContentById(contentId, data);
     await AdminRepository.createAuditLog(adminId, 'content_updated', 'content', contentId, data);
   }
+
+  /**
+   * Payment Methods Management
+   */
+  static async getPaymentMethods() {
+    return await AdminRepository.getPaymentMethods();
+  }
+
+  static async updatePaymentMethod(methodId: number, data: any) {
+    const method = await AdminRepository.updatePaymentMethod(methodId, data);
+    if (!method) {
+      throw new NotFoundError("Método de pagamento não encontrado");
+    }
+    return method;
+  }
+
+  static async togglePaymentMethod(methodId: number, isActive: boolean) {
+    const method = await AdminRepository.togglePaymentMethod(methodId, isActive);
+    if (!method) {
+      throw new NotFoundError("Método de pagamento não encontrado");
+    }
+    return method;
+  }
+
+  // Banks Management
+  static async getBanks() {
+    return AdminRepository.getBanks();
+  }
+
+  static async createBank(data: {
+    code: string;
+    name: string;
+    shortName?: string;
+    logoUrl?: string;
+    swiftCode?: string;
+    country?: string;
+    displayOrder?: number;
+  }) {
+    return AdminRepository.createBank(data);
+  }
+
+  static async updateBank(bankId: number, data: {
+    code?: string;
+    name?: string;
+    shortName?: string;
+    logoUrl?: string;
+    swiftCode?: string;
+    country?: string;
+    displayOrder?: number;
+  }) {
+    const bank = await AdminRepository.updateBank(bankId, data);
+    if (!bank) {
+      throw new NotFoundError("Banco não encontrado");
+    }
+    return bank;
+  }
+
+  static async toggleBank(bankId: number, isActive: boolean) {
+    const bank = await AdminRepository.toggleBank(bankId, isActive);
+    if (!bank) {
+      throw new NotFoundError("Banco não encontrado");
+    }
+    return bank;
+  }
+
+  static async deleteBank(bankId: number) {
+    const deleted = await AdminRepository.deleteBank(bankId);
+    if (!deleted) {
+      throw new NotFoundError("Banco não encontrado");
+    }
+    return true;
+  }
 }

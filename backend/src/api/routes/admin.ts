@@ -63,6 +63,18 @@ router.get("/payments", AdminController.getPayments);
 router.post("/payments/:id/approve", AdminController.approvePayment);
 router.post("/payments/:id/reject", AdminController.rejectPayment);
 
+// Payment Methods management
+router.get("/payment-methods", AdminController.getPaymentMethods);
+router.put("/payment-methods/:id", AdminController.updatePaymentMethod);
+router.patch("/payment-methods/:id/toggle", AdminController.togglePaymentMethod);
+
+// Banks management
+router.get("/banks", AdminController.getBanks);
+router.post("/banks", AdminController.createBank);
+router.put("/banks/:id", AdminController.updateBank);
+router.patch("/banks/:id/toggle", AdminController.toggleBank);
+router.delete("/banks/:id", AdminController.deleteBank);
+
 // Security management
 router.get("/security/events", AdminController.getSecurityEvents);
 router.post("/security/events/:id/resolve", AdminController.resolveSecurityEvent);
