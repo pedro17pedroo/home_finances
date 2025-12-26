@@ -9,6 +9,8 @@ const router = Router();
 
 // Public routes
 router.post("/login", AdminController.login);
+router.post("/forgot-password", AdminController.forgotPassword);
+router.post("/reset-password", AdminController.resetPassword);
 
 // Protected admin routes
 router.use(authenticate); // Todas as rotas abaixo requerem autenticação
@@ -104,5 +106,9 @@ router.put("/legal-content/:type", AdminController.updateLegalContent);
 
 // Audit logs
 router.get("/audit-logs", AdminController.getAuditLogs);
+
+// Upload management
+router.post("/upload/logo", AdminController.uploadLogo);
+router.delete("/upload/logo", AdminController.deleteLogo);
 
 export default router;

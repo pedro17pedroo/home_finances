@@ -1027,6 +1027,132 @@ class SubscriptionService {
     endDate.setDate(endDate.getDate() + days);
     return endDate;
   }
+
+  /**
+   * Start trial while payment is pending
+   * This allows users to use the system while waiting for payment confirmation
+   */
+  async startTrialWhilePending(userId: number, planId: number): Promise<{
+    subscription: any;
+    trialDays: number;
+  }> {
+    // Get the plan
+    const plan = await this.getPlanById(planId);
+    if (!plan) {
+      throw new Error('Plano não encontrado');
+    }
+
+    // Check if plan has trial days
+    const trialDays = plan.trialDays || 0;
+    if (trialDays === 0) {
+      throw new Error('Este plano não oferece período de teste');
+    }
+
+    // Get user
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Check if user already has an active subscription
+    const existingSubscription = await this.getUserSubscription(userId);
+    if (existingSubscription && existingSubscription.status === 'active') {
+      throw new Error('Você já possui uma assinatura ativa');
+    }
+
+    // Check if user has already used trial for this plan type
+    const existingSubscriptions = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId));
+    const hasUsedTrial = existingSubscriptions.some(s => s.trialUsed === true);
+    if (hasUsedTrial) {
+      throw new Error('Você já utilizou o período de teste para este tipo de plano');
+    }
+
+    // Calculate trial end date
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+
+    // Update existing pending subscription to trial status or create new one
+    if (existingSubscription && existingSubscription.status === 'pending') {
+      // Update existing subscription to trial
+      const [updatedSubscription] = await db
+        .update(subscriptions)
+        .set({
+          status: 'trial',
+          trialEndsAt,
+          trialUsed: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.id, existingSubscription.id))
+        .returning();
+
+      // Update user's plan type with trial status
+      await db
+        .update(users)
+        .set({
+          planType: plan.type as any,
+          subscriptionStatus: 'trialing',
+          trialEndsAt,
+        })
+        .where(eq(users.id, userId));
+
+      // Sync organization members if applicable
+      if (user.organizationId) {
+        await this.syncOrganizationMembers(user.organizationId, plan.type, 'trial');
+      }
+
+      console.log(`[startTrialWhilePending] Updated subscription to trial:`, {
+        subscriptionId: updatedSubscription.id,
+        trialEndsAt,
+        trialDays,
+      });
+
+      return { subscription: updatedSubscription, trialDays };
+    }
+
+    // Create new trial subscription
+    const [subscription] = await db
+      .insert(subscriptions)
+      .values({
+        userId,
+        organizationId: user.organizationId || undefined,
+        planId: plan.id.toString(),
+        status: 'trial',
+        paymentType: 'one_time',
+        paymentMethod: 'gpo',
+        startDate: new Date(),
+        endDate: null,
+        trialEndsAt,
+        trialUsed: true,
+        isFirstSubscription: true,
+      })
+      .returning();
+
+    // Update user's plan type with trial status
+    await db
+      .update(users)
+      .set({
+        planType: plan.type as any,
+        subscriptionStatus: 'trialing',
+        trialEndsAt,
+      })
+      .where(eq(users.id, userId));
+
+    // Sync organization members if applicable
+    if (user.organizationId) {
+      await this.syncOrganizationMembers(user.organizationId, plan.type, 'trial');
+    }
+
+    console.log(`[startTrialWhilePending] Created trial subscription:`, {
+      subscriptionId: subscription.id,
+      trialEndsAt,
+      trialDays,
+    });
+
+    return { subscription, trialDays };
+  }
 }
 
 export const subscriptionService = new SubscriptionService();

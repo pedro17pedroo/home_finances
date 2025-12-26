@@ -9,6 +9,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +17,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Button, Card, Badge, Loading, EmptyState } from '../../components/ui';
 import { SPACING } from '../../constants/config';
-import api from '../../services/api';
+import api, { resolveAssetUrl } from '../../services/api';
 
 interface Plan {
   id: number;
@@ -28,6 +29,24 @@ interface Plan {
   maxTransactions: number;
   maxUsers: number;
   trialDays?: number;
+}
+
+interface PaymentMethodConfig {
+  id: number;
+  code: string;
+  name: string;
+  displayName: string;
+  description: string;
+  isInstant: boolean;
+  waitTimeSeconds: number;
+  maxWaitTimeSeconds: number;
+  requiresPhone: boolean;
+  requiresEmail: boolean;
+  requiresReference: boolean;
+  processingTime: string;
+  icon: string;
+  logoUrl?: string;
+  displayOrder: number;
 }
 
 interface Subscription {
@@ -74,12 +93,27 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ navigati
   const [paymentStep, setPaymentStep] = useState(1);
   const [paymentType, setPaymentType] = useState<'one_time' | 'recurring'>('one_time');
   const [paymentMethod, setPaymentMethod] = useState<string>('gpo');
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodConfig[]>([]);
   const [payerPhone, setPayerPhone] = useState('');
   const [startTrial, setStartTrial] = useState(false);
 
   useEffect(() => {
     loadData();
+    loadPaymentMethods();
   }, []);
+
+  const loadPaymentMethods = async () => {
+    try {
+      const response = await api.get('/subscriptions/payment-methods');
+      const methods = response.data?.paymentMethods || response.data?.data?.paymentMethods || [];
+      setPaymentMethods(Array.isArray(methods) ? methods : []);
+      if (methods.length > 0) {
+        setPaymentMethod(methods[0].code);
+      }
+    } catch (error) {
+      console.error('Error loading payment methods:', error);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -546,28 +580,73 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ navigati
                   <Text style={[styles.stepTitle, { color: colors.text }]}>
                     Método de Pagamento
                   </Text>
-                  {[
-                    { id: 'gpo', name: 'GPO', desc: 'Pagamento via GPO' },
-                    { id: 'ekwanza', name: 'E-Kwanza', desc: 'Pagamento via E-Kwanza' },
-                    { id: 'multicaixa', name: 'Multicaixa Express', desc: 'Referência Multicaixa' },
-                  ].map((method) => (
-                    <TouchableOpacity
-                      key={method.id}
-                      style={[
-                        styles.optionCard,
-                        { borderColor: paymentMethod === method.id ? colors.primary : colors.border },
-                        paymentMethod === method.id && { backgroundColor: `${colors.primary}15` },
-                      ]}
-                      onPress={() => setPaymentMethod(method.id)}
-                    >
-                      <Text style={[styles.optionTitle, { color: colors.text }]}>
-                        {method.name}
+                  {paymentMethods.length === 0 ? (
+                    <View style={[styles.emptyMethods, { backgroundColor: colors.surfaceSecondary }]}>
+                      <Ionicons name="card-outline" size={32} color={colors.textTertiary} />
+                      <Text style={[styles.emptyMethodsText, { color: colors.textSecondary }]}>
+                        A carregar métodos de pagamento...
                       </Text>
-                      <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
-                        {method.desc}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                    </View>
+                  ) : (
+                    paymentMethods.map((method) => {
+                      const logoUrl = resolveAssetUrl(method.logoUrl);
+                      return (
+                        <TouchableOpacity
+                          key={method.code}
+                          style={[
+                            styles.optionCard,
+                            { borderColor: paymentMethod === method.code ? colors.primary : colors.border },
+                            paymentMethod === method.code && { backgroundColor: `${colors.primary}15` },
+                          ]}
+                          onPress={() => setPaymentMethod(method.code)}
+                        >
+                          <View style={styles.methodRow}>
+                            <View style={[
+                              styles.methodIcon,
+                              { backgroundColor: paymentMethod === method.code ? colors.primary : colors.surfaceSecondary }
+                            ]}>
+                              {logoUrl ? (
+                                <Image 
+                                  source={{ uri: logoUrl }} 
+                                  style={styles.methodLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <Ionicons 
+                                  name={method.code === 'gpo' ? 'phone-portrait' : method.code === 'ekwanza' ? 'flash' : 'business'} 
+                                  size={20} 
+                                  color={paymentMethod === method.code ? '#FFF' : colors.primary} 
+                                />
+                              )}
+                            </View>
+                            <View style={styles.methodInfo}>
+                              <View style={styles.methodHeader}>
+                                <Text style={[styles.optionTitle, { color: colors.text }]}>
+                                  {method.displayName}
+                                </Text>
+                                {method.isInstant && (
+                                  <View style={[styles.instantBadge, { backgroundColor: `${colors.success}20` }]}>
+                                    <Text style={[styles.instantText, { color: colors.success }]}>Instantâneo</Text>
+                                  </View>
+                                )}
+                              </View>
+                              <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                                {method.description}
+                              </Text>
+                              {method.processingTime && (
+                                <View style={styles.processingRow}>
+                                  <Ionicons name="time-outline" size={12} color={colors.textTertiary} />
+                                  <Text style={[styles.processingText, { color: colors.textTertiary }]}>
+                                    {method.processingTime}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
                 </View>
               ) : null}
 
@@ -856,5 +935,61 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: SPACING.md,
     fontSize: 16,
+  },
+  // Payment method styles
+  emptyMethods: {
+    padding: SPACING.lg,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyMethodsText: {
+    fontSize: 14,
+    marginTop: SPACING.sm,
+    textAlign: 'center',
+  },
+  methodRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  methodIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+    overflow: 'hidden',
+  },
+  methodLogo: {
+    width: 36,
+    height: 36,
+  },
+  methodInfo: {
+    flex: 1,
+  },
+  methodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  instantBadge: {
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  instantText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  processingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 4,
+  },
+  processingText: {
+    fontSize: 11,
   },
 });

@@ -27,6 +27,9 @@ import { OnboardingPage } from './features/auth/pages/onboarding-page';
 import { TeamPage } from './features/team/pages/team-page';
 import { AcceptInvitationPage } from './features/team/pages/accept-invitation-page';
 import { ReceivedInvitationsPage } from './features/team/pages/received-invitations-page';
+import { TermsPage } from './features/legal/pages/terms-page';
+import { PrivacyPage } from './features/legal/pages/privacy-page';
+import { CookiesPage } from './features/legal/pages/cookies-page';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -165,6 +168,18 @@ function AppRoutes() {
       
       <Route path="/landing">
         <LandingPage />
+      </Route>
+      
+      <Route path="/terms">
+        <TermsPage />
+      </Route>
+      
+      <Route path="/privacy">
+        <PrivacyPage />
+      </Route>
+      
+      <Route path="/cookies">
+        <CookiesPage />
       </Route>
       
       <Route path="/">

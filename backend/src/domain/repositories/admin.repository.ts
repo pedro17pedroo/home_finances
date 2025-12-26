@@ -1,4 +1,4 @@
-import { eq, desc, and, sql, like, or, asc } from "drizzle-orm";
+import { eq, desc, and, sql, like, or, asc, gt } from "drizzle-orm";
 import { db } from "../../core/database/db.js";
 import { 
   adminUsers, 
@@ -14,6 +14,7 @@ import {
   securityLogs,
   blockedIPs,
   paymentMethods,
+  adminPasswordResetTokens,
   type AdminUser, 
   type InsertAdminUser,
   type Plan,
@@ -896,5 +897,56 @@ export class AdminRepository {
     const { banks } = await import("../../core/database/schema.js");
     const result = await db.delete(banks).where(eq(banks.id, id));
     return result.rowCount > 0;
+  }
+
+  // Password Reset Token Management
+  static async savePasswordResetToken(adminId: number, token: string, expiresAt: Date) {
+    // Delete any existing tokens for this admin
+    await db
+      .delete(adminPasswordResetTokens)
+      .where(eq(adminPasswordResetTokens.adminUserId, adminId));
+    
+    // Create new token
+    await db.insert(adminPasswordResetTokens).values({
+      adminUserId: adminId,
+      token,
+      expiresAt
+    });
+  }
+
+  static async findAdminByResetToken(token: string): Promise<AdminUser | null> {
+    const [tokenRecord] = await db
+      .select()
+      .from(adminPasswordResetTokens)
+      .where(and(
+        eq(adminPasswordResetTokens.token, token),
+        gt(adminPasswordResetTokens.expiresAt, new Date()),
+        sql`${adminPasswordResetTokens.usedAt} IS NULL`
+      ));
+    
+    if (!tokenRecord) {
+      return null;
+    }
+
+    const [admin] = await db
+      .select()
+      .from(adminUsers)
+      .where(eq(adminUsers.id, tokenRecord.adminUserId));
+    
+    return admin || null;
+  }
+
+  static async updateAdminPassword(adminId: number, passwordHash: string) {
+    // Update password
+    await db
+      .update(adminUsers)
+      .set({ password: passwordHash, updatedAt: new Date() })
+      .where(eq(adminUsers.id, adminId));
+    
+    // Mark all tokens as used
+    await db
+      .update(adminPasswordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(adminPasswordResetTokens.adminUserId, adminId));
   }
 }

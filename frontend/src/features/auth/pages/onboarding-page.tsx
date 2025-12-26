@@ -38,7 +38,7 @@ import {
   PaymentMethodConfig,
   PaymentType,
 } from '../../../shared/api/subscriptions';
-import { apiClient } from '../../../shared/api/client';
+import { apiClient, resolveAssetUrl } from '../../../shared/api/client';
 import { useTheme } from '../../../shared/contexts/theme-context';
 
 type Step = 'plan' | 'register' | 'payment' | 'payer' | 'processing' | 'status' | 'success';
@@ -423,6 +423,31 @@ export function OnboardingPage() {
     window.location.href = '/dashboard';
   };
 
+  const handleStartTrialWhilePending = async () => {
+    if (!selectedPlan || (selectedPlan.trialDays || 0) === 0) return;
+    setSubmitting(true);
+    try {
+      // Start trial mode for the subscription
+      const response = await apiClient.post('/subscriptions/start-trial-pending', {
+        planId: selectedPlan.id,
+      });
+      if (response.data.success) {
+        // Redirect to subscription page with transactions tab
+        window.location.href = '/subscription?tab=transacoes';
+      }
+    } catch (error: any) {
+      console.error('Start trial error:', error);
+      setFormErrors({ general: error.response?.data?.message || 'Erro ao iniciar período de teste' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoToSubscriptions = () => {
+    // Redirect to subscription page with transactions tab
+    window.location.href = '/subscription?tab=transacoes';
+  };
+
   const handleContinueToPayment = () => {
     setRegistrationSuccess(false);
     setCurrentStep('payment');
@@ -458,9 +483,9 @@ export function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 dark:text-blue-400 mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400">Carregando planos...</p>
         </div>
       </div>
@@ -468,7 +493,7 @@ export function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen transition-colors duration-300 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:bg-gray-900">
+    <div className="min-h-screen transition-colors duration-300 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-5xl mx-auto px-4 py-4">
@@ -492,7 +517,7 @@ export function OnboardingPage() {
                       ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-600/25'
                       : getStepNumber() > step.num
                         ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                   }`}>
                     {getStepNumber() > step.num ? <Check className="w-4 h-4 mr-1" /> : null}
                     {step.num}. {step.label}
@@ -889,6 +914,7 @@ export function OnboardingPage() {
                   <div className="space-y-3">
                     {paymentMethodsConfig.map((method) => {
                       const IconComponent = getPaymentMethodIcon(method.icon);
+                      const logoUrl = resolveAssetUrl(method.logoUrl);
                       return (
                         <button
                           key={method.id}
@@ -899,12 +925,20 @@ export function OnboardingPage() {
                               : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                           }`}
                         >
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden ${
                             selectedPaymentMethod?.id === method.id 
-                              ? 'bg-gradient-to-r from-blue-600 to-purple-600' 
+                              ? logoUrl ? 'bg-white' : 'bg-gradient-to-r from-blue-600 to-purple-600'
                               : 'bg-gray-100 dark:bg-gray-700'
                           }`}>
-                            <IconComponent className={`w-6 h-6 ${selectedPaymentMethod?.id === method.id ? 'text-white' : 'text-blue-500'}`} />
+                            {logoUrl ? (
+                              <img 
+                                src={logoUrl} 
+                                alt={method.displayName}
+                                className="w-10 h-10 object-contain"
+                              />
+                            ) : (
+                              <IconComponent className={`w-6 h-6 ${selectedPaymentMethod?.id === method.id ? 'text-white' : 'text-blue-500'}`} />
+                            )}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
@@ -1234,6 +1268,53 @@ export function OnboardingPage() {
                   <p className="text-center text-sm text-gray-400 dark:text-gray-500">
                     Após efetuar o pagamento, clique em "Verificar Pagamento"
                   </p>
+                </div>
+
+                {/* Options while payment is pending */}
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Enquanto aguarda a confirmação do pagamento:
+                  </p>
+                  
+                  <div className="space-y-3">
+                    {/* Option to start trial if plan allows */}
+                    {selectedPlan && (selectedPlan.trialDays || 0) > 0 && (
+                      <Button
+                        onClick={handleStartTrialWhilePending}
+                        disabled={submitting}
+                        variant="outline"
+                        className="w-full py-3 border-green-500 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Iniciando teste...
+                          </>
+                        ) : (
+                          <>
+                            <Gift className="w-5 h-5 mr-2" />
+                            Começar {selectedPlan.trialDays} dias de teste grátis
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    
+                    {/* Option to go to subscription page */}
+                    <Button
+                      onClick={handleGoToSubscriptions}
+                      variant="ghost"
+                      className="w-full py-3 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                    >
+                      <CreditCard className="w-5 h-5 mr-2" />
+                      Ver outros planos ou verificar transações
+                    </Button>
+                  </div>
+                  
+                  {selectedPlan && (selectedPlan.trialDays || 0) === 0 && (
+                    <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-3">
+                      Este plano não oferece período de teste. Aguarde a confirmação do pagamento ou escolha outro plano.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

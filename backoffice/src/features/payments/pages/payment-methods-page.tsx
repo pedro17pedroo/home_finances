@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CreditCard,
@@ -14,6 +14,10 @@ import {
   FileText,
   ToggleLeft,
   ToggleRight,
+  Upload,
+  Link as LinkIcon,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 import { AdminLayout } from '../../../shared/components/layout/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/components/ui/card';
@@ -43,6 +47,9 @@ export function PaymentMethodsPage() {
   const queryClient = useQueryClient();
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
   const [formData, setFormData] = useState<Partial<PaymentMethod>>({});
+  const [logoInputMode, setLogoInputMode] = useState<'url' | 'upload'>('url');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: methods, isLoading } = useQuery<PaymentMethod[]>({
     queryKey: ['admin', 'payment-methods'],
@@ -75,11 +82,73 @@ export function PaymentMethodsPage() {
   const startEditing = (method: PaymentMethod) => {
     setEditingMethod(method);
     setFormData({ ...method });
+    // Detect if current logo is uploaded or URL
+    if (method.logoUrl?.startsWith('/uploads/')) {
+      setLogoInputMode('upload');
+    } else {
+      setLogoInputMode('url');
+    }
   };
 
   const cancelEditing = () => {
     setEditingMethod(null);
     setFormData({});
+    setLogoInputMode('url');
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Tipo de ficheiro não permitido. Use: JPG, PNG, GIF, WebP ou SVG');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ficheiro muito grande. Máximo: 5MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        
+        // Upload to server
+        const response = await apiClient.post('/admin/upload/logo', {
+          image: base64,
+          originalName: file.name,
+        });
+
+        if (response.data?.data?.logoUrl) {
+          updateFormField('logoUrl', response.data.data.logoUrl);
+        }
+        setUploadingLogo(false);
+      };
+      reader.onerror = () => {
+        alert('Erro ao ler ficheiro');
+        setUploadingLogo(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Erro ao carregar imagem');
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    updateFormField('logoUrl', null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSave = () => {
@@ -151,9 +220,15 @@ export function PaymentMethodsPage() {
                         <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border">
                           {method.logoUrl ? (
                             <img
-                              src={method.logoUrl}
+                              src={method.logoUrl.startsWith('/uploads') 
+                                ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}${method.logoUrl}`
+                                : method.logoUrl}
                               alt={method.name}
                               className="w-full h-full object-contain p-1"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                              }}
                             />
                           ) : (
                             <CreditCard className="w-8 h-8 text-gray-400" />
@@ -252,34 +327,123 @@ export function PaymentMethodsPage() {
               </div>
 
               <div className="p-6 space-y-6">
-                {/* Logo Preview */}
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300">
-                    {formData.logoUrl ? (
-                      <img
-                        src={formData.logoUrl}
-                        alt="Logo"
-                        className="w-full h-full object-contain p-2"
+                {/* Logo Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 relative">
+                      {uploadingLogo ? (
+                        <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                      ) : formData.logoUrl ? (
+                        <>
+                          <img
+                            src={formData.logoUrl.startsWith('/uploads') 
+                              ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}${formData.logoUrl}`
+                              : formData.logoUrl}
+                            alt="Logo"
+                            className="w-full h-full object-contain p-2"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRemoveLogo}
+                            className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md"
+                            title="Remover logo"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Logotipo
+                      </label>
+                      {/* Toggle between URL and Upload */}
+                      <div className="flex gap-2 mb-3">
+                        <button
+                          type="button"
+                          onClick={() => setLogoInputMode('url')}
+                          className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                            logoInputMode === 'url'
+                              ? 'bg-blue-50 border-blue-300 text-blue-700'
+                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          <LinkIcon className="w-4 h-4" />
+                          URL
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLogoInputMode('upload')}
+                          className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                            logoInputMode === 'upload'
+                              ? 'bg-blue-50 border-blue-300 text-blue-700'
+                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          <Upload className="w-4 h-4" />
+                          Upload
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* URL Input */}
+                  {logoInputMode === 'url' && (
+                    <div>
+                      <input
+                        type="url"
+                        value={formData.logoUrl?.startsWith('/uploads') ? '' : (formData.logoUrl || '')}
+                        onChange={(e) => updateFormField('logoUrl', e.target.value || null)}
+                        placeholder="https://exemplo.com/logo.png"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
-                    ) : (
-                      <ImageIcon className="w-8 h-8 text-gray-400" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      URL do Logotipo
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.logoUrl || ''}
-                      onChange={(e) => updateFormField('logoUrl', e.target.value || null)}
-                      placeholder="https://exemplo.com/logo.png"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Recomendado: imagem quadrada, mínimo 128x128px
-                    </p>
-                  </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Cole o URL de uma imagem externa
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Upload Input */}
+                  {logoInputMode === 'upload' && (
+                    <div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        id="logo-upload"
+                      />
+                      <label
+                        htmlFor="logo-upload"
+                        className={`flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                          uploadingLogo
+                            ? 'border-blue-300 bg-blue-50'
+                            : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                        }`}
+                      >
+                        {uploadingLogo ? (
+                          <>
+                            <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                            <span className="text-blue-600">A carregar...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-5 h-5 text-gray-400" />
+                            <span className="text-gray-600">Clique para selecionar imagem</span>
+                          </>
+                        )}
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        JPG, PNG, GIF, WebP ou SVG. Máximo 5MB. Recomendado: 128x128px
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Basic Info */}

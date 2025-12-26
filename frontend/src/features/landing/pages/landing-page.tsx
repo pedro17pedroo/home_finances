@@ -133,7 +133,7 @@ export function LandingPage() {
 
   const loadContent = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/landing-content');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/landing-content`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.content) {
@@ -153,7 +153,7 @@ export function LandingPage() {
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5001/api/public/contact', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/public/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(contactForm),
@@ -544,9 +544,9 @@ export function LandingPage() {
             <div>
               <h3 className="font-semibold mb-4">Legal</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition">Termos de Uso</a></li>
-                <li><a href="#" className="hover:text-white transition">Política de Privacidade</a></li>
-                <li><a href="#" className="hover:text-white transition">Cookies</a></li>
+                <li><Link href="/terms"><span className="hover:text-white transition cursor-pointer">Termos de Uso</span></Link></li>
+                <li><Link href="/privacy"><span className="hover:text-white transition cursor-pointer">Política de Privacidade</span></Link></li>
+                <li><Link href="/cookies"><span className="hover:text-white transition cursor-pointer">Cookies</span></Link></li>
               </ul>
             </div>
           </div>

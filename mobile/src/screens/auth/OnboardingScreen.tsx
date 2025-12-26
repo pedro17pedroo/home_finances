@@ -22,7 +22,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Button, Card, Badge, Loading } from '../../components/ui';
 import { SPACING, RADIUS } from '../../constants/config';
-import api from '../../services/api';
+import api, { resolveAssetUrl } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -1087,7 +1087,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, 
                     ]}>
                       {method.logoUrl ? (
                         <Image 
-                          source={{ uri: method.logoUrl }} 
+                          source={{ uri: resolveAssetUrl(method.logoUrl) || '' }} 
                           style={styles.paymentMethodLogo}
                           resizeMode="contain"
                         />

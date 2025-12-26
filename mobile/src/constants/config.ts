@@ -5,7 +5,7 @@ export const APP_CONFIG = {
   // API - Android emulator uses 10.0.2.2, physical device needs actual IP
   API_BASE_URL: __DEV__ 
     ? Platform.select({
-        android: 'http://192.168.1.102:5001/api', // Your machine's IP
+        android: 'http://192.168.1.46:5001/api', // Your machine's IP
         ios: 'http://localhost:5001/api',
         default: 'http://localhost:5001/api',
       })!

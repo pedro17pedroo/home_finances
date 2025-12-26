@@ -139,6 +139,32 @@ router.post('/validate-coupon', authenticate, async (req, res) => {
   }
 });
 
+// Start trial while payment is pending
+router.post('/start-trial-pending', authenticate, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { planId } = req.body;
+
+    if (!planId) {
+      return res.status(400).json({
+        success: false,
+        message: 'planId é obrigatório',
+      });
+    }
+
+    const result = await subscriptionService.startTrialWhilePending(userId, planId);
+
+    res.json({
+      success: true,
+      subscription: result.subscription,
+      message: `Período de teste de ${result.trialDays} dias iniciado. Seu pagamento continua pendente.`,
+    });
+  } catch (error: any) {
+    console.error('Start trial pending error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Get my subscription details
 router.get('/my-subscription', authenticate, async (req, res) => {
   try {

@@ -18,6 +18,7 @@ import Swal from 'sweetalert2';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
+import { resolveAssetUrl } from '../../../shared/api/client';
 import {
   getPlans,
   getPaymentMethods,
@@ -180,11 +181,12 @@ export function SubscriptionPage() {
     }
   };
 
-  const handleCheckStatus = async () => {
-    if (!pendingPayment) return;
+  const handleCheckStatus = async (paymentToCheck?: SubscriptionPayment) => {
+    const payment = paymentToCheck || pendingPayment;
+    if (!payment) return;
     setCheckingStatus(true);
     try {
-      const result = await checkPaymentStatus(pendingPayment.id);
+      const result = await checkPaymentStatus(payment.id);
       if (result.isPaid) {
         setShowStatusModal(false);
         setPendingPayment(null);
@@ -616,6 +618,29 @@ export function SubscriptionPage() {
                           </div>
                         </div>
                       )}
+
+                      {/* Verify payment button for pending payments */}
+                      {payment.status === 'pending' && (
+                        <div className="px-4 pb-4">
+                          <Button
+                            onClick={() => handleCheckStatus(payment)}
+                            disabled={checkingStatus}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            {checkingStatus ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Verificando...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Verificar Pagamento
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -737,7 +762,7 @@ export function SubscriptionPage() {
                           <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
                             {method.logoUrl ? (
                               <img 
-                                src={method.logoUrl} 
+                                src={resolveAssetUrl(method.logoUrl) || ''} 
                                 alt={method.displayName}
                                 className="w-8 h-8 object-contain"
                               />

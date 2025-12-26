@@ -1,6 +1,35 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_CONFIG } from '../constants/config';
+import { API_CONFIG, APP_CONFIG } from '../constants/config';
+
+/**
+ * Get base URL for static assets (uploads)
+ * Removes /api suffix to get the base server URL
+ */
+const getBaseUrl = (): string => {
+  return APP_CONFIG.API_BASE_URL.replace(/\/api$/, '');
+};
+
+/**
+ * Resolve asset URL - converts local upload paths to full URLs
+ * @param url - The URL or path to resolve
+ * @returns Full URL for the asset or null
+ */
+export const resolveAssetUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  
+  // If it's already a full URL, return as-is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // If it's a local upload path, prepend the base URL
+  if (url.startsWith('/uploads/')) {
+    return `${getBaseUrl()}${url}`;
+  }
+  
+  return url;
+};
 
 // Create axios instance
 const api: AxiosInstance = axios.create({

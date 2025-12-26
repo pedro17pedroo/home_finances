@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Edit, Save, X, Globe, Shield, Phone, FileCheck, Plus, Trash2, RotateCcw, Star } from 'lucide-react';
+import { FileText, Edit, Save, X, Globe, Shield, FileCheck, Plus, Trash2, RotateCcw, Star } from 'lucide-react';
 import { AdminLayout } from '../../../shared/components/layout/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
@@ -29,8 +29,7 @@ const contentTypes = [
   { id: 'landing', label: 'Landing Page', icon: Globe },
   { id: 'terms', label: 'Termos de Uso', icon: FileText },
   { id: 'privacy', label: 'Política de Privacidade', icon: Shield },
-  { id: 'contacts', label: 'Contactos', icon: Phone },
-  { id: 'contracts', label: 'Contratos', icon: FileCheck },
+  { id: 'cookies', label: 'Política de Cookies', icon: FileCheck },
 ];
 
 const sectionLabels: Record<string, string> = {
@@ -52,7 +51,7 @@ export function ContentPage() {
   const [sectionContent, setSectionContent] = useState<any>(null);
 
   // Query for landing content
-  const { data: landingSections, isLoading: loadingLanding, refetch: refetchLanding } = useQuery<LandingSection[]>({
+  const { data: landingSections, isLoading: loadingLanding } = useQuery<LandingSection[]>({
     queryKey: ['admin', 'landing-content'],
     queryFn: async () => {
       const response = await apiClient.get('/landing-content/admin/all');
@@ -61,7 +60,17 @@ export function ContentPage() {
     enabled: activeTab === 'landing',
   });
 
-  // Query for other content types
+  // Query for legal content types (terms, privacy, cookies)
+  const { data: legalContents, isLoading: loadingLegal } = useQuery<ContentItem[]>({
+    queryKey: ['admin', 'legal-content'],
+    queryFn: async () => {
+      const response = await apiClient.get('/admin/legal-content');
+      return response.data.content || [];
+    },
+    enabled: activeTab === 'terms' || activeTab === 'privacy' || activeTab === 'cookies',
+  });
+
+  // Query for other content types (contacts, contracts)
   const { data: contents, isLoading: loadingContent } = useQuery<ContentItem[]>({
     queryKey: ['admin', 'content', activeTab],
     queryFn: async () => {
@@ -69,12 +78,10 @@ export function ContentPage() {
         const response = await apiClient.get(`/admin/content/${activeTab}`);
         return response.data;
       } catch {
-        return [
-          { id: 1, type: activeTab, title: 'Conteúdo Principal', content: 'Lorem ipsum...', version: '1.0', isActive: true, updatedAt: '2024-06-15' },
-        ];
+        return [];
       }
     },
-    enabled: activeTab !== 'landing',
+    enabled: activeTab !== 'landing' && activeTab !== 'terms' && activeTab !== 'privacy' && activeTab !== 'cookies',
   });
 
   // Mutation for saving landing section
@@ -499,7 +506,53 @@ export function ContentPage() {
     }
   };
 
-  const isLoading = activeTab === 'landing' ? loadingLanding : loadingContent;
+  const isLoading = activeTab === 'landing' ? loadingLanding : 
+    (activeTab === 'terms' || activeTab === 'privacy' || activeTab === 'cookies') ? loadingLegal : loadingContent;
+
+  // Get current legal content item
+  const currentLegalItem = legalContents?.find(item => item.type === activeTab);
+
+  // State for editing legal content
+  const [editingLegal, setEditingLegal] = useState(false);
+  const [legalTitle, setLegalTitle] = useState('');
+  const [legalContentText, setLegalContentText] = useState('');
+  const [legalVersion, setLegalVersion] = useState('');
+
+  // Mutation for saving legal content
+  const saveLegalContent = useMutation({
+    mutationFn: async ({ type, title, content, version }: { type: string; title: string; content: string; version: string }) => {
+      await apiClient.put(`/admin/legal-content/${type}`, { title, content, version });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'legal-content'] });
+      setEditingLegal(false);
+    },
+  });
+
+  const startEditingLegal = (item: ContentItem) => {
+    setEditingLegal(true);
+    setLegalTitle(item.title);
+    setLegalContentText(item.content);
+    setLegalVersion(item.version);
+  };
+
+  const cancelEditingLegal = () => {
+    setEditingLegal(false);
+    setLegalTitle('');
+    setLegalContentText('');
+    setLegalVersion('');
+  };
+
+  const handleSaveLegal = () => {
+    if (currentLegalItem) {
+      saveLegalContent.mutate({
+        type: activeTab,
+        title: legalTitle,
+        content: legalContentText,
+        version: legalVersion,
+      });
+    }
+  };
 
   return (
     <AdminLayout title="Gestão de Conteúdo">
@@ -600,7 +653,7 @@ export function ContentPage() {
         )}
 
         {/* Other Content Types */}
-        {activeTab !== 'landing' && (
+        {activeTab !== 'landing' && activeTab !== 'terms' && activeTab !== 'privacy' && activeTab !== 'cookies' && (
           <>
             {isLoading ? (
               <div className="text-center py-8">Carregando...</div>
@@ -653,6 +706,89 @@ export function ContentPage() {
                   </Card>
                 ))}
               </div>
+            )}
+          </>
+        )}
+
+        {/* Legal Content (Terms, Privacy, Cookies) */}
+        {(activeTab === 'terms' || activeTab === 'privacy' || activeTab === 'cookies') && (
+          <>
+            {isLoading ? (
+              <div className="text-center py-8">Carregando...</div>
+            ) : currentLegalItem ? (
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="text-lg">{currentLegalItem.title}</CardTitle>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Versão {currentLegalItem.version} • Última atualização: {new Date(currentLegalItem.updatedAt).toLocaleDateString('pt-AO')}
+                      </p>
+                    </div>
+                    {!editingLegal && (
+                      <Button variant="outline" size="sm" onClick={() => startEditingLegal(currentLegalItem)}>
+                        <Edit className="w-4 h-4 mr-1" />
+                        Editar
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {editingLegal ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                          <Input
+                            value={legalTitle}
+                            onChange={(e) => setLegalTitle(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Versão</label>
+                          <Input
+                            value={legalVersion}
+                            onChange={(e) => setLegalVersion(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Conteúdo (HTML)</label>
+                        <textarea
+                          value={legalContentText}
+                          onChange={(e) => setLegalContentText(e.target.value)}
+                          className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 pt-4 border-t">
+                        <Button variant="outline" onClick={cancelEditingLegal}>
+                          <X className="w-4 h-4 mr-1" />
+                          Cancelar
+                        </Button>
+                        <Button onClick={handleSaveLegal} disabled={saveLegalContent.isPending}>
+                          <Save className="w-4 h-4 mr-1" />
+                          {saveLegalContent.isPending ? 'Salvando...' : 'Salvar'}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="prose max-w-none">
+                      <div 
+                        className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700"
+                        dangerouslySetInnerHTML={{ __html: currentLegalItem.content }}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">Nenhum conteúdo encontrado para esta secção.</p>
+                  <p className="text-sm text-gray-400 mt-2">Execute a seed para criar o conteúdo inicial.</p>
+                </CardContent>
+              </Card>
             )}
           </>
         )}

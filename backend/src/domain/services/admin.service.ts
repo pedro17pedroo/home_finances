@@ -2,6 +2,8 @@ import { AdminRepository } from "../repositories/admin.repository.js";
 import { hashPassword, verifyPassword, generateToken, generateRefreshToken } from "../../api/middlewares/auth.js";
 import { BadRequestError, UnauthorizedError, NotFoundError } from "../../core/errors/app-error.js";
 import { logger } from "../../core/utils/logger.js";
+import emailService from "../../infrastructure/email/email.service.js";
+import crypto from "crypto";
 import type { InsertAdminUser, InsertPlan, InsertLandingContent, InsertLegalContent } from "../../core/database/schema.js";
 
 export interface AdminLoginRequest {
@@ -76,6 +78,87 @@ export class AdminService {
       token,
       refreshToken
     };
+  }
+
+  /**
+   * Recuperação de senha - enviar email
+   */
+  static async forgotPassword(email: string): Promise<void> {
+    const admin = await AdminRepository.findAdminByEmail(email);
+    
+    // Não revelar se o email existe ou não
+    if (!admin) {
+      logger.info(`Password reset requested for non-existent admin email: ${email}`);
+      return;
+    }
+
+    // Gerar token de reset
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hora
+
+    // Guardar token no repositório
+    await AdminRepository.savePasswordResetToken(admin.id, resetToken, resetTokenExpiry);
+
+    // Enviar email
+    const resetUrl = `${process.env.BACKOFFICE_URL || process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    
+    await emailService.sendEmail({
+      to: admin.email,
+      subject: 'Redefinir Senha - Backoffice FinanceControl',
+      html: emailService['getEmailTemplate']('Recuperação de Senha', `
+        <h2>Olá ${admin.firstName || 'Administrador'},</h2>
+        <p>Recebemos um pedido para redefinir a senha da sua conta de administrador no FinanceControl.</p>
+        <p>Clique no botão abaixo para criar uma nova senha:</p>
+        <p style="margin-top: 30px;">
+          <a href="${resetUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Redefinir Senha
+          </a>
+        </p>
+        <p style="margin-top: 20px; color: #666; font-size: 14px;">
+          Este link expira em 1 hora.
+        </p>
+        <p style="color: #999; font-size: 12px;">
+          Se não solicitou a redefinição de senha, pode ignorar este email.
+        </p>
+      `)
+    });
+
+    logger.info(`Password reset email sent to admin: ${email}`);
+  }
+
+  /**
+   * Redefinir senha com token
+   */
+  static async resetPassword(token: string, newPassword: string): Promise<void> {
+    const admin = await AdminRepository.findAdminByResetToken(token);
+    
+    if (!admin) {
+      throw new BadRequestError("Token inválido ou expirado");
+    }
+
+    // Hash da nova senha
+    const passwordHash = await hashPassword(newPassword);
+
+    // Atualizar senha e limpar token
+    await AdminRepository.updateAdminPassword(admin.id, passwordHash);
+
+    // Enviar email de confirmação
+    await emailService.sendEmail({
+      to: admin.email,
+      subject: 'Senha Alterada - Backoffice FinanceControl',
+      html: emailService['getEmailTemplate']('Senha Alterada', `
+        <h2>Olá ${admin.firstName || 'Administrador'},</h2>
+        <p>A sua senha foi alterada com sucesso.</p>
+        <p>Se não foi você que fez esta alteração, contacte-nos imediatamente.</p>
+        <p style="margin-top: 30px;">
+          <a href="${process.env.BACKOFFICE_URL || process.env.FRONTEND_URL}/login" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Iniciar Sessão
+          </a>
+        </p>
+      `)
+    });
+
+    logger.info(`Password reset completed for admin: ${admin.email}`);
   }
 
   /**

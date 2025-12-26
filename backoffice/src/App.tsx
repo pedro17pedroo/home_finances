@@ -4,6 +4,8 @@ import { ThemeProvider } from './shared/contexts/theme-context';
 
 // Pages
 import { LoginPage } from './features/auth/pages/login-page';
+import { ForgotPasswordPage } from './features/auth/pages/forgot-password-page';
+import { ResetPasswordPage } from './features/auth/pages/reset-password-page';
 import { DashboardPage } from './features/dashboard/pages/dashboard-page';
 import { UsersPage } from './features/users/pages/users-page';
 import { PlansPage } from './features/plans/pages/plans-page';
@@ -43,6 +45,12 @@ function AppRoutes() {
     <Switch>
       <Route path="/login">
         {isAuthenticated ? <Redirect to="/" /> : <LoginPage />}
+      </Route>
+      <Route path="/forgot-password">
+        {isAuthenticated ? <Redirect to="/" /> : <ForgotPasswordPage />}
+      </Route>
+      <Route path="/reset-password">
+        {isAuthenticated ? <Redirect to="/" /> : <ResetPasswordPage />}
       </Route>
       <Route path="/">
         <ProtectedRoute><DashboardPage /></ProtectedRoute>

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AdminService } from "../../domain/services/admin.service.js";
+import { UploadService } from "../../domain/services/upload.service.js";
 
 export class AdminController {
   // Authentication
@@ -11,6 +12,32 @@ export class AdminController {
         success: true,
         ...result,
         message: "Login realizado com sucesso"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      await AdminService.forgotPassword(req.body.email);
+      
+      res.json({
+        status: "success",
+        message: "Se o email existir, receberá instruções para redefinir a senha"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      await AdminService.resetPassword(req.body.token, req.body.password);
+      
+      res.json({
+        status: "success",
+        message: "Senha redefinida com sucesso"
       });
     } catch (error) {
       next(error);
@@ -528,6 +555,52 @@ export class AdminController {
       res.json({
         status: "success",
         message: "Banco eliminado com sucesso"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Upload Management
+  static async uploadLogo(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { image, originalName } = req.body;
+      
+      if (!image) {
+        return res.status(400).json({
+          status: "error",
+          message: "Imagem não fornecida"
+        });
+      }
+
+      const logoUrl = await UploadService.uploadLogo(image, originalName);
+      
+      res.json({
+        status: "success",
+        data: { logoUrl },
+        message: "Imagem carregada com sucesso"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteLogo(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { logoUrl } = req.body;
+      
+      if (!logoUrl) {
+        return res.status(400).json({
+          status: "error",
+          message: "URL do logo não fornecida"
+        });
+      }
+
+      await UploadService.deleteLogo(logoUrl);
+      
+      res.json({
+        status: "success",
+        message: "Imagem eliminada com sucesso"
       });
     } catch (error) {
       next(error);

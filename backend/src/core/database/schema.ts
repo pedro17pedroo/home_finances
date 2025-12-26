@@ -952,3 +952,16 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
 
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type InsertPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+
+// Admin Password Reset Tokens table
+export const adminPasswordResetTokens = pgTable("admin_password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  adminUserId: integer("admin_user_id").references(() => adminUsers.id).notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type AdminPasswordResetToken = typeof adminPasswordResetTokens.$inferSelect;
+export type InsertAdminPasswordResetToken = typeof adminPasswordResetTokens.$inferInsert;
