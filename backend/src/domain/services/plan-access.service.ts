@@ -376,6 +376,109 @@ export class PlanAccessService {
   }
 }
 
+/**
+ * Get access info using activeOrganizationId from request context
+ * This is the preferred method for multi-organization support
+ * Requirements: 4.3, 4.5 - Use active organization's subscription for feature access
+ */
+export const getAccessInfoFromContext = async (
+  userId: number,
+  activeOrganizationId: number | null | undefined
+): Promise<AccessInfo> => {
+  // If activeOrganizationId is provided, use organization-based access
+  if (activeOrganizationId) {
+    return PlanAccessService.getAccessInfo(activeOrganizationId);
+  }
+  // Fallback to user-based access for backward compatibility
+  return PlanAccessService.getUserAccessInfo(userId);
+};
+
+/**
+ * Check feature access using activeOrganizationId from request context
+ * Requirements: 4.3, 4.5 - Apply limits based on active org's plan
+ */
+export const hasFeatureFromContext = async (
+  userId: number,
+  activeOrganizationId: number | null | undefined,
+  featureKey: string
+): Promise<boolean> => {
+  if (activeOrganizationId) {
+    return PlanAccessService.hasFeature(activeOrganizationId, featureKey);
+  }
+  // Fallback to user-based check
+  const limits = await PlanAccessService.getUserPlanLimits(userId);
+  return limits.features.some(f => 
+    f.toLowerCase().includes(featureKey.toLowerCase()) ||
+    featureKey.toLowerCase().includes(f.toLowerCase())
+  );
+};
+
+/**
+ * Check if can create account using activeOrganizationId from request context
+ * Requirements: 4.3, 4.5 - Apply limits based on active org's plan
+ */
+export const canCreateAccountFromContext = async (
+  userId: number,
+  activeOrganizationId: number | null | undefined
+): Promise<AccessCheckResult> => {
+  if (activeOrganizationId) {
+    const canCreate = await PlanAccessService.canCreateAccount(activeOrganizationId);
+    if (!canCreate) {
+      const limits = await PlanAccessService.getOrganizationPlanLimits(activeOrganizationId);
+      const currentCount = await AccountRepository.countByOrganizationId(activeOrganizationId);
+      return {
+        allowed: false,
+        reason: 'Limite de contas atingido para o plano da organização atual. Faça upgrade para continuar.',
+        currentUsage: currentCount,
+        limit: limits.maxAccounts,
+      };
+    }
+    return { allowed: true };
+  }
+  // Fallback to user-based check
+  const limits = await PlanAccessService.getUserPlanLimits(userId);
+  const currentCount = await AccountRepository.countByUserId(userId);
+  if (limits.maxAccounts === -1) return { allowed: true };
+  return {
+    allowed: currentCount < limits.maxAccounts,
+    currentUsage: currentCount,
+    limit: limits.maxAccounts,
+  };
+};
+
+/**
+ * Check if can create transaction using activeOrganizationId from request context
+ * Requirements: 4.3, 4.5 - Apply limits based on active org's plan
+ */
+export const canCreateTransactionFromContext = async (
+  userId: number,
+  activeOrganizationId: number | null | undefined
+): Promise<AccessCheckResult> => {
+  if (activeOrganizationId) {
+    const canCreate = await PlanAccessService.canCreateTransaction(activeOrganizationId);
+    if (!canCreate) {
+      const limits = await PlanAccessService.getOrganizationPlanLimits(activeOrganizationId);
+      const currentCount = await TransactionRepository.countThisMonthByOrganizationId(activeOrganizationId);
+      return {
+        allowed: false,
+        reason: 'Limite de transações do mês atingido para o plano da organização atual. Faça upgrade para continuar.',
+        currentUsage: currentCount,
+        limit: limits.maxTransactions,
+      };
+    }
+    return { allowed: true };
+  }
+  // Fallback to user-based check
+  const limits = await PlanAccessService.getUserPlanLimits(userId);
+  const currentCount = await TransactionRepository.countByUserId(userId);
+  if (limits.maxTransactions === -1) return { allowed: true };
+  return {
+    allowed: currentCount < limits.maxTransactions,
+    currentUsage: currentCount,
+    limit: limits.maxTransactions,
+  };
+};
+
 // Export instance for backward compatibility
 export const planAccessService = {
   getUserPlanLimits: (userId: number) => PlanAccessService.getUserPlanLimits(userId),
@@ -419,6 +522,11 @@ export const planAccessService = {
     return { allowed: true };
   },
   getUserAccessInfo: (userId: number) => PlanAccessService.getUserAccessInfo(userId),
+  // New methods for multi-organization support (Requirements: 4.3, 4.5)
+  getAccessInfoFromContext,
+  hasFeatureFromContext,
+  canCreateAccountFromContext,
+  canCreateTransactionFromContext,
 };
 
 export default planAccessService;

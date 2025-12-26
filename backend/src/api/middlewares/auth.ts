@@ -5,6 +5,7 @@ import { UnauthorizedError, BadRequestError } from "../../core/errors/app-error.
 import { config } from "../../core/config/index.js";
 import { UserRepository } from "../../domain/repositories/user.repository.js";
 import { AdminRepository } from "../../domain/repositories/admin.repository.js";
+import { OrganizationMembershipRepository } from "../../domain/repositories/organization-membership.repository.js";
 
 // Extend Request type to include user
 declare global {
@@ -86,14 +87,52 @@ export const authenticate = async (
       throw new UnauthorizedError("User not found");
     }
 
+    // Get activeOrganizationId from user (Requirements: 3.1, 6.1)
+    let activeOrgId = user.activeOrganizationId;
+    let userRole = user.role || 'member';
+
+    // Verify user is member of active organization, fallback if invalid
+    if (activeOrgId) {
+      const membership = await OrganizationMembershipRepository.findByUserAndOrg(user.id, activeOrgId);
+      if (!membership) {
+        // Fallback to first available membership
+        const memberships = await OrganizationMembershipRepository.findByUserId(user.id);
+        if (memberships.length > 0) {
+          activeOrgId = memberships[0].organizationId;
+          userRole = memberships[0].role;
+          // Update user's activeOrganizationId to the fallback
+          await UserRepository.update(user.id, { activeOrganizationId: activeOrgId });
+        } else {
+          // No memberships found, use legacy organizationId if available
+          activeOrgId = user.organizationId || undefined;
+        }
+      } else {
+        // Use role from membership
+        userRole = membership.role;
+      }
+    } else {
+      // No activeOrganizationId set, try to get from memberships
+      const memberships = await OrganizationMembershipRepository.findByUserId(user.id);
+      if (memberships.length > 0) {
+        activeOrgId = memberships[0].organizationId;
+        userRole = memberships[0].role;
+        // Set the activeOrganizationId for future requests
+        await UserRepository.update(user.id, { activeOrganizationId: activeOrgId });
+      } else {
+        // Fallback to legacy organizationId
+        activeOrgId = user.organizationId || undefined;
+      }
+    }
+
+    // Set organizationId in request context (Requirements: 6.1)
     req.user = {
       id: user.id,
       email: user.email || undefined,
       phone: user.phone || undefined,
       planType: user.planType || "basic",
       subscriptionStatus: user.subscriptionStatus || "trialing",
-      organizationId: user.organizationId || undefined,
-      role: user.role || undefined,
+      organizationId: activeOrgId,
+      role: userRole,
     };
 
     next();

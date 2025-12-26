@@ -24,6 +24,8 @@ declare global {
 /**
  * Middleware to add organization context to the request
  * Must be used after the authenticate middleware
+ * 
+ * Requirements: 6.1, 6.2 - Use activeOrganizationId for data isolation
  */
 export async function organizationContext(req: Request, res: Response, next: NextFunction) {
   try {
@@ -33,22 +35,15 @@ export async function organizationContext(req: Request, res: Response, next: Nex
       return next();
     }
 
-    // Get user with organization info
-    const [userData] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, user.id));
-
-    if (!userData) {
-      return next();
-    }
-
-    // If user has an organization, load it
-    if (userData.organizationId) {
+    // Use organizationId from auth middleware (which is activeOrganizationId)
+    // This ensures we use the active organization for multi-organization support
+    const activeOrgId = user.organizationId;
+    
+    if (activeOrgId) {
       const [org] = await db
         .select()
         .from(organizations)
-        .where(eq(organizations.id, userData.organizationId));
+        .where(eq(organizations.id, activeOrgId));
 
       if (org) {
         req.organizationId = org.id;
@@ -60,7 +55,8 @@ export async function organizationContext(req: Request, res: Response, next: Nex
           subscriptionStatus: org.subscriptionStatus || 'trialing',
           maxUsers: org.maxUsers || 1,
         };
-        req.userRole = userData.role || 'member';
+        // Use role from auth middleware (already set from membership)
+        req.userRole = user.role || 'member';
       }
     }
 
@@ -129,10 +125,22 @@ export function requireOrgOwner(req: Request, res: Response, next: NextFunction)
 
 /**
  * Helper function to get organization ID from request
- * Falls back to user ID for backward compatibility during migration
+ * Prefers req.organizationId (set by organizationContext middleware)
+ * Falls back to req.user.organizationId (activeOrganizationId from auth middleware)
+ * 
+ * Requirements: 6.1, 6.2 - Ensure data isolation by organization
  */
 export function getOrganizationId(req: Request): number | null {
-  return req.organizationId || null;
+  // First check req.organizationId (set by organizationContext middleware)
+  if (req.organizationId) {
+    return req.organizationId;
+  }
+  // Fallback to req.user.organizationId (activeOrganizationId from auth middleware)
+  const user = (req as any).user;
+  if (user?.organizationId) {
+    return user.organizationId;
+  }
+  return null;
 }
 
 /**
