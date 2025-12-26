@@ -64,7 +64,7 @@ server {
     server_name api.financecontrol.ao;
 
     location / {
-        proxy_pass http://localhost:5001;
+        proxy_pass http://localhost:4005;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -124,7 +124,7 @@ nano .env
 ```env
 # Ambiente
 NODE_ENV=production
-PORT=5001
+PORT=4005
 
 # Base de dados
 DATABASE_URL=postgresql://financecontrol_user:SUA_SENHA@localhost:5432/financecontrol

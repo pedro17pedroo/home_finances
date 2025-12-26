@@ -3,15 +3,15 @@ module.exports = {
     {
       name: 'financecontrol-api',
       script: 'dist/server.js',
-      instances: 'max', // Usar todos os CPUs disponíveis
-      exec_mode: 'cluster',
+      instances: 1, // Usar todos os CPUs disponíveis
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'development',
-        PORT: 5001,
+        PORT: 4005,
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 5001,
+        PORT: 4005,
       },
       // Logs
       log_file: 'logs/combined.log',
