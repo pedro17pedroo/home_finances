@@ -66,7 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await apiClient.get('/auth/me');
       if (response.data?.status === 'success' && response.data?.data) {
-        const userData = response.data.data;
+        // Backend returns { status: 'success', data: { user: {...} } }
+        const userData = response.data.data.user || response.data.data;
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
       }
