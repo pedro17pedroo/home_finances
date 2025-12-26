@@ -156,7 +156,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
             <Button
               title="Criar nova conta"
-              onPress={() => navigation?.navigate('Register')}
+              onPress={() => navigation?.navigate('Onboarding')}
               variant="outline"
               fullWidth
               size="lg"
