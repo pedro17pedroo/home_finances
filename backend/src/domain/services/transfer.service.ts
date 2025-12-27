@@ -255,7 +255,7 @@ export class TransferService {
       const amount = Number(transfer.amount);
       summary.totalAmount += amount;
       
-      const transferDate = new Date(transfer.createdAt);
+      const transferDate = new Date(transfer.createdAt!);
       if (transferDate.getMonth() === currentMonth && transferDate.getFullYear() === currentYear) {
         summary.thisMonth++;
         summary.thisMonthAmount += amount;

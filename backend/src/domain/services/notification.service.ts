@@ -105,7 +105,7 @@ export class NotificationService {
           type: progress < 50 ? 'warning' : 'info',
           category: 'savings',
           title: 'Meta de Poupança Próxima do Prazo',
-          message: `Sua meta "${goal.name}" vence em ${this.getDaysUntil(goal.targetDate)} dias. Progresso: ${progress.toFixed(1)}%`,
+          message: `Sua meta "${goal.name}" vence em ${this.getDaysUntil(goal.targetDate!)} dias. Progresso: ${progress.toFixed(1)}%`,
           actionUrl: '/savings-goals',
           actionText: 'Ver Metas',
           isRead: false,
@@ -198,12 +198,12 @@ export class NotificationService {
   }
 
   // Métodos auxiliares privados
-  private static async getUpcomingLoans(userId: number, days: number) {
-    const loans = await LoanService.getLoansByUserId(userId);
+  private static async getUpcomingLoans(userId: number, days: number): Promise<any[]> {
+    const loans = await LoanService.getLoans(null, userId);
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + days);
     
-    return loans.filter(loan => 
+    return loans.filter((loan: any) => 
       loan.status === 'pendente' && 
       loan.dueDate && 
       new Date(loan.dueDate) <= futureDate &&
@@ -211,12 +211,12 @@ export class NotificationService {
     );
   }
 
-  private static async getUpcomingDebts(userId: number, days: number) {
-    const debts = await DebtService.getDebtsByUserId(userId);
+  private static async getUpcomingDebts(userId: number, days: number): Promise<any[]> {
+    const debts = await DebtService.getDebts(null, userId);
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + days);
     
-    return debts.filter(debt => 
+    return debts.filter((debt: any) => 
       debt.status === 'pendente' && 
       debt.dueDate && 
       new Date(debt.dueDate) <= futureDate &&

@@ -299,7 +299,7 @@ export class OrganizationService {
 
     // Check if email is already registered
     // Requirements: 5.1, 5.2
-    const existingUser = await UserRepository.findByEmail(invitation.email);
+    const existingUser = await UserRepository.findByEmail(invitation.email!);
     if (existingUser) {
       // Check if user is already a member of this organization
       const existingMembership = await OrganizationMembershipService.isMember(

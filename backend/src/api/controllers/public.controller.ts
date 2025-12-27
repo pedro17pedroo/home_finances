@@ -13,11 +13,11 @@ export class PublicController {
       const content = await AdminRepository.getLandingContent();
       
       // Organizar conteúdo por seção
-      const organizedContent = content.reduce((acc, item) => {
+      const organizedContent = content.reduce((acc, item: any) => {
         acc[item.section] = {
-          title: item.title,
+          title: item.title || item.section,
           content: item.content,
-          metadata: item.metadata ? JSON.parse(item.metadata) : null
+          metadata: item.metadata ? JSON.parse(item.metadata as string) : null
         };
         return acc;
       }, {} as Record<string, any>);
@@ -46,7 +46,7 @@ export class PublicController {
           name: plan.name,
           description: plan.description,
           price: plan.price,
-          features: plan.features ? JSON.parse(plan.features) : [],
+          features: plan.features ? JSON.parse(plan.features as string) : [],
           maxAccounts: plan.maxAccounts,
           maxTransactions: plan.maxTransactions
         }));

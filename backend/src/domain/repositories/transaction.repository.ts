@@ -102,7 +102,7 @@ export class TransactionRepository {
         createdAt: new Date(),
         updatedAt: new Date(),
       })
-      .returning();
+      .returning() as Transaction[];
     
     return result[0];
   }
@@ -118,7 +118,7 @@ export class TransactionRepository {
         updatedAt: new Date(),
       })
       .where(eq(transactions.id, id))
-      .returning();
+      .returning() as Transaction[];
     
     return result[0];
   }

@@ -88,7 +88,7 @@ export const authenticate = async (
     }
 
     // Get activeOrganizationId from user (Requirements: 3.1, 6.1)
-    let activeOrgId = user.activeOrganizationId;
+    let activeOrgId: number | undefined = user.activeOrganizationId ?? undefined;
     let userRole = user.role || 'member';
 
     // Verify user is member of active organization, fallback if invalid
@@ -104,7 +104,7 @@ export const authenticate = async (
           await UserRepository.update(user.id, { activeOrganizationId: activeOrgId });
         } else {
           // No memberships found, use legacy organizationId if available
-          activeOrgId = user.organizationId || undefined;
+          activeOrgId = user.organizationId ?? undefined;
         }
       } else {
         // Use role from membership
@@ -120,7 +120,7 @@ export const authenticate = async (
         await UserRepository.update(user.id, { activeOrganizationId: activeOrgId });
       } else {
         // Fallback to legacy organizationId
-        activeOrgId = user.organizationId || undefined;
+        activeOrgId = user.organizationId ?? undefined;
       }
     }
 

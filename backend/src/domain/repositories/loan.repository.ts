@@ -66,7 +66,7 @@ export class LoanRepository {
 
   static async delete(id: number): Promise<boolean> {
     const result = await db.delete(loans).where(eq(loans.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Count by user

@@ -97,7 +97,7 @@ export class AccountService {
     const accessCheck = await planAccessService.canCreateAccount(userId, accountCount);
     
     if (!accessCheck.allowed) {
-      throw new BadRequestError(accessCheck.reason || "Limite de contas atingido para o seu plano. Faça upgrade para continuar.");
+      throw new BadRequestError((accessCheck as any).reason || "Limite de contas atingido para o seu plano. Faça upgrade para continuar.");
     }
 
     // Validate interest rate for savings accounts

@@ -4,9 +4,9 @@ import { savingsGoals, accounts, type SavingsGoal, type InsertSavingsGoal } from
 
 // Extended type with account info
 export interface SavingsGoalWithAccount extends SavingsGoal {
-  accountName?: string;
-  accountBalance?: string;
-  accountBank?: string;
+  accountName?: string | null;
+  accountBalance?: string | null;
+  accountBank?: string | null;
 }
 
 export class SavingsGoalRepository {

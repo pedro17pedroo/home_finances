@@ -54,17 +54,7 @@ export class AdminRepository {
 
   static async getAllAdmins(): Promise<AdminUser[]> {
     return await db
-      .select({
-        id: adminUsers.id,
-        email: adminUsers.email,
-        firstName: adminUsers.firstName,
-        lastName: adminUsers.lastName,
-        role: adminUsers.role,
-        isActive: adminUsers.isActive,
-        lastLoginAt: adminUsers.lastLoginAt,
-        createdAt: adminUsers.createdAt,
-        updatedAt: adminUsers.updatedAt,
-      })
+      .select()
       .from(adminUsers)
       .orderBy(desc(adminUsers.createdAt));
   }
@@ -112,7 +102,7 @@ export class AdminRepository {
   static async updatePlan(id: number, data: Partial<InsertPlan>): Promise<Plan | null> {
     const [plan] = await db
       .update(plans)
-      .set({ ...data, updatedAt: new Date() })
+      .set(data)
       .where(eq(plans.id, id))
       .returning();
     return plan || null;
@@ -120,7 +110,7 @@ export class AdminRepository {
 
   static async deletePlan(id: number): Promise<boolean> {
     const result = await db.delete(plans).where(eq(plans.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Users Management
@@ -159,11 +149,11 @@ export class AdminRepository {
       }
       
       if (status && status !== 'all') {
-        conditions.push(eq(users.subscriptionStatus, status));
+        conditions.push(eq(users.subscriptionStatus, status as any));
       }
       
       if (plan && plan !== 'all') {
-        conditions.push(eq(users.planType, plan));
+        conditions.push(eq(users.planType, plan as any));
       }
 
       if (conditions.length > 0) {
@@ -492,7 +482,7 @@ export class AdminRepository {
       action,
       entityType,
       entityId,
-      details: details ? JSON.stringify(details) : null
+      newData: details || null
     });
   }
 
@@ -503,7 +493,7 @@ export class AdminRepository {
         action: auditLogs.action,
         entityType: auditLogs.entityType,
         entityId: auditLogs.entityId,
-        details: auditLogs.details,
+        details: auditLogs.newData,
         createdAt: auditLogs.createdAt,
         adminEmail: adminUsers.email
       })
@@ -1010,7 +1000,7 @@ export class AdminRepository {
   static async deleteBank(id: number) {
     const { banks } = await import("../../core/database/schema.js");
     const result = await db.delete(banks).where(eq(banks.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Password Reset Token Management

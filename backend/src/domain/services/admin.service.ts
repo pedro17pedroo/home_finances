@@ -74,9 +74,9 @@ export class AdminService {
       admin: {
         id: admin.id,
         email: admin.email,
-        role: admin.role,
-        firstName: admin.firstName,
-        lastName: admin.lastName
+        role: admin.role || 'admin',
+        firstName: admin.firstName || undefined,
+        lastName: admin.lastName || undefined
       },
       token,
       refreshToken
@@ -186,7 +186,7 @@ export class AdminService {
       password: passwordHash,
       firstName: data.firstName,
       lastName: data.lastName,
-      role: data.role || 'admin',
+      role: (data.role || 'admin') as 'super_admin' | 'admin',
       isActive: true
     };
 
@@ -337,7 +337,14 @@ export class AdminService {
       }
     }
 
-    const admin = await AdminRepository.updateAdmin(adminId, data);
+    const updateData: any = {};
+    if (data.firstName !== undefined) updateData.firstName = data.firstName;
+    if (data.lastName !== undefined) updateData.lastName = data.lastName;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.role !== undefined) updateData.role = data.role as 'super_admin' | 'admin';
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+    const admin = await AdminRepository.updateAdmin(adminId, updateData);
     if (!admin) {
       throw new NotFoundError("Administrador não encontrado");
     }
@@ -387,7 +394,7 @@ export class AdminService {
     content?: string;
     metadata?: any;
   }, updatedBy: number) {
-    const updateData: Partial<InsertLandingContent> = {};
+    const updateData: any = {};
     
     if (data.title !== undefined) updateData.title = data.title;
     if (data.content !== undefined) updateData.content = data.content;
