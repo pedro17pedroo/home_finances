@@ -16,6 +16,7 @@ import {
   Tag,
   Wallet,
   Building2,
+  UserCog,
 } from 'lucide-react';
 import { useAdminAuth } from '../../contexts/admin-auth-context';
 import { useState } from 'react';
@@ -30,7 +31,8 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/' },
-  { id: 'users', label: 'Usuários', icon: <Users className="w-5 h-5" />, path: '/users' },
+  { id: 'users', label: 'Utilizadores', icon: <Users className="w-5 h-5" />, path: '/users' },
+  { id: 'admins', label: 'Administradores', icon: <UserCog className="w-5 h-5" />, path: '/admins', permission: 'super_admin' },
   { id: 'plans', label: 'Planos', icon: <Package className="w-5 h-5" />, path: '/plans' },
   { id: 'subscriptions', label: 'Assinaturas', icon: <Repeat className="w-5 h-5" />, path: '/subscriptions' },
   { id: 'campaigns', label: 'Campanhas', icon: <Tag className="w-5 h-5" />, path: '/campaigns' },
@@ -55,12 +57,12 @@ export function AdminSidebar() {
 
   return (
     <aside
-      className={`bg-gray-900 text-white h-screen flex flex-col transition-all duration-300 ${
+      className={`bg-gray-900 text-white h-screen flex flex-col transition-all duration-300 flex-shrink-0 border-r border-gray-700 ${
         collapsed ? 'w-16' : 'w-64'
       }`}
     >
       {/* Logo */}
-      <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+      <div className={`h-16 border-b border-gray-800 flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-4'}`}>
         {!collapsed && (
           <div className="flex items-center">
             <span className="text-2xl">🔧</span>
@@ -69,29 +71,39 @@ export function AdminSidebar() {
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1 hover:bg-gray-800 rounded"
+          className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+          title={collapsed ? 'Expandir menu' : 'Colapsar menu'}
         >
           {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 overflow-y-auto">
-        <ul className="space-y-1 px-2">
+      <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden">
+        <ul className={`space-y-1 ${collapsed ? 'px-2' : 'px-3'}`}>
           {filteredItems.map((item) => {
             const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path));
             return (
               <li key={item.id}>
                 <Link href={item.path}>
                   <div
-                    className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                    className={`flex items-center rounded-lg cursor-pointer transition-colors group relative ${
+                      collapsed ? 'w-10 h-10 justify-center mx-auto' : 'px-3 py-2'
+                    } ${
                       isActive
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                     }`}
                   >
-                    {item.icon}
-                    {!collapsed && <span className="ml-3">{item.label}</span>}
+                    <span className="flex-shrink-0">{item.icon}</span>
+                    {!collapsed && <span className="ml-3 whitespace-nowrap">{item.label}</span>}
+                    
+                    {/* Tooltip for collapsed state */}
+                    {collapsed && (
+                      <div className="absolute left-full ml-3 px-2 py-1 bg-gray-800 text-white text-sm rounded-md whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg border border-gray-700">
+                        {item.label}
+                      </div>
+                    )}
                   </div>
                 </Link>
               </li>
@@ -101,7 +113,7 @@ export function AdminSidebar() {
       </nav>
 
       {/* User Info */}
-      <div className="p-4 border-t border-gray-800">
+      <div className={`border-t border-gray-800 ${collapsed ? 'p-2' : 'p-4'}`}>
         {!collapsed && admin && (
           <div className="mb-3">
             <p className="text-sm font-medium">{admin.firstName} {admin.lastName}</p>
@@ -110,10 +122,19 @@ export function AdminSidebar() {
         )}
         <button
           onClick={logout}
-          className="flex items-center w-full px-3 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
+          className={`flex items-center text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors group relative ${
+            collapsed ? 'w-10 h-10 justify-center mx-auto' : 'w-full px-3 py-2'
+          }`}
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="w-5 h-5 flex-shrink-0" />
           {!collapsed && <span className="ml-3">Sair</span>}
+          
+          {/* Tooltip for collapsed state */}
+          {collapsed && (
+            <div className="absolute left-full ml-3 px-2 py-1 bg-gray-800 text-white text-sm rounded-md whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg border border-gray-700">
+              Sair
+            </div>
+          )}
         </button>
       </div>
     </aside>
