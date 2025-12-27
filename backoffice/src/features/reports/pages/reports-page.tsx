@@ -56,8 +56,8 @@ export function ReportsPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-gray-500" />
-                <span className="text-gray-600">Período:</span>
+                <Calendar className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <span className="text-gray-600 dark:text-gray-400">Período:</span>
                 <div className="flex gap-2">
                   {[
                     { value: 'week', label: 'Semana' },
@@ -90,12 +90,12 @@ export function ReportsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Receita Total</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Receita Total</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {formatCurrency(reportData?.summary?.totalRevenue || 0)}
                   </p>
                 </div>
-                <DollarSign className="w-8 h-8 text-green-200" />
+                <DollarSign className="w-8 h-8 text-green-200 dark:text-green-800" />
               </div>
             </CardContent>
           </Card>
@@ -103,10 +103,10 @@ export function ReportsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total Usuários</p>
-                  <p className="text-2xl font-bold text-blue-600">{reportData?.summary?.totalUsers || 0}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total Usuários</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{reportData?.summary?.totalUsers || 0}</p>
                 </div>
-                <Users className="w-8 h-8 text-blue-200" />
+                <Users className="w-8 h-8 text-blue-200 dark:text-blue-800" />
               </div>
             </CardContent>
           </Card>
@@ -114,10 +114,10 @@ export function ReportsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Assinaturas Ativas</p>
-                  <p className="text-2xl font-bold text-purple-600">{reportData?.summary?.activeSubscriptions || 0}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Assinaturas Ativas</p>
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{reportData?.summary?.activeSubscriptions || 0}</p>
                 </div>
-                <CreditCard className="w-8 h-8 text-purple-200" />
+                <CreditCard className="w-8 h-8 text-purple-200 dark:text-purple-800" />
               </div>
             </CardContent>
           </Card>
@@ -125,10 +125,10 @@ export function ReportsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Taxa de Conversão</p>
-                  <p className="text-2xl font-bold text-orange-600">{reportData?.summary?.conversionRate || 0}%</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Taxa de Conversão</p>
+                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{reportData?.summary?.conversionRate || 0}%</p>
                 </div>
-                <TrendingUp className="w-8 h-8 text-orange-200" />
+                <TrendingUp className="w-8 h-8 text-orange-200 dark:text-orange-800" />
               </div>
             </CardContent>
           </Card>

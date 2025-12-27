@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Eye, Edit, Ban, Loader2, X, CheckCircle } from 'lucide-react';
+import { Search, Eye, Edit, Ban, Loader2, X, CheckCircle, Trash2, Users, UserCheck, UserX, TrendingUp } from 'lucide-react';
 import { AdminLayout } from '../../../shared/components/layout/admin-layout';
 import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
@@ -15,7 +15,16 @@ interface User {
   phone: string | null;
   planType: string | null;
   subscriptionStatus: string | null;
+  organizationId: number | null;
+  role: string | null;
   createdAt: string;
+  updatedAt: string | null;
+}
+
+interface UserStats {
+  total: number;
+  active: number;
+  byPlan: Array<{ planType: string; subscriptionStatus: string; count: number; }>;
 }
 
 export function UsersPage() {
@@ -26,15 +35,36 @@ export function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', planType: 'basic' });
+  const [editForm, setEditForm] = useState({
+    firstName: '', lastName: '', email: '', phone: '', planType: 'basic', subscriptionStatus: 'trialing'
+  });
 
-  const { data: users, isLoading, error } = useQuery<User[]>({
+  const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ['admin', 'users', search, statusFilter, planFilter],
     queryFn: async () => {
       const response = await apiClient.get('/admin/users', {
         params: { search, status: statusFilter, plan: planFilter },
       });
       return response.data.users || [];
+    },
+  });
+
+  const { data: stats } = useQuery<UserStats>({
+    queryKey: ['admin', 'users', 'stats'],
+    queryFn: async () => {
+      const response = await apiClient.get('/admin/users/stats');
+      return response.data.data?.stats || { total: 0, active: 0, byPlan: [] };
+    },
+  });
+
+  const updateUser = useMutation({
+    mutationFn: async ({ userId, data }: { userId: number; data: typeof editForm }) => {
+      await apiClient.put(`/admin/users/${userId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      setIsEditModalOpen(false);
+      setSelectedUser(null);
     },
   });
 
@@ -49,6 +79,15 @@ export function UsersPage() {
     },
   });
 
+  const deleteUser = useMutation({
+    mutationFn: async (userId: number) => {
+      await apiClient.delete(`/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+  });
+
   const viewUserDetails = (user: User) => {
     setSelectedUser(user);
     setIsDetailModalOpen(true);
@@ -57,90 +96,144 @@ export function UsersPage() {
   const openEditModal = (user: User) => {
     setSelectedUser(user);
     setEditForm({
-      firstName: user.firstName || '',
-      lastName: user.lastName || '',
-      planType: user.planType || 'basic',
+      firstName: user.firstName || '', lastName: user.lastName || '', email: user.email || '',
+      phone: user.phone || '', planType: user.planType || 'basic', subscriptionStatus: user.subscriptionStatus || 'trialing',
     });
     setIsEditModalOpen(true);
   };
 
+  const handleUpdateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+    updateUser.mutate({ userId: selectedUser.id, data: editForm });
+  };
+
   const toggleUserStatus = (user: User) => {
     const isCurrentlyActive = user.subscriptionStatus === 'active';
-    if (confirm(`Tem certeza que deseja ${isCurrentlyActive ? 'desativar' : 'ativar'} este usuário?`)) {
+    if (confirm(`Tem certeza que deseja ${isCurrentlyActive ? 'desativar' : 'ativar'} este utilizador?`)) {
       updateUserStatus.mutate({ userId: user.id, isActive: !isCurrentlyActive });
+    }
+  };
+
+  const handleDeleteUser = (user: User) => {
+    if (confirm(`Tem certeza que deseja eliminar o utilizador "${user.email || user.phone}"?`)) {
+      deleteUser.mutate(user.id);
     }
   };
 
   const getStatusBadge = (status: string | null) => {
     const styles: Record<string, string> = {
-      active: 'bg-green-100 text-green-700',
-      trialing: 'bg-blue-100 text-blue-700',
-      canceled: 'bg-red-100 text-red-700',
-      past_due: 'bg-yellow-100 text-yellow-700',
+      active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      trialing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      canceled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      past_due: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
     };
-    const labels: Record<string, string> = {
-      active: 'Ativo',
-      trialing: 'Teste',
-      canceled: 'Cancelado',
-      past_due: 'Atrasado',
-    };
+    const labels: Record<string, string> = { active: 'Ativo', trialing: 'Teste', canceled: 'Cancelado', past_due: 'Atrasado' };
     const s = status || 'trialing';
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[s] || 'bg-gray-100 text-gray-700'}`}>
-        {labels[s] || s}
-      </span>
-    );
+    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[s] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{labels[s] || s}</span>;
   };
 
   const getPlanBadge = (plan: string | null) => {
     const styles: Record<string, string> = {
-      basic: 'bg-gray-100 text-gray-700',
-      premium: 'bg-purple-100 text-purple-700',
-      enterprise: 'bg-orange-100 text-orange-700',
+      free: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+      basic: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      premium: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      enterprise: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     };
+    const labels: Record<string, string> = { free: 'Gratuito', basic: 'Básico', premium: 'Premium', enterprise: 'Enterprise' };
     const p = plan || 'basic';
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[p] || 'bg-gray-100 text-gray-700'}`}>
-        {p.charAt(0).toUpperCase() + p.slice(1)}
-      </span>
-    );
+    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[p] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{labels[p] || p}</span>;
   };
 
   return (
-    <AdminLayout title="Gestão de Usuários">
+    <AdminLayout title="Gestão de Utilizadores">
       <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total de Utilizadores</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.total || 0}</p>
+                </div>
+                <Users className="w-8 h-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Utilizadores Ativos</p>
+                  <p className="text-2xl font-bold text-green-600">{stats?.active || 0}</p>
+                </div>
+                <UserCheck className="w-8 h-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Em Teste</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {stats?.byPlan?.filter(s => s.subscriptionStatus === 'trialing').reduce((acc, s) => acc + s.count, 0) || 0}
+                  </p>
+                </div>
+                <TrendingUp className="w-8 h-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Cancelados</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {stats?.byPlan?.filter(s => s.subscriptionStatus === 'canceled').reduce((acc, s) => acc + s.count, 0) || 0}
+                  </p>
+                </div>
+                <UserX className="w-8 h-8 text-red-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Filters */}
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-4">
               <div className="flex-1 min-w-[200px]">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                   <input
                     type="text"
                     placeholder="Buscar por nome, email ou telefone..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">Todos os Status</option>
                 <option value="active">Ativo</option>
                 <option value="trialing">Em Teste</option>
                 <option value="canceled">Cancelado</option>
+                <option value="past_due">Atrasado</option>
               </select>
               <select
                 value={planFilter}
                 onChange={(e) => setPlanFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">Todos os Planos</option>
+                <option value="free">Gratuito</option>
                 <option value="basic">Básico</option>
                 <option value="premium">Premium</option>
                 <option value="enterprise">Enterprise</option>
@@ -156,74 +249,57 @@ export function UsersPage() {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
               </div>
-            ) : error ? (
-              <div className="text-center py-12 text-red-500">
-                Erro ao carregar usuários. Tente novamente.
-              </div>
             ) : !users || users.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                Nenhum usuário encontrado.
-              </div>
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">Nenhum utilizador encontrado.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
                     <tr>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Usuário</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Contato</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Plano</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Criado em</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Ações</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-300">Utilizador</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-300">Contacto</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-300">Plano</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-300">Estado</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-300">Criado em</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-300">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
-                    {users?.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
+                  <tbody className="divide-y dark:divide-gray-700">
+                    {users.map((user) => (
+                      <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                         <td className="py-3 px-4">
                           <div className="flex items-center">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium">
+                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-medium">
                               {(user.firstName || 'U').charAt(0)}{(user.lastName || '').charAt(0)}
                             </div>
                             <div className="ml-3">
-                              <p className="font-medium text-gray-900">{user.firstName || ''} {user.lastName || ''}</p>
-                              <p className="text-sm text-gray-500">ID: {user.id}</p>
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                {user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Sem nome'}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">ID: {user.id}</p>
                             </div>
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <p className="text-gray-900">{user.email || '-'}</p>
-                          <p className="text-sm text-gray-500">{user.phone || '-'}</p>
+                          <p className="text-gray-900 dark:text-white">{user.email || '-'}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{user.phone || '-'}</p>
                         </td>
                         <td className="py-3 px-4">{getPlanBadge(user.planType)}</td>
                         <td className="py-3 px-4">{getStatusBadge(user.subscriptionStatus)}</td>
-                        <td className="py-3 px-4 text-gray-600">{user.createdAt ? formatDate(user.createdAt) : '-'}</td>
+                        <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{user.createdAt ? formatDate(user.createdAt) : '-'}</td>
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-2">
-                            <button 
-                              onClick={() => viewUserDetails(user)}
-                              className="p-1 hover:bg-blue-100 rounded" 
-                              title="Ver detalhes"
-                            >
+                            <button onClick={() => viewUserDetails(user)} className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded" title="Ver detalhes">
                               <Eye className="w-4 h-4 text-blue-500" />
                             </button>
-                            <button 
-                              onClick={() => openEditModal(user)}
-                              className="p-1 hover:bg-gray-100 rounded" 
-                              title="Editar"
-                            >
-                              <Edit className="w-4 h-4 text-gray-500" />
+                            <button onClick={() => openEditModal(user)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Editar">
+                              <Edit className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                             </button>
-                            <button 
-                              onClick={() => toggleUserStatus(user)}
-                              className={`p-1 rounded ${user.subscriptionStatus === 'active' ? 'hover:bg-red-100' : 'hover:bg-green-100'}`}
-                              title={user.subscriptionStatus === 'active' ? 'Desativar' : 'Ativar'}
-                            >
-                              {user.subscriptionStatus === 'active' ? (
-                                <Ban className="w-4 h-4 text-red-500" />
-                              ) : (
-                                <CheckCircle className="w-4 h-4 text-green-500" />
-                              )}
+                            <button onClick={() => toggleUserStatus(user)} className={`p-1 rounded ${user.subscriptionStatus === 'active' ? 'hover:bg-red-100 dark:hover:bg-red-900/30' : 'hover:bg-green-100 dark:hover:bg-green-900/30'}`} title={user.subscriptionStatus === 'active' ? 'Desativar' : 'Ativar'}>
+                              {user.subscriptionStatus === 'active' ? <Ban className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}
+                            </button>
+                            <button onClick={() => handleDeleteUser(user)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded" title="Eliminar">
+                              <Trash2 className="w-4 h-4 text-red-500" />
                             </button>
                           </div>
                         </td>
@@ -239,73 +315,32 @@ export function UsersPage() {
         {/* User Detail Modal */}
         {isDetailModalOpen && selectedUser && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Detalhes do Usuário</h3>
-                <button onClick={() => setIsDetailModalOpen(false)}>
-                  <X className="w-6 h-6 text-gray-500" />
-                </button>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Detalhes do Utilizador</h3>
+                <button onClick={() => setIsDetailModalOpen(false)}><X className="w-6 h-6 text-gray-500 dark:text-gray-400" /></button>
               </div>
               <div className="space-y-4">
                 <div className="flex items-center mb-4">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">
+                  <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xl">
                     {(selectedUser.firstName || 'U').charAt(0)}{(selectedUser.lastName || '').charAt(0)}
                   </div>
                   <div className="ml-4">
-                    <p className="text-xl font-semibold">{selectedUser.firstName} {selectedUser.lastName}</p>
-                    <p className="text-gray-500">ID: {selectedUser.id}</p>
+                    <p className="text-xl font-semibold text-gray-900 dark:text-white">{selectedUser.firstName} {selectedUser.lastName}</p>
+                    <p className="text-gray-500 dark:text-gray-400">ID: {selectedUser.id}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-medium">{selectedUser.email || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Telefone</p>
-                    <p className="font-medium">{selectedUser.phone || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Plano</p>
-                    {getPlanBadge(selectedUser.planType)}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    {getStatusBadge(selectedUser.subscriptionStatus)}
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-sm text-gray-500">Criado em</p>
-                    <p className="font-medium">{selectedUser.createdAt ? formatDate(selectedUser.createdAt) : '-'}</p>
-                  </div>
+                  <div><p className="text-sm text-gray-500 dark:text-gray-400">Email</p><p className="font-medium text-gray-900 dark:text-white">{selectedUser.email || '-'}</p></div>
+                  <div><p className="text-sm text-gray-500 dark:text-gray-400">Telefone</p><p className="font-medium text-gray-900 dark:text-white">{selectedUser.phone || '-'}</p></div>
+                  <div><p className="text-sm text-gray-500 dark:text-gray-400">Plano</p>{getPlanBadge(selectedUser.planType)}</div>
+                  <div><p className="text-sm text-gray-500 dark:text-gray-400">Estado</p>{getStatusBadge(selectedUser.subscriptionStatus)}</div>
+                  <div className="col-span-2"><p className="text-sm text-gray-500 dark:text-gray-400">Criado em</p><p className="font-medium text-gray-900 dark:text-white">{selectedUser.createdAt ? formatDate(selectedUser.createdAt) : '-'}</p></div>
                 </div>
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button 
-                    onClick={() => {
-                      setIsDetailModalOpen(false);
-                      openEditModal(selectedUser);
-                    }}
-                    variant="outline" 
-                    className="flex-1"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Editar
-                  </Button>
-                  <Button 
-                    onClick={() => toggleUserStatus(selectedUser)}
-                    variant={selectedUser.subscriptionStatus === 'active' ? 'outline' : 'default'}
-                    className={`flex-1 ${selectedUser.subscriptionStatus === 'active' ? 'text-red-600 border-red-600' : ''}`}
-                  >
-                    {selectedUser.subscriptionStatus === 'active' ? (
-                      <>
-                        <Ban className="w-4 h-4 mr-2" />
-                        Desativar
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Ativar
-                      </>
-                    )}
+                <div className="flex gap-2 pt-4 border-t dark:border-gray-700">
+                  <Button onClick={() => { setIsDetailModalOpen(false); openEditModal(selectedUser); }} variant="outline" className="flex-1"><Edit className="w-4 h-4 mr-2" />Editar</Button>
+                  <Button onClick={() => toggleUserStatus(selectedUser)} variant={selectedUser.subscriptionStatus === 'active' ? 'outline' : 'default'} className={`flex-1 ${selectedUser.subscriptionStatus === 'active' ? 'text-red-600 border-red-600' : ''}`}>
+                    {selectedUser.subscriptionStatus === 'active' ? <><Ban className="w-4 h-4 mr-2" />Desativar</> : <><CheckCircle className="w-4 h-4 mr-2" />Ativar</>}
                   </Button>
                 </div>
               </div>
@@ -316,54 +351,47 @@ export function UsersPage() {
         {/* Edit User Modal */}
         {isEditModalOpen && selectedUser && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Editar Usuário</h3>
-                <button onClick={() => setIsEditModalOpen(false)}>
-                  <X className="w-6 h-6 text-gray-500" />
-                </button>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Editar Utilizador</h3>
+                <button onClick={() => setIsEditModalOpen(false)}><X className="w-6 h-6 text-gray-500 dark:text-gray-400" /></button>
               </div>
-              <form className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                  <input
-                    type="text"
-                    value={editForm.firstName}
-                    onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
+              <form onSubmit={handleUpdateUser} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                    <input type="text" value={editForm.firstName} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Apelido</label>
+                    <input type="text" value={editForm.lastName} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sobrenome</label>
-                  <input
-                    type="text"
-                    value={editForm.lastName}
-                    onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                  <input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Plano</label>
-                  <select
-                    value={editForm.planType}
-                    onChange={(e) => setEditForm({ ...editForm, planType: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="basic">Básico</option>
-                    <option value="premium">Premium</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+                  <input type="text" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plano</label>
+                    <select value={editForm.planType} onChange={(e) => setEditForm({ ...editForm, planType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                      <option value="free">Gratuito</option><option value="basic">Básico</option><option value="premium">Premium</option><option value="enterprise">Enterprise</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+                    <select value={editForm.subscriptionStatus} onChange={(e) => setEditForm({ ...editForm, subscriptionStatus: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                      <option value="trialing">Em Teste</option><option value="active">Ativo</option><option value="canceled">Cancelado</option><option value="past_due">Atrasado</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="button" onClick={() => {
-                    alert('Funcionalidade de edição será implementada em breve');
-                    setIsEditModalOpen(false);
-                  }}>
-                    Salvar
-                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
+                  <Button type="submit" disabled={updateUser.isPending}>{updateUser.isPending ? 'Salvando...' : 'Salvar'}</Button>
                 </div>
               </form>
             </div>

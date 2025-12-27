@@ -30,11 +30,7 @@ export function NotificationsPage() {
         const response = await apiClient.get('/admin/notifications');
         return response.data;
       } catch {
-        return [
-          { id: 1, title: 'Nova funcionalidade', message: 'Agora você pode exportar relatórios em PDF!', type: 'info', targetType: 'all', sentAt: '2024-06-15T10:00:00', readCount: 850, totalRecipients: 1200 },
-          { id: 2, title: 'Manutenção programada', message: 'O sistema estará em manutenção dia 20/06', type: 'warning', targetType: 'all', sentAt: '2024-06-14T14:30:00', readCount: 720, totalRecipients: 1200 },
-          { id: 3, title: 'Promoção especial', message: '50% de desconto no plano Premium!', type: 'promo', targetType: 'basic', sentAt: '2024-06-10T09:00:00', readCount: 380, totalRecipients: 450 },
-        ];
+        return [];
       }
     },
   });
@@ -61,10 +57,10 @@ export function NotificationsPage() {
 
   const getTypeBadge = (type: string) => {
     const config: Record<string, { bg: string; text: string; label: string }> = {
-      info: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Informação' },
-      warning: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Aviso' },
-      promo: { bg: 'bg-green-100', text: 'text-green-800', label: 'Promoção' },
-      alert: { bg: 'bg-red-100', text: 'text-red-800', label: 'Alerta' },
+      info: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-400', label: 'Informação' },
+      warning: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', label: 'Aviso' },
+      promo: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-400', label: 'Promoção' },
+      alert: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Alerta' },
     };
     const { bg, text, label } = config[type] || config.info;
     return <span className={`px-2 py-1 rounded-full text-xs font-medium ${bg} ${text}`}>{label}</span>;
@@ -78,66 +74,65 @@ export function NotificationsPage() {
   return (
     <AdminLayout title="Notificações">
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <p className="text-gray-600">Envie notificações para os usuários da plataforma</p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <p className="text-gray-600 dark:text-gray-400">Envie notificações para os usuários da plataforma</p>
           <Button onClick={() => setIsModalOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Nova Notificação
           </Button>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
               <Bell className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold">{notifications?.length || 0}</p>
-              <p className="text-sm text-gray-500">Total Enviadas</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{notifications?.length || 0}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Enviadas</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
               <Users className="w-8 h-8 text-green-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold">{notifications?.reduce((sum, n) => sum + n.totalRecipients, 0) || 0}</p>
-              <p className="text-sm text-gray-500">Total Destinatários</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{notifications?.reduce((sum, n) => sum + n.totalRecipients, 0) || 0}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Destinatários</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
               <User className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold">
-                {notifications?.length ? Math.round((notifications.reduce((sum, n) => sum + n.readCount, 0) / notifications.reduce((sum, n) => sum + n.totalRecipients, 0)) * 100) : 0}%
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {notifications?.length ? Math.round((notifications.reduce((sum, n) => sum + n.readCount, 0) / Math.max(notifications.reduce((sum, n) => sum + n.totalRecipients, 0), 1)) * 100) : 0}%
               </p>
-              <p className="text-sm text-gray-500">Taxa de Leitura</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Taxa de Leitura</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Notifications List */}
         <Card>
           <CardHeader><CardTitle>Histórico de Notificações</CardTitle></CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">Carregando...</div>
+            ) : notifications?.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">Nenhuma notificação enviada</div>
             ) : (
               <div className="space-y-4">
                 {notifications?.map((notification) => (
-                  <div key={notification.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                  <div key={notification.id} className="border dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h4 className="font-semibold">{notification.title}</h4>
+                          <h4 className="font-semibold text-gray-900 dark:text-white">{notification.title}</h4>
                           {getTypeBadge(notification.type)}
                         </div>
-                        <p className="text-gray-600 text-sm mb-2">{notification.message}</p>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">{notification.message}</p>
+                        <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-500">
                           <span>Enviada: {formatDate(notification.sentAt)}</span>
                           <span>Destino: {getTargetLabel(notification.targetType)}</span>
                           <span>Lida por: {notification.readCount}/{notification.totalRecipients}</span>
                         </div>
                       </div>
-                      <button onClick={() => deleteNotification.mutate(notification.id)} className="p-2 hover:bg-red-100 rounded">
+                      <button onClick={() => deleteNotification.mutate(notification.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded">
                         <Trash2 className="w-4 h-4 text-red-600" />
                       </button>
                     </div>
@@ -148,27 +143,28 @@ export function NotificationsPage() {
           </CardContent>
         </Card>
 
-        {/* Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Nova Notificação</h3>
-                <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6 text-gray-500" /></button>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Nova Notificação</h3>
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-500 dark:text-gray-400">
+                  <X className="w-6 h-6" />
+                </button>
               </div>
               <form onSubmit={(e) => { e.preventDefault(); sendNotification.mutate(formData); }} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
-                  <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
+                  <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem</label>
-                  <textarea value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 h-24" required />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mensagem</label>
+                  <textarea value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 h-24" required />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-                    <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+                    <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                       <option value="info">Informação</option>
                       <option value="warning">Aviso</option>
                       <option value="promo">Promoção</option>
@@ -176,8 +172,8 @@ export function NotificationsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Destinatários</label>
-                    <select value={formData.targetType} onChange={(e) => setFormData({ ...formData, targetType: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destinatários</label>
+                    <select value={formData.targetType} onChange={(e) => setFormData({ ...formData, targetType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                       <option value="all">Todos os Usuários</option>
                       <option value="basic">Plano Básico</option>
                       <option value="premium">Plano Premium</option>
@@ -185,7 +181,7 @@ export function NotificationsPage() {
                     </select>
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
+                <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
                   <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
                   <Button type="submit" disabled={sendNotification.isPending}>
                     <Send className="w-4 h-4 mr-2" />

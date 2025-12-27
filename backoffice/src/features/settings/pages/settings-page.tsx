@@ -31,7 +31,6 @@ export function SettingsPage() {
     queryFn: async () => {
       const response = await apiClient.get('/admin/settings');
       const data = response.data;
-      // Ensure we have all required sections
       const mergedSettings: SystemSettings = {
         general: { ...defaultSettings.general, ...data.general },
         email: { ...defaultSettings.email, ...data.email },
@@ -70,23 +69,23 @@ export function SettingsPage() {
 
   const renderInput = (section: keyof SystemSettings, key: string, label: string, type = 'text') => (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
       <input
         type={type}
         value={(settings[section] as any)[key] || ''}
         onChange={(e) => updateSetting(section, key, type === 'number' ? Number(e.target.value) : e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
       />
     </div>
   );
 
   const renderToggle = (section: keyof SystemSettings, key: string, label: string) => (
     <div className="flex items-center justify-between py-2">
-      <span className="text-sm text-gray-700">{label}</span>
+      <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
       <button
         onClick={() => updateSetting(section, key, !(settings[section] as any)[key])}
         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-          (settings[section] as any)[key] ? 'bg-blue-600' : 'bg-gray-200'
+          (settings[section] as any)[key] ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
         }`}
       >
         <span
@@ -105,96 +104,96 @@ export function SettingsPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400">
           Erro ao carregar configurações. Tente novamente.
         </div>
       ) : (
-        <div className="flex gap-6">
-        {/* Sidebar */}
-        <div className="w-64 shrink-0">
-          <Card>
-            <CardContent className="p-2">
-              <nav className="space-y-1">
-                {sections.map((section) => {
-                  const Icon = section.icon;
-                  return (
-                    <button
-                      key={section.id}
-                      onClick={() => setActiveSection(section.id)}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
-                        activeSection === section.id
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      {section.label}
-                    </button>
-                  );
-                })}
-              </nav>
-            </CardContent>
-          </Card>
-        </div>
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Sidebar */}
+          <div className="w-full lg:w-64 shrink-0">
+            <Card>
+              <CardContent className="p-2">
+                <nav className="space-y-1">
+                  {sections.map((section) => {
+                    const Icon = section.icon;
+                    return (
+                      <button
+                        key={section.id}
+                        onClick={() => setActiveSection(section.id)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
+                          activeSection === section.id
+                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        {section.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Content */}
-        <div className="flex-1">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  {sections.find((s) => s.id === activeSection)?.label}
-                </CardTitle>
-                {hasChanges && (
-                  <Button onClick={() => saveSettings.mutate(settings)} disabled={saveSettings.isPending}>
-                    <Save className="w-4 h-4 mr-2" />
-                    {saveSettings.isPending ? 'Salvando...' : 'Salvar Alterações'}
-                  </Button>
+          {/* Content */}
+          <div className="flex-1">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="w-5 h-5" />
+                    {sections.find((s) => s.id === activeSection)?.label}
+                  </CardTitle>
+                  {hasChanges && (
+                    <Button onClick={() => saveSettings.mutate(settings)} disabled={saveSettings.isPending}>
+                      <Save className="w-4 h-4 mr-2" />
+                      {saveSettings.isPending ? 'Salvando...' : 'Salvar Alterações'}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {activeSection === 'general' && (
+                  <>
+                    {renderInput('general', 'siteName', 'Nome do Site')}
+                    {renderInput('general', 'siteUrl', 'URL do Site')}
+                    {renderInput('general', 'supportEmail', 'Email de Suporte', 'email')}
+                    {renderInput('general', 'currency', 'Moeda')}
+                  </>
                 )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {activeSection === 'general' && (
-                <>
-                  {renderInput('general', 'siteName', 'Nome do Site')}
-                  {renderInput('general', 'siteUrl', 'URL do Site')}
-                  {renderInput('general', 'supportEmail', 'Email de Suporte', 'email')}
-                  {renderInput('general', 'currency', 'Moeda')}
-                </>
-              )}
-              {activeSection === 'email' && (
-                <>
-                  {renderInput('email', 'smtpHost', 'Servidor SMTP')}
-                  {renderInput('email', 'smtpPort', 'Porta SMTP', 'number')}
-                  {renderInput('email', 'smtpUser', 'Usuário SMTP')}
-                  {renderInput('email', 'fromEmail', 'Email de Envio', 'email')}
-                  {renderInput('email', 'fromName', 'Nome de Envio')}
-                </>
-              )}
-              {activeSection === 'payment' && (
-                <>
-                  {renderInput('payment', 'tpagamentoUrl', 'URL TPagamento')}
-                  {renderInput('payment', 'tpagamentoApiKey', 'API Key TPagamento')}
-                  <div className="border-t pt-4 mt-4">
-                    <h4 className="font-medium mb-2">Métodos de Pagamento</h4>
-                    {renderToggle('payment', 'enableEkwanza', 'E-Kwanza')}
-                    {renderToggle('payment', 'enableGpo', 'Multicaixa Express (GPO)')}
-                    {renderToggle('payment', 'enableRef', 'Referência Multicaixa')}
-                  </div>
-                </>
-              )}
-              {activeSection === 'notifications' && (
-                <>
-                  {renderToggle('notifications', 'enableEmailNotifications', 'Notificações por Email')}
-                  {renderToggle('notifications', 'enablePushNotifications', 'Notificações Push')}
-                  {renderInput('notifications', 'adminAlertEmail', 'Email para Alertas Admin', 'email')}
-                </>
-              )}
-            </CardContent>
-          </Card>
+                {activeSection === 'email' && (
+                  <>
+                    {renderInput('email', 'smtpHost', 'Servidor SMTP')}
+                    {renderInput('email', 'smtpPort', 'Porta SMTP', 'number')}
+                    {renderInput('email', 'smtpUser', 'Usuário SMTP')}
+                    {renderInput('email', 'fromEmail', 'Email de Envio', 'email')}
+                    {renderInput('email', 'fromName', 'Nome de Envio')}
+                  </>
+                )}
+                {activeSection === 'payment' && (
+                  <>
+                    {renderInput('payment', 'tpagamentoUrl', 'URL TPagamento')}
+                    {renderInput('payment', 'tpagamentoApiKey', 'API Key TPagamento')}
+                    <div className="border-t dark:border-gray-700 pt-4 mt-4">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Métodos de Pagamento</h4>
+                      {renderToggle('payment', 'enableEkwanza', 'E-Kwanza')}
+                      {renderToggle('payment', 'enableGpo', 'Multicaixa Express (GPO)')}
+                      {renderToggle('payment', 'enableRef', 'Referência Multicaixa')}
+                    </div>
+                  </>
+                )}
+                {activeSection === 'notifications' && (
+                  <>
+                    {renderToggle('notifications', 'enableEmailNotifications', 'Notificações por Email')}
+                    {renderToggle('notifications', 'enablePushNotifications', 'Notificações Push')}
+                    {renderInput('notifications', 'adminAlertEmail', 'Email para Alertas Admin', 'email')}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
       )}
     </AdminLayout>
   );

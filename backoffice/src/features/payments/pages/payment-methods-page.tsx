@@ -168,22 +168,22 @@ export function PaymentMethodsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-gray-500">Total de Métodos</p>
-              <p className="text-2xl font-bold text-blue-600">{methods?.length || 0}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total de Métodos</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{methods?.length || 0}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-gray-500">Ativos</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Ativos</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {methods?.filter(m => m.isActive).length || 0}
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-gray-500">Instantâneos</p>
-              <p className="text-2xl font-bold text-purple-600">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Instantâneos</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                 {methods?.filter(m => m.isInstant).length || 0}
               </p>
             </CardContent>
@@ -202,7 +202,7 @@ export function PaymentMethodsPage() {
             {isLoading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-gray-500">Carregando...</p>
+                <p className="mt-2 text-gray-500 dark:text-gray-400">Carregando...</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -210,14 +210,14 @@ export function PaymentMethodsPage() {
                   <div
                     key={method.id}
                     className={`border rounded-lg p-4 transition-all ${
-                      method.isActive ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'
+                      method.isActive ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800' : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 opacity-60'
                     }`}
                   >
                     <div className="flex items-start gap-4">
                       {/* Drag Handle & Logo */}
                       <div className="flex items-center gap-3">
                         <GripVertical className="w-5 h-5 text-gray-400 cursor-grab" />
-                        <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border">
+                        <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden border border-gray-200 dark:border-gray-600">
                           {method.logoUrl ? (
                             <img
                               src={method.logoUrl.startsWith('/uploads') 
@@ -239,19 +239,19 @@ export function PaymentMethodsPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-gray-900">{method.displayName}</h3>
-                          <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded">
+                          <h3 className="font-semibold text-gray-900 dark:text-white">{method.displayName}</h3>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
                             {method.code}
                           </span>
                           {method.isInstant && (
-                            <span className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                            <span className="inline-flex items-center gap-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full">
                               <Zap className="w-3 h-3" />
                               Instantâneo
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 line-clamp-2">{method.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{method.description}</p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
                           {method.processingTime && (
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
@@ -285,8 +285,8 @@ export function PaymentMethodsPage() {
                           onClick={() => toggleActive.mutate({ id: method.id, isActive: !method.isActive })}
                           className={`p-2 rounded-lg transition-colors ${
                             method.isActive
-                              ? 'text-green-600 hover:bg-green-50'
-                              : 'text-gray-400 hover:bg-gray-100'
+                              ? 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                              : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                           }`}
                           title={method.isActive ? 'Desativar' : 'Ativar'}
                         >
@@ -298,7 +298,7 @@ export function PaymentMethodsPage() {
                         </button>
                         <button
                           onClick={() => startEditing(method)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                           title="Editar"
                         >
                           <Edit className="w-5 h-5" />
@@ -315,12 +315,12 @@ export function PaymentMethodsPage() {
         {/* Edit Modal */}
         {editingMethod && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Editar Método de Pagamento</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Editar Método de Pagamento</h3>
                 <button
                   onClick={cancelEditing}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -330,7 +330,7 @@ export function PaymentMethodsPage() {
                 {/* Logo Section */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 relative">
+                    <div className="w-20 h-20 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600 relative">
                       {uploadingLogo ? (
                         <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
                       ) : formData.logoUrl ? (
@@ -359,7 +359,7 @@ export function PaymentMethodsPage() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Logotipo
                       </label>
                       {/* Toggle between URL and Upload */}
@@ -369,8 +369,8 @@ export function PaymentMethodsPage() {
                           onClick={() => setLogoInputMode('url')}
                           className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                             logoInputMode === 'url'
-                              ? 'bg-blue-50 border-blue-300 text-blue-700'
-                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                              ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400'
+                              : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                           }`}
                         >
                           <LinkIcon className="w-4 h-4" />
@@ -381,8 +381,8 @@ export function PaymentMethodsPage() {
                           onClick={() => setLogoInputMode('upload')}
                           className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                             logoInputMode === 'upload'
-                              ? 'bg-blue-50 border-blue-300 text-blue-700'
-                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                              ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400'
+                              : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                           }`}
                         >
                           <Upload className="w-4 h-4" />
@@ -400,9 +400,9 @@ export function PaymentMethodsPage() {
                         value={formData.logoUrl?.startsWith('/uploads') ? '' : (formData.logoUrl || '')}
                         onChange={(e) => updateFormField('logoUrl', e.target.value || null)}
                         placeholder="https://exemplo.com/logo.png"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Cole o URL de uma imagem externa
                       </p>
                     </div>
@@ -423,23 +423,23 @@ export function PaymentMethodsPage() {
                         htmlFor="logo-upload"
                         className={`flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
                           uploadingLogo
-                            ? 'border-blue-300 bg-blue-50'
-                            : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                            ? 'border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                         }`}
                       >
                         {uploadingLogo ? (
                           <>
                             <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                            <span className="text-blue-600">A carregar...</span>
+                            <span className="text-blue-600 dark:text-blue-400">A carregar...</span>
                           </>
                         ) : (
                           <>
                             <Upload className="w-5 h-5 text-gray-400" />
-                            <span className="text-gray-600">Clique para selecionar imagem</span>
+                            <span className="text-gray-600 dark:text-gray-300">Clique para selecionar imagem</span>
                           </>
                         )}
                       </label>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         JPG, PNG, GIF, WebP ou SVG. Máximo 5MB. Recomendado: 128x128px
                       </p>
                     </div>
@@ -449,56 +449,56 @@ export function PaymentMethodsPage() {
                 {/* Basic Info */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Código <span className="text-gray-400">(não editável)</span>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Código <span className="text-gray-400 dark:text-gray-500">(não editável)</span>
                     </label>
                     <input
                       type="text"
                       value={formData.code || ''}
                       disabled
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Nome Interno
                     </label>
                     <input
                       type="text"
                       value={formData.name || ''}
                       onChange={(e) => updateFormField('name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Nome de Exibição
                   </label>
                   <input
                     type="text"
                     value={formData.displayName || ''}
                     onChange={(e) => updateFormField('displayName', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Descrição
                   </label>
                   <textarea
                     value={formData.description || ''}
                     onChange={(e) => updateFormField('description', e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Tempo de Processamento
                     </label>
                     <input
@@ -506,18 +506,18 @@ export function PaymentMethodsPage() {
                       value={formData.processingTime || ''}
                       onChange={(e) => updateFormField('processingTime', e.target.value)}
                       placeholder="Ex: Imediato, 1-5 minutos"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Ordem de Exibição
                     </label>
                     <input
                       type="number"
                       value={formData.displayOrder || 0}
                       onChange={(e) => updateFormField('displayOrder', parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -525,32 +525,32 @@ export function PaymentMethodsPage() {
                 {/* Timing */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Tempo de Espera (segundos)
                     </label>
                     <input
                       type="number"
                       value={formData.waitTimeSeconds || 60}
                       onChange={(e) => updateFormField('waitTimeSeconds', parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Tempo Máximo (segundos)
                     </label>
                     <input
                       type="number"
                       value={formData.maxWaitTimeSeconds || 3600}
                       onChange={(e) => updateFormField('maxWaitTimeSeconds', parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
 
                 {/* Toggles */}
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Configurações</h4>
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Configurações</h4>
                   <div className="grid grid-cols-2 gap-4">
                     {[
                       { key: 'isInstant', label: 'Pagamento Instantâneo', icon: Zap },
@@ -560,7 +560,7 @@ export function PaymentMethodsPage() {
                     ].map(({ key, label, icon: Icon }) => (
                       <label
                         key={key}
-                        className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+                        className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         <input
                           type="checkbox"
@@ -568,8 +568,8 @@ export function PaymentMethodsPage() {
                           onChange={(e) => updateFormField(key as keyof PaymentMethod, e.target.checked)}
                           className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                         />
-                        <Icon className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-700">{label}</span>
+                        <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
                       </label>
                     ))}
                   </div>
@@ -577,7 +577,7 @@ export function PaymentMethodsPage() {
               </div>
 
               {/* Footer */}
-              <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
+              <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 px-6 py-4 flex justify-end gap-3">
                 <Button variant="outline" onClick={cancelEditing}>
                   Cancelar
                 </Button>

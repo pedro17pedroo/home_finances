@@ -187,8 +187,8 @@ export function PlansPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total de Planos</p>
-                  <p className="text-2xl font-bold">{totalPlans}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total de Planos</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalPlans}</p>
                 </div>
                 <Package className="w-8 h-8 text-blue-500" />
               </div>
@@ -198,7 +198,7 @@ export function PlansPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Planos Activos</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Planos Activos</p>
                   <p className="text-2xl font-bold text-green-600">{activePlans}</p>
                 </div>
                 <Check className="w-8 h-8 text-green-500" />
@@ -209,7 +209,7 @@ export function PlansPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Com Período de Teste</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Com Período de Teste</p>
                   <p className="text-2xl font-bold text-purple-600">{plansWithTrial}</p>
                 </div>
                 <Clock className="w-8 h-8 text-purple-500" />
@@ -220,7 +220,7 @@ export function PlansPage() {
 
         {/* Header */}
         <div className="flex justify-between items-center">
-          <p className="text-gray-600">Gerencie os planos de assinatura da plataforma</p>
+          <p className="text-gray-600 dark:text-gray-400">Gerencie os planos de assinatura da plataforma</p>
           <Button onClick={() => openModal()}>
             <Plus className="w-4 h-4 mr-2" />
             Novo Plano
@@ -229,7 +229,7 @@ export function PlansPage() {
 
         {/* Plans Grid */}
         {isLoading ? (
-          <div className="text-center py-8">Carregando...</div>
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">Carregando...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans?.map((plan) => (
@@ -238,20 +238,20 @@ export function PlansPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="flex items-center gap-2">
-                        <Package className="w-5 h-5 text-blue-600" />
+                        <Package className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         {plan.name}
                       </CardTitle>
                       <div className="flex gap-2 mt-2">
                         <span className={`text-xs px-2 py-1 rounded-full ${
-                          plan.type === 'basic' ? 'bg-blue-100 text-blue-800' :
-                          plan.type === 'premium' ? 'bg-purple-100 text-purple-800' :
-                          'bg-orange-100 text-orange-800'
+                          plan.type === 'basic' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                          plan.type === 'premium' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
+                          'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
                         }`}>
                           {plan.type === 'basic' ? 'Básico' : 
                            plan.type === 'premium' ? 'Premium' : 'Enterprise'}
                         </span>
                         {plan.trialDays > 0 && (
-                          <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+                          <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                             {plan.trialDays} dias trial
                           </span>
                         )}
@@ -260,7 +260,7 @@ export function PlansPage() {
                     <div className="flex gap-1">
                       <button
                         onClick={() => toggleStatus.mutate(plan.id)}
-                        className="p-2 hover:bg-gray-100 rounded-lg"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                         title={plan.isActive ? 'Desactivar' : 'Activar'}
                       >
                         {plan.isActive ? (
@@ -271,9 +271,9 @@ export function PlansPage() {
                       </button>
                       <button
                         onClick={() => openModal(plan)}
-                        className="p-2 hover:bg-gray-100 rounded-lg"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                       >
-                        <Edit className="w-4 h-4 text-gray-600" />
+                        <Edit className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                       </button>
                       <button
                         onClick={() => {
@@ -281,7 +281,7 @@ export function PlansPage() {
                             deletePlan.mutate(plan.id);
                           }
                         }}
-                        className="p-2 hover:bg-gray-100 rounded-lg"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                       >
                         <Trash2 className="w-4 h-4 text-red-600" />
                       </button>
@@ -291,20 +291,20 @@ export function PlansPage() {
                 <CardContent>
                   <div className="mb-4">
                     <div className="flex items-baseline">
-                      <span className="text-3xl font-bold text-gray-900">
+                      <span className="text-3xl font-bold text-gray-900 dark:text-white">
                         {plan.price === 0 ? 'Grátis' : formatCurrency(plan.price)}
                       </span>
                       {plan.price > 0 && (
-                        <span className="text-gray-500 ml-1">
+                        <span className="text-gray-500 dark:text-gray-400 ml-1">
                           /{billingCycleLabels[plan.billingCycle] || 'mês'}
                         </span>
                       )}
                     </div>
                     {plan.description && (
-                      <p className="text-sm text-gray-500 mt-1">{plan.description}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{plan.description}</p>
                     )}
                   </div>
-                  <div className="space-y-2 mb-4 text-sm text-gray-600">
+                  <div className="space-y-2 mb-4 text-sm text-gray-600 dark:text-gray-400">
                     <div className="flex items-center">
                       <Users className="w-4 h-4 mr-2" />
                       {plan.maxAccounts} contas
@@ -322,13 +322,13 @@ export function PlansPage() {
                   </div>
                   <ul className="space-y-2">
                     {plan.features?.slice(0, 4).map((feature, index) => (
-                      <li key={index} className="flex items-center text-sm text-gray-600">
+                      <li key={index} className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                         <Check className="w-4 h-4 mr-2 text-green-500 flex-shrink-0" />
                         {feature}
                       </li>
                     ))}
                     {plan.features?.length > 4 && (
-                      <li className="text-sm text-gray-400">
+                      <li className="text-sm text-gray-400 dark:text-gray-500">
                         +{plan.features.length - 4} mais funcionalidades
                       </li>
                     )}
@@ -347,33 +347,33 @@ export function PlansPage() {
         {/* Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {editingPlan ? 'Editar Plano' : 'Novo Plano'}
                 </h3>
-                <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">
+                <button onClick={closeModal} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
                   <X className="w-6 h-6" />
                 </button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
                     <select
                       value={formData.type}
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="basic">Básico</option>
                       <option value="premium">Premium</option>
@@ -383,11 +383,11 @@ export function PlansPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     rows={2}
                     placeholder="Descrição breve do plano"
                   />
@@ -395,21 +395,21 @@ export function PlansPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Preço (Kz)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preço (Kz)</label>
                     <input
                       type="number"
                       value={formData.price}
                       onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                       min="0"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ciclo de Facturação</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ciclo de Facturação</label>
                     <select
                       value={formData.billingCycle}
                       onChange={(e) => setFormData({ ...formData, billingCycle: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="monthly">Mensal</option>
                       <option value="quarterly">Trimestral</option>
@@ -421,29 +421,29 @@ export function PlansPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Duração (dias)
-                      <span className="text-gray-400 font-normal ml-1">- deixe vazio para ilimitado</span>
+                      <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">- deixe vazio para ilimitado</span>
                     </label>
                     <input
                       type="number"
                       value={formData.durationDays || ''}
                       onChange={(e) => setFormData({ ...formData, durationDays: e.target.value ? Number(e.target.value) : null })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                       min="1"
                       placeholder="Ex: 30"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Período de Teste (dias)
-                      <span className="text-gray-400 font-normal ml-1">- 0 para sem trial</span>
+                      <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">- 0 para sem trial</span>
                     </label>
                     <input
                       type="number"
                       value={formData.trialDays}
                       onChange={(e) => setFormData({ ...formData, trialDays: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                       min="0"
                       placeholder="Ex: 7"
                     />
@@ -452,49 +452,49 @@ export function PlansPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Máx. Contas</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Máx. Contas</label>
                     <input
                       type="number"
                       value={formData.maxAccounts}
                       onChange={(e) => setFormData({ ...formData, maxAccounts: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                       min="1"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Máx. Transações
-                      <span className="text-gray-400 font-normal ml-1">- -1 para ilimitado</span>
+                      <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">- -1 para ilimitado</span>
                     </label>
                     <input
                       type="number"
                       value={formData.maxTransactions}
                       onChange={(e) => setFormData({ ...formData, maxTransactions: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                       min="-1"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ordem de Exibição</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ordem de Exibição</label>
                   <input
                     type="number"
                     value={formData.sortOrder}
                     onChange={(e) => setFormData({ ...formData, sortOrder: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     min="0"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Funcionalidades</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Funcionalidades</label>
                   <div className="flex gap-2 mb-2">
                     <input
                       type="text"
                       value={newFeature}
                       onChange={(e) => setNewFeature(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                       placeholder="Nova funcionalidade"
                       onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
                     />
@@ -502,8 +502,8 @@ export function PlansPage() {
                   </div>
                   <ul className="space-y-1 max-h-32 overflow-y-auto">
                     {formData.features.map((feature, index) => (
-                      <li key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
-                        <span className="text-sm">{feature}</span>
+                      <li key={index} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded">
+                        <span className="text-sm text-gray-900 dark:text-white">{feature}</span>
                         <button type="button" onClick={() => removeFeature(index)} className="text-red-500">
                           <X className="w-4 h-4" />
                         </button>
@@ -520,10 +520,10 @@ export function PlansPage() {
                     onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                     className="mr-2"
                   />
-                  <label htmlFor="isActive" className="text-sm text-gray-700">Plano activo</label>
+                  <label htmlFor="isActive" className="text-sm text-gray-700 dark:text-gray-300">Plano activo</label>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4 border-t">
+                <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
                   <Button type="button" variant="outline" onClick={closeModal}>Cancelar</Button>
                   <Button type="submit" disabled={savePlan.isPending}>
                     {savePlan.isPending ? 'Salvando...' : 'Salvar'}

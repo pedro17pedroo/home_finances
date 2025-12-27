@@ -64,11 +64,11 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  active: 'bg-green-100 text-green-800',
-  trial: 'bg-purple-100 text-purple-800',
-  pending: 'bg-yellow-100 text-yellow-800',
-  expired: 'bg-red-100 text-red-800',
-  cancelled: 'bg-gray-100 text-gray-800',
+  active: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  trial: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  expired: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  cancelled: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400',
 };
 
 export function SubscriptionsPage() {
@@ -168,8 +168,8 @@ export function SubscriptionsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500">Total</p>
-                  <p className="text-xl font-bold">{stats?.total || 0}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.total || 0}</p>
                 </div>
                 <Users className="w-6 h-6 text-blue-500" />
               </div>
@@ -179,8 +179,8 @@ export function SubscriptionsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500">Activas</p>
-                  <p className="text-xl font-bold text-green-600">{stats?.active || 0}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Activas</p>
+                  <p className="text-xl font-bold text-green-600 dark:text-green-400">{stats?.active || 0}</p>
                 </div>
                 <CheckCircle className="w-6 h-6 text-green-500" />
               </div>
@@ -190,8 +190,8 @@ export function SubscriptionsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500">Em Trial</p>
-                  <p className="text-xl font-bold text-purple-600">{stats?.trial || 0}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Em Trial</p>
+                  <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{stats?.trial || 0}</p>
                 </div>
                 <Clock className="w-6 h-6 text-purple-500" />
               </div>
@@ -201,8 +201,8 @@ export function SubscriptionsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500">Pendentes</p>
-                  <p className="text-xl font-bold text-yellow-600">{stats?.pending || 0}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Pendentes</p>
+                  <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{stats?.pending || 0}</p>
                 </div>
                 <AlertCircle className="w-6 h-6 text-yellow-500" />
               </div>
@@ -212,8 +212,8 @@ export function SubscriptionsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500">Expiradas</p>
-                  <p className="text-xl font-bold text-red-600">{stats?.expired || 0}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Expiradas</p>
+                  <p className="text-xl font-bold text-red-600 dark:text-red-400">{stats?.expired || 0}</p>
                 </div>
                 <XCircle className="w-6 h-6 text-red-500" />
               </div>
@@ -223,8 +223,8 @@ export function SubscriptionsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500">Canceladas</p>
-                  <p className="text-xl font-bold text-gray-600">{stats?.cancelled || 0}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Canceladas</p>
+                  <p className="text-xl font-bold text-gray-600 dark:text-gray-400">{stats?.cancelled || 0}</p>
                 </div>
                 <XCircle className="w-6 h-6 text-gray-500" />
               </div>
@@ -241,18 +241,18 @@ export function SubscriptionsPage() {
               placeholder="Pesquisar por nome, email ou telefone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
+            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <select
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="">Todos os status</option>
               <option value="active">Activas</option>
@@ -272,56 +272,56 @@ export function SubscriptionsPage() {
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <div className="text-center py-8 text-gray-600 dark:text-gray-400">Carregando...</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilizador</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plano</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Início</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fim/Trial</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dias Rest.</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acções</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Utilizador</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Plano</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Início</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fim/Trial</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Dias Rest.</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acções</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {filteredSubscriptions.map((sub: Subscription) => (
-                      <tr key={sub.id} className="hover:bg-gray-50">
+                      <tr key={sub.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td className="px-4 py-3">
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-gray-900 dark:text-white">
                               {sub.user?.firstName} {sub.user?.lastName}
                             </p>
-                            <p className="text-sm text-gray-500">{sub.user?.email || sub.user?.phone}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{sub.user?.email || sub.user?.phone}</p>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-medium">{sub.plan?.name || sub.planId}</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{sub.plan?.name || sub.planId}</span>
                           {sub.plan?.price !== undefined && (
-                            <p className="text-sm text-gray-500">{formatCurrency(sub.plan.price)}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{formatCurrency(sub.plan.price)}</p>
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-full ${statusColors[sub.status] || 'bg-gray-100'}`}>
+                          <span className={`px-2 py-1 text-xs rounded-full ${statusColors[sub.status] || 'bg-gray-100 dark:bg-gray-700'}`}>
                             {statusLabels[sub.status] || sub.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                           {formatDate(sub.startDate)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                           {sub.isTrialActive ? (
-                            <span className="text-purple-600">{formatDate(sub.trialEndsAt)}</span>
+                            <span className="text-purple-600 dark:text-purple-400">{formatDate(sub.trialEndsAt)}</span>
                           ) : (
                             formatDate(sub.endDate)
                           )}
                         </td>
                         <td className="px-4 py-3">
                           {sub.daysRemaining > 0 ? (
-                            <span className={`font-medium ${sub.daysRemaining <= 7 ? 'text-red-600' : 'text-gray-900'}`}>
+                            <span className={`font-medium ${sub.daysRemaining <= 7 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
                               {sub.daysRemaining} dias
                             </span>
                           ) : (
@@ -331,10 +331,10 @@ export function SubscriptionsPage() {
                         <td className="px-4 py-3">
                           <button
                             onClick={() => setSelectedSubscription(sub)}
-                            className="p-2 hover:bg-gray-100 rounded-lg"
+                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg"
                             title="Ver detalhes"
                           >
-                            <Eye className="w-4 h-4 text-gray-600" />
+                            <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                           </button>
                         </td>
                       </tr>
@@ -356,7 +356,7 @@ export function SubscriptionsPage() {
             >
               Anterior
             </Button>
-            <span className="px-4 py-2 text-sm text-gray-600">
+            <span className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
               Página {page} de {pagination.totalPages}
             </span>
             <Button
@@ -372,70 +372,70 @@ export function SubscriptionsPage() {
         {/* Detail Modal */}
         {selectedSubscription && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Detalhes da Assinatura</h3>
-                <button onClick={() => setSelectedSubscription(null)} className="text-gray-500 hover:text-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Detalhes da Assinatura</h3>
+                <button onClick={() => setSelectedSubscription(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                   <XCircle className="w-6 h-6" />
                 </button>
               </div>
 
               <div className="space-y-4">
                 {/* User Info */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-700 mb-2">Utilizador</h4>
-                  <p className="font-medium">{selectedSubscription.user?.firstName} {selectedSubscription.user?.lastName}</p>
-                  <p className="text-sm text-gray-500">{selectedSubscription.user?.email}</p>
-                  <p className="text-sm text-gray-500">{selectedSubscription.user?.phone}</p>
+                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Utilizador</h4>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedSubscription.user?.firstName} {selectedSubscription.user?.lastName}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{selectedSubscription.user?.email}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{selectedSubscription.user?.phone}</p>
                 </div>
 
                 {/* Subscription Info */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-700 mb-2">Assinatura</h4>
+                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Assinatura</h4>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <span className="text-gray-500">Plano:</span>
-                      <span className="ml-2 font-medium">{selectedSubscription.plan?.name}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Plano:</span>
+                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedSubscription.plan?.name}</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Status:</span>
+                      <span className="text-gray-500 dark:text-gray-400">Status:</span>
                       <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${statusColors[selectedSubscription.status]}`}>
                         {statusLabels[selectedSubscription.status]}
                       </span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Início:</span>
-                      <span className="ml-2">{formatDate(selectedSubscription.startDate)}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Início:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">{formatDate(selectedSubscription.startDate)}</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Fim:</span>
-                      <span className="ml-2">{formatDate(selectedSubscription.endDate)}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Fim:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">{formatDate(selectedSubscription.endDate)}</span>
                     </div>
                     {selectedSubscription.trialEndsAt && (
                       <div className="col-span-2">
-                        <span className="text-gray-500">Trial termina:</span>
-                        <span className="ml-2 text-purple-600">{formatDate(selectedSubscription.trialEndsAt)}</span>
+                        <span className="text-gray-500 dark:text-gray-400">Trial termina:</span>
+                        <span className="ml-2 text-purple-600 dark:text-purple-400">{formatDate(selectedSubscription.trialEndsAt)}</span>
                       </div>
                     )}
                     <div>
-                      <span className="text-gray-500">Tipo:</span>
-                      <span className="ml-2">{selectedSubscription.paymentType === 'recurring' ? 'Recorrente' : 'Único'}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Tipo:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">{selectedSubscription.paymentType === 'recurring' ? 'Recorrente' : 'Único'}</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Método:</span>
-                      <span className="ml-2">{selectedSubscription.paymentMethod || '-'}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Método:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">{selectedSubscription.paymentMethod || '-'}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="space-y-3">
-                  <h4 className="font-medium text-gray-700">Acções</h4>
+                  <h4 className="font-medium text-gray-700 dark:text-gray-300">Acções</h4>
                   
                   {/* Change Status */}
                   <div className="flex gap-2">
                     <select
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       defaultValue={selectedSubscription.status}
                       onChange={(e) => {
                         if (confirm(`Alterar status para ${statusLabels[e.target.value]}?`)) {
@@ -457,7 +457,7 @@ export function SubscriptionsPage() {
                       type="number"
                       value={extendDays}
                       onChange={(e) => setExtendDays(Number(e.target.value))}
-                      className="w-24 px-3 py-2 border border-gray-300 rounded-lg"
+                      className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       min="1"
                     />
                     <Button
@@ -475,7 +475,7 @@ export function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end mt-6 pt-4 border-t">
+              <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button variant="outline" onClick={() => setSelectedSubscription(null)}>
                   Fechar
                 </Button>

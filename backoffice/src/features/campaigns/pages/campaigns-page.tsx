@@ -225,8 +225,8 @@ export function CampaignsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total de Campanhas</p>
-                  <p className="text-2xl font-bold">{totalCampaigns}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total de Campanhas</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalCampaigns}</p>
                 </div>
                 <Tag className="w-8 h-8 text-blue-500" />
               </div>
@@ -236,8 +236,8 @@ export function CampaignsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Campanhas Activas</p>
-                  <p className="text-2xl font-bold text-green-600">{activeCampaigns}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Campanhas Activas</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{activeCampaigns}</p>
                 </div>
                 <Check className="w-8 h-8 text-green-500" />
               </div>
@@ -247,8 +247,8 @@ export function CampaignsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total de Utilizações</p>
-                  <p className="text-2xl font-bold text-purple-600">{totalUsage}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total de Utilizações</p>
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{totalUsage}</p>
                 </div>
                 <Users className="w-8 h-8 text-purple-500" />
               </div>
@@ -258,7 +258,7 @@ export function CampaignsPage() {
 
         {/* Header */}
         <div className="flex justify-between items-center">
-          <p className="text-gray-600">Gerencie cupões de desconto e campanhas promocionais</p>
+          <p className="text-gray-600 dark:text-gray-400">Gerencie cupões de desconto e campanhas promocionais</p>
           <Button onClick={() => openModal()}>
             <Plus className="w-4 h-4 mr-2" />
             Nova Campanha
@@ -267,7 +267,7 @@ export function CampaignsPage() {
 
         {/* Campaigns Grid */}
         {isLoading ? (
-          <div className="text-center py-8">Carregando...</div>
+          <div className="text-center py-8 text-gray-600 dark:text-gray-400">Carregando...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {campaigns?.map((campaign) => (
@@ -276,17 +276,17 @@ export function CampaignsPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="flex items-center gap-2">
-                        <Tag className="w-5 h-5 text-blue-600" />
+                        <Tag className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         {campaign.name}
                       </CardTitle>
                       {campaign.couponCode && (
                         <div className="flex items-center gap-2 mt-2">
-                          <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">
+                          <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm font-mono text-gray-900 dark:text-gray-100">
                             {campaign.couponCode}
                           </code>
                           <button
                             onClick={() => copyCode(campaign.couponCode!)}
-                            className="p-1 hover:bg-gray-100 rounded"
+                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                           >
                             {copiedCode === campaign.couponCode ? (
                               <Check className="w-4 h-4 text-green-500" />
@@ -300,27 +300,27 @@ export function CampaignsPage() {
                     <div className="flex gap-1">
                       <button
                         onClick={() => toggleStatus.mutate(campaign.id)}
-                        className="p-2 hover:bg-gray-100 rounded-lg"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                         title={campaign.isActive ? 'Desactivar' : 'Activar'}
                       >
                         {campaign.isActive ? (
-                          <ToggleRight className="w-4 h-4 text-green-600" />
+                          <ToggleRight className="w-4 h-4 text-green-600 dark:text-green-400" />
                         ) : (
                           <ToggleLeft className="w-4 h-4 text-gray-400" />
                         )}
                       </button>
                       <button
                         onClick={() => setViewingUsage(campaign)}
-                        className="p-2 hover:bg-gray-100 rounded-lg"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                         title="Ver utilizações"
                       >
-                        <Eye className="w-4 h-4 text-gray-600" />
+                        <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                       </button>
                       <button
                         onClick={() => openModal(campaign)}
-                        className="p-2 hover:bg-gray-100 rounded-lg"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                       >
-                        <Edit className="w-4 h-4 text-gray-600" />
+                        <Edit className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                       </button>
                       <button
                         onClick={() => {
@@ -328,22 +328,22 @@ export function CampaignsPage() {
                             deleteCampaign.mutate(campaign.id);
                           }
                         }}
-                        className="p-2 hover:bg-gray-100 rounded-lg"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                       >
-                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                       </button>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   {campaign.description && (
-                    <p className="text-sm text-gray-500 mb-3">{campaign.description}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{campaign.description}</p>
                   )}
                   
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-500">Desconto:</span>
-                      <span className="font-medium flex items-center">
+                      <span className="text-gray-500 dark:text-gray-400">Desconto:</span>
+                      <span className="font-medium text-gray-900 dark:text-white flex items-center">
                         {campaign.discountType === 'percentage' ? (
                           <>
                             <Percent className="w-4 h-4 mr-1 text-blue-500" />
@@ -361,16 +361,16 @@ export function CampaignsPage() {
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-500">Utilizações:</span>
-                      <span className="font-medium">
+                      <span className="text-gray-500 dark:text-gray-400">Utilizações:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
                         {campaign.usageCount}
                         {campaign.usageLimit && ` / ${campaign.usageLimit}`}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-500">Validade:</span>
-                      <span className={`font-medium ${isExpired(campaign) ? 'text-red-500' : ''}`}>
+                      <span className="text-gray-500 dark:text-gray-400">Validade:</span>
+                      <span className={`font-medium ${isExpired(campaign) ? 'text-red-500 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
                         {campaign.validFrom || campaign.validUntil ? (
                           <>
                             {formatDate(campaign.validFrom)} - {formatDate(campaign.validUntil)}
@@ -385,9 +385,9 @@ export function CampaignsPage() {
                   {(!campaign.isActive || isExpired(campaign)) && (
                     <div className="mt-4 text-center text-sm font-medium">
                       {isExpired(campaign) ? (
-                        <span className="text-red-600">Expirada</span>
+                        <span className="text-red-600 dark:text-red-400">Expirada</span>
                       ) : (
-                        <span className="text-gray-600">Inactiva</span>
+                        <span className="text-gray-600 dark:text-gray-400">Inactiva</span>
                       )}
                     </div>
                   )}
@@ -400,35 +400,35 @@ export function CampaignsPage() {
         {/* Create/Edit Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {editingCampaign ? 'Editar Campanha' : 'Nova Campanha'}
                 </h3>
-                <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">
+                <button onClick={closeModal} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                   <X className="w-6 h-6" />
                 </button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Código do Cupão</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código do Cupão</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={formData.couponCode}
                         onChange={(e) => setFormData({ ...formData, couponCode: e.target.value.toUpperCase() })}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         required
                       />
                       <Button type="button" variant="outline" onClick={() => setFormData({ ...formData, couponCode: generateCouponCode() })}>
@@ -439,22 +439,22 @@ export function CampaignsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     rows={2}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Desconto</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Desconto</label>
                     <select
                       value={formData.discountType}
                       onChange={(e) => setFormData({ ...formData, discountType: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       <option value="percentage">Percentagem (%)</option>
                       <option value="fixed_amount">Valor Fixo (Kz)</option>
@@ -462,14 +462,14 @@ export function CampaignsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Valor do Desconto {formData.discountType === 'percentage' ? '(%)' : '(Kz)'}
                     </label>
                     <input
                       type="number"
                       value={formData.discountValue}
                       onChange={(e) => setFormData({ ...formData, discountValue: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       min="0"
                       max={formData.discountType === 'percentage' ? 100 : undefined}
                       disabled={formData.discountType === 'free_trial'}
@@ -479,72 +479,72 @@ export function CampaignsPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Válido De</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Válido De</label>
                     <input
                       type="date"
                       value={formData.validFrom}
                       onChange={(e) => setFormData({ ...formData, validFrom: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Válido Até</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Válido Até</label>
                     <input
                       type="date"
                       value={formData.validUntil}
                       onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Limite de Utilizações
-                      <span className="text-gray-400 font-normal ml-1">- vazio = ilimitado</span>
+                      <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">- vazio = ilimitado</span>
                     </label>
                     <input
                       type="number"
                       value={formData.usageLimit || ''}
                       onChange={(e) => setFormData({ ...formData, usageLimit: e.target.value ? Number(e.target.value) : null })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       min="1"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor Mínimo (Kz)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Mínimo (Kz)</label>
                     <input
                       type="number"
                       value={formData.minAmount}
                       onChange={(e) => setFormData({ ...formData, minAmount: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       min="0"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Desconto Máximo (Kz)
-                      <span className="text-gray-400 font-normal ml-1">- vazio = sem limite</span>
+                      <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">- vazio = sem limite</span>
                     </label>
                     <input
                       type="number"
                       value={formData.maxDiscount || ''}
                       onChange={(e) => setFormData({ ...formData, maxDiscount: e.target.value ? Number(e.target.value) : null })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       min="0"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Planos Aplicáveis
-                    <span className="text-gray-400 font-normal ml-1">- deixe vazio para todos</span>
+                    <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">- deixe vazio para todos</span>
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {plans?.map((plan) => (
-                      <label key={plan.id} className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50">
+                      <label key={plan.id} className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white">
                         <input
                           type="checkbox"
                           checked={formData.applicablePlans.includes(plan.id)}
@@ -570,10 +570,10 @@ export function CampaignsPage() {
                     onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                     className="mr-2"
                   />
-                  <label htmlFor="isActive" className="text-sm text-gray-700">Campanha activa</label>
+                  <label htmlFor="isActive" className="text-sm text-gray-700 dark:text-gray-300">Campanha activa</label>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4 border-t">
+                <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <Button type="button" variant="outline" onClick={closeModal}>Cancelar</Button>
                   <Button type="submit" disabled={saveCampaign.isPending}>
                     {saveCampaign.isPending ? 'Salvando...' : 'Salvar'}
@@ -587,29 +587,29 @@ export function CampaignsPage() {
         {/* Usage Modal */}
         {viewingUsage && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Utilizações - {viewingUsage.name}
                 </h3>
-                <button onClick={() => setViewingUsage(null)} className="text-gray-500 hover:text-gray-700">
+                <button onClick={() => setViewingUsage(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <p className="text-sm text-gray-500">Total Utilizações</p>
-                    <p className="text-xl font-bold">{viewingUsage.usageCount}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Utilizações</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">{viewingUsage.usageCount}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Limite</p>
-                    <p className="text-xl font-bold">{viewingUsage.usageLimit || '∞'}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Limite</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">{viewingUsage.usageLimit || '∞'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Disponível</p>
-                    <p className="text-xl font-bold">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Disponível</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">
                       {viewingUsage.usageLimit ? viewingUsage.usageLimit - viewingUsage.usageCount : '∞'}
                     </p>
                   </div>
@@ -619,28 +619,28 @@ export function CampaignsPage() {
               {usageData && usageData.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Utilizador</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Data</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Desconto</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Valor Final</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Utilizador</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Desconto</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Valor Final</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {usageData.map((usage: any) => (
                         <tr key={usage.id}>
                           <td className="px-4 py-2">
-                            <p className="font-medium">{usage.userName}</p>
-                            <p className="text-sm text-gray-500">{usage.userEmail}</p>
+                            <p className="font-medium text-gray-900 dark:text-white">{usage.userName}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{usage.userEmail}</p>
                           </td>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
                             {formatDate(usage.usedAt)}
                           </td>
-                          <td className="px-4 py-2 text-sm text-green-600">
+                          <td className="px-4 py-2 text-sm text-green-600 dark:text-green-400">
                             -{formatCurrency(usage.discountAmount || 0)}
                           </td>
-                          <td className="px-4 py-2 text-sm font-medium">
+                          <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">
                             {formatCurrency(usage.finalPrice || 0)}
                           </td>
                         </tr>
@@ -649,10 +649,10 @@ export function CampaignsPage() {
                   </table>
                 </div>
               ) : (
-                <p className="text-center text-gray-500 py-8">Nenhuma utilização registada</p>
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhuma utilização registada</p>
               )}
 
-              <div className="flex justify-end mt-6 pt-4 border-t">
+              <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button variant="outline" onClick={() => setViewingUsage(null)}>
                   Fechar
                 </Button>

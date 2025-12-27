@@ -188,13 +188,13 @@ export function BanksPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-gray-500">Total de Bancos</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total de Bancos</p>
               <p className="text-2xl font-bold text-blue-600">{banks?.length || 0}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-gray-500">Ativos</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Ativos</p>
               <p className="text-2xl font-bold text-green-600">
                 {banks?.filter(b => b.isActive).length || 0}
               </p>
@@ -202,7 +202,7 @@ export function BanksPage() {
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-gray-500">Com Logotipo</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Com Logotipo</p>
               <p className="text-2xl font-bold text-purple-600">
                 {banks?.filter(b => b.logoUrl).length || 0}
               </p>
@@ -228,13 +228,13 @@ export function BanksPage() {
             {/* Search */}
             <div className="mb-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                 <input
                   type="text"
                   placeholder="Pesquisar bancos..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
@@ -242,7 +242,7 @@ export function BanksPage() {
             {isLoading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-gray-500">Carregando...</p>
+                <p className="mt-2 text-gray-500 dark:text-gray-400">Carregando...</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -250,12 +250,12 @@ export function BanksPage() {
                   <div
                     key={bank.id}
                     className={`border rounded-lg p-4 transition-all ${
-                      bank.isActive ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'
+                      bank.isActive ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800' : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 opacity-60'
                     }`}
                   >
                     <div className="flex items-center gap-4">
                       {/* Logo */}
-                      <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border flex-shrink-0">
+                      <div className="w-14 h-14 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden border dark:border-gray-600 flex-shrink-0">
                         {bank.logoUrl ? (
                           <img
                             src={bank.logoUrl.startsWith('/uploads') 
@@ -275,14 +275,14 @@ export function BanksPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-gray-900">{bank.shortName || bank.name}</h3>
-                          <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded">
+                          <h3 className="font-semibold text-gray-900 dark:text-white">{bank.shortName || bank.name}</h3>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
                             {bank.code}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600 truncate">{bank.name}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{bank.name}</p>
                         {bank.swiftCode && (
-                          <p className="text-xs text-gray-500">SWIFT: {bank.swiftCode}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">SWIFT: {bank.swiftCode}</p>
                         )}
                       </div>
 
@@ -292,8 +292,8 @@ export function BanksPage() {
                           onClick={() => toggleActive.mutate({ id: bank.id, isActive: !bank.isActive })}
                           className={`p-2 rounded-lg transition-colors ${
                             bank.isActive
-                              ? 'text-green-600 hover:bg-green-50'
-                              : 'text-gray-400 hover:bg-gray-100'
+                              ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30'
+                              : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                           }`}
                           title={bank.isActive ? 'Desativar' : 'Ativar'}
                         >
@@ -305,7 +305,7 @@ export function BanksPage() {
                         </button>
                         <button
                           onClick={() => startEditing(bank)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                           title="Editar"
                         >
                           <Edit className="w-5 h-5" />
@@ -316,7 +316,7 @@ export function BanksPage() {
                               deleteBank.mutate(bank.id);
                             }
                           }}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                           title="Eliminar"
                         >
                           <Trash2 className="w-5 h-5" />
@@ -327,7 +327,7 @@ export function BanksPage() {
                 ))}
 
                 {filteredBanks?.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                     Nenhum banco encontrado
                   </div>
                 )}
@@ -339,14 +339,14 @@ export function BanksPage() {
         {/* Edit/Create Modal */}
         {(editingBank || isCreating) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-                <h3 className="text-lg font-semibold">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {isCreating ? 'Adicionar Banco' : 'Editar Banco'}
                 </h3>
                 <button
                   onClick={cancelEditing}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -356,7 +356,7 @@ export function BanksPage() {
                 {/* Logo Section */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 relative">
+                    <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600 relative">
                       {uploadingLogo ? (
                         <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
                       ) : formData.logoUrl ? (
@@ -385,7 +385,7 @@ export function BanksPage() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Logotipo
                       </label>
                       <div className="flex gap-2">
@@ -394,8 +394,8 @@ export function BanksPage() {
                           onClick={() => setLogoInputMode('url')}
                           className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                             logoInputMode === 'url'
-                              ? 'bg-blue-50 border-blue-300 text-blue-700'
-                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                              ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400'
+                              : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                           }`}
                         >
                           <LinkIcon className="w-4 h-4" />
@@ -406,8 +406,8 @@ export function BanksPage() {
                           onClick={() => setLogoInputMode('upload')}
                           className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                             logoInputMode === 'upload'
-                              ? 'bg-blue-50 border-blue-300 text-blue-700'
-                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                              ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400'
+                              : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                           }`}
                         >
                           <Upload className="w-4 h-4" />
@@ -424,7 +424,7 @@ export function BanksPage() {
                         value={formData.logoUrl?.startsWith('/uploads') ? '' : (formData.logoUrl || '')}
                         onChange={(e) => updateFormField('logoUrl', e.target.value || null)}
                         placeholder="https://exemplo.com/logo.png"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   )}
@@ -443,19 +443,19 @@ export function BanksPage() {
                         htmlFor="bank-logo-upload"
                         className={`flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
                           uploadingLogo
-                            ? 'border-blue-300 bg-blue-50'
-                            : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                            ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                         }`}
                       >
                         {uploadingLogo ? (
                           <>
                             <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                            <span className="text-blue-600">A carregar...</span>
+                            <span className="text-blue-600 dark:text-blue-400">A carregar...</span>
                           </>
                         ) : (
                           <>
                             <Upload className="w-5 h-5 text-gray-400" />
-                            <span className="text-gray-600">Clique para selecionar</span>
+                            <span className="text-gray-600 dark:text-gray-400">Clique para selecionar</span>
                           </>
                         )}
                       </label>
@@ -465,7 +465,7 @@ export function BanksPage() {
 
                 {/* Code */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Código do Banco *
                   </label>
                   <input
@@ -474,13 +474,13 @@ export function BanksPage() {
                     onChange={(e) => updateFormField('code', e.target.value.toUpperCase())}
                     placeholder="Ex: BAI, BFA, BIC"
                     maxLength={20}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Nome Completo *
                   </label>
                   <input
@@ -488,13 +488,13 @@ export function BanksPage() {
                     value={formData.name || ''}
                     onChange={(e) => updateFormField('name', e.target.value)}
                     placeholder="Ex: Banco Angolano de Investimentos"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Short Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Nome Abreviado
                   </label>
                   <input
@@ -502,13 +502,13 @@ export function BanksPage() {
                     value={formData.shortName || ''}
                     onChange={(e) => updateFormField('shortName', e.target.value || null)}
                     placeholder="Ex: BAI"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* SWIFT Code */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Código SWIFT
                   </label>
                   <input
@@ -517,20 +517,20 @@ export function BanksPage() {
                     onChange={(e) => updateFormField('swiftCode', e.target.value.toUpperCase() || null)}
                     placeholder="Ex: BAIAAOLU"
                     maxLength={11}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Country & Order */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       País
                     </label>
                     <select
                       value={formData.country || 'AO'}
                       onChange={(e) => updateFormField('country', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="AO">Angola</option>
                       <option value="PT">Portugal</option>
@@ -538,21 +538,21 @@ export function BanksPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Ordem de Exibição
                     </label>
                     <input
                       type="number"
                       value={formData.displayOrder || 0}
                       onChange={(e) => updateFormField('displayOrder', parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
+              <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-800 border-t dark:border-gray-700 px-6 py-4 flex justify-end gap-3">
                 <Button variant="outline" onClick={cancelEditing}>
                   Cancelar
                 </Button>
