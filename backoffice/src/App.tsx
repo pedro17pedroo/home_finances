@@ -8,6 +8,7 @@ import { ForgotPasswordPage } from './features/auth/pages/forgot-password-page';
 import { ResetPasswordPage } from './features/auth/pages/reset-password-page';
 import { DashboardPage } from './features/dashboard/pages/dashboard-page';
 import { UsersPage } from './features/users/pages/users-page';
+import { AdminsPage } from './features/admins/pages/admins-page';
 import { PlansPage } from './features/plans/pages/plans-page';
 import { SubscriptionsPage } from './features/subscriptions/pages/subscriptions-page';
 import { CampaignsPage } from './features/campaigns/pages/campaigns-page';
@@ -57,6 +58,9 @@ function AppRoutes() {
       </Route>
       <Route path="/users">
         <ProtectedRoute><UsersPage /></ProtectedRoute>
+      </Route>
+      <Route path="/admins">
+        <ProtectedRoute><AdminsPage /></ProtectedRoute>
       </Route>
       <Route path="/plans">
         <ProtectedRoute><PlansPage /></ProtectedRoute>
