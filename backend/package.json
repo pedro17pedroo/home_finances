@@ -20,6 +20,8 @@
     "db:migrate": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/seeds/index.ts",
+    "db:backup": "./scripts/backup.sh",
+    "db:restore": "./scripts/restore.sh",
     "seed:admin": "tsx seeds/create-admin.ts",
     "seed:landing": "tsx seeds/landing-content.ts",
     "seed:legal": "tsx seeds/legal-content.ts",

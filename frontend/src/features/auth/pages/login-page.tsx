@@ -20,13 +20,10 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Clear previous errors
     setErrors({});
     
     try {
       await loginMutation.mutateAsync(formData);
-      // Redirect will be handled by the auth context
       window.location.href = '/dashboard';
     } catch (error: any) {
       setErrors({ 
@@ -70,43 +67,60 @@ export function LoginPage() {
                 id="emailOrPhone"
                 name="emailOrPhone"
                 type="text"
-              required
-              value={formData.emailOrPhone}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Senha
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              value={formData.password}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          {loginMutation.error && (
-            <div className="text-red-600 text-sm">
-              {(loginMutation.error as any)?.response?.data?.message || 'Erro ao fazer login'}
+                required
+                value={formData.emailOrPhone}
+                onChange={handleChange}
+              />
             </div>
-          )}
 
-          <Button
-            type="submit"
-            disabled={loginMutation.isPending}
-            className="w-full"
-          >
-            {loginMutation.isPending ? 'Entrando...' : 'Entrar'}
-          </Button>
-        </form>
-      </div>
+            <div className="relative">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={formData.password}
+                onChange={handleChange}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-8 text-gray-500 hover:text-gray-700"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {(loginMutation.error || errors.submit) && (
+              <div className="text-red-600 text-sm">
+                {errors.submit || (loginMutation.error as any)?.response?.data?.message || 'Erro ao fazer login'}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loginMutation.isPending}
+              className="w-full"
+            >
+              {loginMutation.isPending ? 'Entrando...' : 'Entrar'}
+            </Button>
+
+            <div className="text-center text-sm text-gray-600">
+              <Link href="/forgot-password" className="text-blue-600 hover:underline">
+                Esqueceu a senha?
+              </Link>
+            </div>
+
+            <div className="text-center text-sm text-gray-600">
+              Não tem conta?{' '}
+              <Link href="/register" className="text-blue-600 hover:underline">
+                Criar conta
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
