@@ -65,7 +65,7 @@ export function ContentPage() {
     queryKey: ['admin', 'legal-content'],
     queryFn: async () => {
       const response = await apiClient.get('/admin/legal-content');
-      return response.data.content || [];
+      return response.data.data?.content || response.data.content || [];
     },
     enabled: activeTab === 'terms' || activeTab === 'privacy' || activeTab === 'cookies',
   });
@@ -160,29 +160,29 @@ export function ContentPage() {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
               <Input value={content.title || ''} onChange={(e) => setSectionContent({ ...content, title: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título Destacado</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título Destacado</label>
               <Input value={content.titleHighlight || ''} onChange={(e) => setSectionContent({ ...content, titleHighlight: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subtítulo</label>
               <textarea
                 value={content.subtitle || ''}
                 onChange={(e) => setSectionContent({ ...content, subtitle: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 rows={3}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Botão Primário</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Botão Primário</label>
                 <Input value={content.ctaPrimary || ''} onChange={(e) => setSectionContent({ ...content, ctaPrimary: e.target.value })} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Botão Secundário</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Botão Secundário</label>
                 <Input value={content.ctaSecondary || ''} onChange={(e) => setSectionContent({ ...content, ctaSecondary: e.target.value })} />
               </div>
             </div>
@@ -193,20 +193,20 @@ export function ContentPage() {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
               <Input value={content.title || ''} onChange={(e) => setSectionContent({ ...content, title: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subtítulo</label>
               <Input value={content.subtitle || ''} onChange={(e) => setSectionContent({ ...content, subtitle: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Funcionalidades</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Funcionalidades</label>
               {content.items?.map((item: any, index: number) => (
-                <div key={index} className="p-4 border border-gray-200 rounded-lg mb-3">
+                <div key={index} className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg mb-3 bg-white dark:bg-gray-700">
                   <div className="grid grid-cols-3 gap-3 mb-2">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Ícone (emoji)</label>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Ícone (emoji)</label>
                       <Input
                         value={item.icon || ''}
                         onChange={(e) => {
@@ -217,7 +217,7 @@ export function ContentPage() {
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">Título</label>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Título</label>
                       <Input
                         value={item.title || ''}
                         onChange={(e) => {
@@ -229,7 +229,7 @@ export function ContentPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Descrição</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Descrição</label>
                     <textarea
                       value={item.description || ''}
                       onChange={(e) => {
@@ -237,14 +237,14 @@ export function ContentPage() {
                         newItems[index] = { ...item, description: e.target.value };
                         setSectionContent({ ...content, items: newItems });
                       }}
-                      className="w-full p-2 border border-gray-300 rounded text-sm"
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
                       rows={2}
                     />
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-2 text-red-600"
+                    className="mt-2 text-red-600 dark:text-red-400"
                     onClick={() => {
                       const newItems = content.items.filter((_: any, i: number) => i !== index);
                       setSectionContent({ ...content, items: newItems });
@@ -271,20 +271,20 @@ export function ContentPage() {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
               <Input value={content.title || ''} onChange={(e) => setSectionContent({ ...content, title: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subtítulo</label>
               <Input value={content.subtitle || ''} onChange={(e) => setSectionContent({ ...content, subtitle: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Testemunhos</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Testemunhos</label>
               {content.items?.map((item: any, index: number) => (
-                <div key={index} className="p-4 border border-gray-200 rounded-lg mb-3">
+                <div key={index} className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg mb-3 bg-white dark:bg-gray-700">
                   <div className="grid grid-cols-2 gap-3 mb-2">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Nome</label>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Nome</label>
                       <Input
                         value={item.name || ''}
                         onChange={(e) => {
@@ -295,7 +295,7 @@ export function ContentPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Cargo/Profissão</label>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Cargo/Profissão</label>
                       <Input
                         value={item.role || ''}
                         onChange={(e) => {
@@ -307,7 +307,7 @@ export function ContentPage() {
                     </div>
                   </div>
                   <div className="mb-2">
-                    <label className="block text-xs text-gray-500 mb-1">Avaliação (1-5)</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Avaliação (1-5)</label>
                     <div className="flex items-center gap-1">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
@@ -320,13 +320,13 @@ export function ContentPage() {
                           }}
                           className="focus:outline-none"
                         >
-                          <Star className={`w-5 h-5 ${star <= (item.rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                          <Star className={`w-5 h-5 ${star <= (item.rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 dark:text-gray-500'}`} />
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Testemunho</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Testemunho</label>
                     <textarea
                       value={item.text || ''}
                       onChange={(e) => {
@@ -334,14 +334,14 @@ export function ContentPage() {
                         newItems[index] = { ...item, text: e.target.value };
                         setSectionContent({ ...content, items: newItems });
                       }}
-                      className="w-full p-2 border border-gray-300 rounded text-sm"
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
                       rows={3}
                     />
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-2 text-red-600"
+                    className="mt-2 text-red-600 dark:text-red-400"
                     onClick={() => {
                       const newItems = content.items.filter((_: any, i: number) => i !== index);
                       setSectionContent({ ...content, items: newItems });
@@ -367,11 +367,11 @@ export function ContentPage() {
       case 'stats':
         return (
           <div className="space-y-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Estatísticas</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Estatísticas</label>
             {content.items?.map((item: any, index: number) => (
-              <div key={index} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+              <div key={index} className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
                 <div className="flex-1">
-                  <label className="block text-xs text-gray-500 mb-1">Valor</label>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Valor</label>
                   <Input
                     value={item.value || ''}
                     onChange={(e) => {
@@ -382,7 +382,7 @@ export function ContentPage() {
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs text-gray-500 mb-1">Descrição</label>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Descrição</label>
                   <Input
                     value={item.label || ''}
                     onChange={(e) => {
@@ -395,7 +395,7 @@ export function ContentPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-red-600 mt-5"
+                  className="text-red-600 dark:text-red-400 mt-5"
                   onClick={() => {
                     const newItems = content.items.filter((_: any, i: number) => i !== index);
                     setSectionContent({ ...content, items: newItems });
@@ -421,20 +421,20 @@ export function ContentPage() {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
               <Input value={content.title || ''} onChange={(e) => setSectionContent({ ...content, title: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subtítulo</label>
               <textarea
                 value={content.subtitle || ''}
                 onChange={(e) => setSectionContent({ ...content, subtitle: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 rows={2}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Texto do Botão</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Texto do Botão</label>
               <Input value={content.buttonText || ''} onChange={(e) => setSectionContent({ ...content, buttonText: e.target.value })} />
             </div>
           </div>
@@ -444,25 +444,25 @@ export function ContentPage() {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
               <Input value={content.title || ''} onChange={(e) => setSectionContent({ ...content, title: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subtítulo</label>
               <Input value={content.subtitle || ''} onChange={(e) => setSectionContent({ ...content, subtitle: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                 <Input value={content.email || ''} onChange={(e) => setSectionContent({ ...content, email: e.target.value })} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
                 <Input value={content.phone || ''} onChange={(e) => setSectionContent({ ...content, phone: e.target.value })} />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endereço</label>
               <Input value={content.address || ''} onChange={(e) => setSectionContent({ ...content, address: e.target.value })} />
             </div>
           </div>
@@ -472,16 +472,16 @@ export function ContentPage() {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
               <textarea
                 value={content.description || ''}
                 onChange={(e) => setSectionContent({ ...content, description: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 rows={2}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Copyright</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Copyright</label>
               <Input value={content.copyright || ''} onChange={(e) => setSectionContent({ ...content, copyright: e.target.value })} />
             </div>
           </div>
@@ -490,7 +490,7 @@ export function ContentPage() {
       default:
         return (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Conteúdo (JSON)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conteúdo (JSON)</label>
             <textarea
               value={JSON.stringify(content, null, 2)}
               onChange={(e) => {
@@ -498,7 +498,7 @@ export function ContentPage() {
                   setSectionContent(JSON.parse(e.target.value));
                 } catch {}
               }}
-              className="w-full p-3 border border-gray-300 rounded-lg font-mono text-sm"
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               rows={10}
             />
           </div>
@@ -583,7 +583,7 @@ export function ContentPage() {
         {activeTab === 'landing' && (
           <>
             {isLoading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <div className="text-center py-8 text-gray-600 dark:text-gray-400">Carregando...</div>
             ) : (
               <div className="space-y-4">
                 {landingSections?.map((section) => (
@@ -591,12 +591,12 @@ export function ContentPage() {
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <div>
-                          <CardTitle className="text-lg">{sectionLabels[section.section] || section.section}</CardTitle>
-                          <p className="text-sm text-gray-500 mt-1">
+                          <CardTitle className="text-lg text-gray-900 dark:text-white">{sectionLabels[section.section] || section.section}</CardTitle>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             {section.isCustom ? (
-                              <span className="text-green-600">Personalizado</span>
+                              <span className="text-green-600 dark:text-green-400">Personalizado</span>
                             ) : (
-                              <span className="text-gray-400">Conteúdo padrão</span>
+                              <span className="text-gray-400 dark:text-gray-500">Conteúdo padrão</span>
                             )}
                           </p>
                         </div>
@@ -606,7 +606,7 @@ export function ContentPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleResetSection(section.section)}
-                              className="text-orange-600"
+                              className="text-orange-600 dark:text-orange-400"
                             >
                               <RotateCcw className="w-4 h-4 mr-1" />
                               Restaurar
@@ -625,7 +625,7 @@ export function ContentPage() {
                       {editingSection === section.section ? (
                         <div className="space-y-4">
                           {renderSectionEditor(section.section, sectionContent)}
-                          <div className="flex justify-end gap-2 pt-4 border-t">
+                          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <Button variant="outline" onClick={cancelEditingSection}>
                               <X className="w-4 h-4 mr-1" />
                               Cancelar
@@ -637,7 +637,7 @@ export function ContentPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700">
+                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-sm text-gray-700 dark:text-gray-300">
                           <pre className="whitespace-pre-wrap font-sans">
                             {JSON.stringify(section.content, null, 2).substring(0, 500)}
                             {JSON.stringify(section.content).length > 500 && '...'}
@@ -656,16 +656,16 @@ export function ContentPage() {
         {activeTab !== 'landing' && activeTab !== 'terms' && activeTab !== 'privacy' && activeTab !== 'cookies' && (
           <>
             {isLoading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <div className="text-center py-8 text-gray-600 dark:text-gray-400">Carregando...</div>
             ) : (
               <div className="space-y-4">
                 {contents?.map((item) => (
                   <Card key={item.id}>
                     <CardHeader>
                       <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg">{item.title}</CardTitle>
+                        <CardTitle className="text-lg text-gray-900 dark:text-white">{item.title}</CardTitle>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-500">v{item.version}</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">v{item.version}</span>
                           {editingItem?.id !== item.id && (
                             <Button variant="outline" size="sm" onClick={() => startEditing(item)}>
                               <Edit className="w-4 h-4 mr-1" />
@@ -681,7 +681,7 @@ export function ContentPage() {
                           <textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
-                            className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                            className="w-full h-64 p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           />
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" onClick={cancelEditing}>
@@ -695,8 +695,8 @@ export function ContentPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="prose max-w-none">
-                          <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 whitespace-pre-wrap">
+                        <div className="prose max-w-none dark:prose-invert">
+                          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                             {item.content.substring(0, 500)}
                             {item.content.length > 500 && '...'}
                           </div>
@@ -714,14 +714,14 @@ export function ContentPage() {
         {(activeTab === 'terms' || activeTab === 'privacy' || activeTab === 'cookies') && (
           <>
             {isLoading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <div className="text-center py-8 text-gray-600 dark:text-gray-400">Carregando...</div>
             ) : currentLegalItem ? (
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center">
                     <div>
-                      <CardTitle className="text-lg">{currentLegalItem.title}</CardTitle>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <CardTitle className="text-lg text-gray-900 dark:text-white">{currentLegalItem.title}</CardTitle>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Versão {currentLegalItem.version} • Última atualização: {new Date(currentLegalItem.updatedAt).toLocaleDateString('pt-AO')}
                       </p>
                     </div>
@@ -738,14 +738,14 @@ export function ContentPage() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
                           <Input
                             value={legalTitle}
                             onChange={(e) => setLegalTitle(e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Versão</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Versão</label>
                           <Input
                             value={legalVersion}
                             onChange={(e) => setLegalVersion(e.target.value)}
@@ -753,14 +753,14 @@ export function ContentPage() {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Conteúdo (HTML)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conteúdo (HTML)</label>
                         <textarea
                           value={legalContentText}
                           onChange={(e) => setLegalContentText(e.target.value)}
-                          className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          className="w-full h-96 p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
-                      <div className="flex justify-end gap-2 pt-4 border-t">
+                      <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                         <Button variant="outline" onClick={cancelEditingLegal}>
                           <X className="w-4 h-4 mr-1" />
                           Cancelar
@@ -772,9 +772,9 @@ export function ContentPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="prose max-w-none">
+                    <div className="prose max-w-none dark:prose-invert">
                       <div 
-                        className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700"
+                        className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-sm text-gray-700 dark:text-gray-300"
                         dangerouslySetInnerHTML={{ __html: currentLegalItem.content }}
                       />
                     </div>
@@ -784,9 +784,9 @@ export function ContentPage() {
             ) : (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">Nenhum conteúdo encontrado para esta secção.</p>
-                  <p className="text-sm text-gray-400 mt-2">Execute a seed para criar o conteúdo inicial.</p>
+                  <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">Nenhum conteúdo encontrado para esta secção.</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">Execute a seed para criar o conteúdo inicial.</p>
                 </CardContent>
               </Card>
             )}
