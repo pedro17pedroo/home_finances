@@ -64,6 +64,9 @@ export class AdminService {
     
     const refreshToken = generateRefreshToken(admin.id);
 
+    // Atualizar último login
+    await AdminRepository.updateLastLogin(admin.id);
+
     // Log da ação
     await AdminRepository.createAuditLog(admin.id, 'admin_login');
 
@@ -267,15 +270,109 @@ export class AdminService {
   }
 
   /**
-   * Gestão de Utilizadores
+   * Gestão de Utilizadores (Clientes)
    */
-  static async getAllUsers(page: number = 1, limit: number = 50, search?: string, status?: string) {
+  static async getAllUsers(page: number = 1, limit: number = 50, search?: string, status?: string, plan?: string) {
     const offset = (page - 1) * limit;
-    return await AdminRepository.getAllUsers(limit, offset, search, status);
+    return await AdminRepository.getAllUsers(limit, offset, search, status, plan);
+  }
+
+  static async getUserById(userId: number) {
+    return await AdminRepository.getUserById(userId);
+  }
+
+  static async updateUser(userId: number, data: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    planType?: string;
+    subscriptionStatus?: string;
+  }, updatedBy: number) {
+    const user = await AdminRepository.updateUser(userId, data);
+    if (!user) {
+      throw new NotFoundError("Utilizador não encontrado");
+    }
+
+    await AdminRepository.createAuditLog(updatedBy, 'user_updated', 'user', userId, data);
+    return user;
+  }
+
+  static async deleteUser(userId: number, deletedBy: number) {
+    const success = await AdminRepository.deleteUser(userId);
+    if (!success) {
+      throw new NotFoundError("Utilizador não encontrado");
+    }
+
+    await AdminRepository.createAuditLog(deletedBy, 'user_deleted', 'user', userId);
   }
 
   static async getUserStats() {
     return await AdminRepository.getUserStats();
+  }
+
+  /**
+   * Gestão de Administradores
+   */
+  static async getAllAdmins() {
+    return await AdminRepository.getAllAdmins();
+  }
+
+  static async getAdminById(adminId: number) {
+    return await AdminRepository.findAdminById(adminId);
+  }
+
+  static async updateAdmin(adminId: number, data: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    role?: string;
+    isActive?: boolean;
+  }, updatedBy: number) {
+    // Check if email is being changed and if it's already in use
+    if (data.email) {
+      const existingAdmin = await AdminRepository.findAdminByEmail(data.email);
+      if (existingAdmin && existingAdmin.id !== adminId) {
+        throw new BadRequestError("Email já está em uso");
+      }
+    }
+
+    const admin = await AdminRepository.updateAdmin(adminId, data);
+    if (!admin) {
+      throw new NotFoundError("Administrador não encontrado");
+    }
+
+    await AdminRepository.createAuditLog(updatedBy, 'admin_updated', 'admin', adminId, data);
+    return admin;
+  }
+
+  static async toggleAdminStatus(adminId: number, isActive: boolean, updatedBy: number) {
+    // Prevent deactivating yourself
+    if (adminId === updatedBy && !isActive) {
+      throw new BadRequestError("Não pode desativar a sua própria conta");
+    }
+
+    const admin = await AdminRepository.toggleAdminStatus(adminId, isActive);
+    if (!admin) {
+      throw new NotFoundError("Administrador não encontrado");
+    }
+
+    await AdminRepository.createAuditLog(updatedBy, isActive ? 'admin_activated' : 'admin_deactivated', 'admin', adminId);
+    return admin;
+  }
+
+  static async deleteAdmin(adminId: number, deletedBy: number) {
+    // Prevent deleting yourself
+    if (adminId === deletedBy) {
+      throw new BadRequestError("Não pode eliminar a sua própria conta");
+    }
+
+    const success = await AdminRepository.deleteAdmin(adminId);
+    if (!success) {
+      throw new NotFoundError("Administrador não encontrado");
+    }
+
+    await AdminRepository.createAuditLog(deletedBy, 'admin_deleted', 'admin', adminId);
   }
 
   /**

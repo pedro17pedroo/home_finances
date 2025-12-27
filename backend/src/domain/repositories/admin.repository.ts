@@ -53,7 +53,50 @@ export class AdminRepository {
   }
 
   static async getAllAdmins(): Promise<AdminUser[]> {
-    return await db.select().from(adminUsers).orderBy(desc(adminUsers.createdAt));
+    return await db
+      .select({
+        id: adminUsers.id,
+        email: adminUsers.email,
+        firstName: adminUsers.firstName,
+        lastName: adminUsers.lastName,
+        role: adminUsers.role,
+        isActive: adminUsers.isActive,
+        lastLoginAt: adminUsers.lastLoginAt,
+        createdAt: adminUsers.createdAt,
+        updatedAt: adminUsers.updatedAt,
+      })
+      .from(adminUsers)
+      .orderBy(desc(adminUsers.createdAt));
+  }
+
+  static async updateAdmin(id: number, data: Partial<InsertAdminUser>): Promise<AdminUser | null> {
+    const [admin] = await db
+      .update(adminUsers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(adminUsers.id, id))
+      .returning();
+    return admin || null;
+  }
+
+  static async deleteAdmin(id: number): Promise<boolean> {
+    const result = await db.delete(adminUsers).where(eq(adminUsers.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  static async toggleAdminStatus(id: number, isActive: boolean): Promise<AdminUser | null> {
+    const [admin] = await db
+      .update(adminUsers)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(adminUsers.id, id))
+      .returning();
+    return admin || null;
+  }
+
+  static async updateLastLogin(id: number): Promise<void> {
+    await db
+      .update(adminUsers)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(adminUsers.id, id));
   }
 
   // Plans Management
@@ -81,9 +124,9 @@ export class AdminRepository {
   }
 
   // Users Management
-  static async getAllUsers(limit: number = 100, offset: number = 0, search?: string, status?: string) {
+  static async getAllUsers(limit: number = 100, offset: number = 0, search?: string, status?: string, plan?: string) {
     try {
-      const usersData = await db
+      let query = db
         .select({
           id: users.id,
           email: users.email,
@@ -93,9 +136,41 @@ export class AdminRepository {
           planType: users.planType,
           subscriptionStatus: users.subscriptionStatus,
           trialEndsAt: users.trialEndsAt,
-          createdAt: users.createdAt
+          organizationId: users.organizationId,
+          role: users.role,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt
         })
         .from(users)
+        .$dynamic();
+
+      // Build conditions
+      const conditions = [];
+      
+      if (search) {
+        conditions.push(
+          or(
+            like(users.email, `%${search}%`),
+            like(users.phone, `%${search}%`),
+            like(users.firstName, `%${search}%`),
+            like(users.lastName, `%${search}%`)
+          )
+        );
+      }
+      
+      if (status && status !== 'all') {
+        conditions.push(eq(users.subscriptionStatus, status));
+      }
+      
+      if (plan && plan !== 'all') {
+        conditions.push(eq(users.planType, plan));
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+
+      const usersData = await query
         .orderBy(desc(users.createdAt))
         .limit(limit)
         .offset(offset);
@@ -105,6 +180,45 @@ export class AdminRepository {
       console.error('Error fetching users:', error);
       return [];
     }
+  }
+
+  static async getUserById(id: number) {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, id));
+    return user || null;
+  }
+
+  static async updateUser(id: number, data: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    planType?: string;
+    subscriptionStatus?: string;
+  }) {
+    const updateData: any = { updatedAt: new Date() };
+    
+    if (data.firstName !== undefined) updateData.firstName = data.firstName;
+    if (data.lastName !== undefined) updateData.lastName = data.lastName;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.planType !== undefined) updateData.planType = data.planType;
+    if (data.subscriptionStatus !== undefined) updateData.subscriptionStatus = data.subscriptionStatus;
+
+    const [user] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    
+    return user || null;
+  }
+
+  static async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   static async getUserStats() {

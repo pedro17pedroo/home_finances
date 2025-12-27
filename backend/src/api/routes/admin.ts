@@ -21,6 +21,11 @@ router.get("/dashboard/stats", AdminController.getDashboardStats);
 
 // Admin management
 router.post("/admins", AdminController.createAdmin);
+router.get("/admins", AdminController.getAdmins);
+router.get("/admins/:id", AdminController.getAdminById);
+router.put("/admins/:id", AdminController.updateAdmin);
+router.patch("/admins/:id/toggle", AdminController.toggleAdminStatus);
+router.delete("/admins/:id", AdminController.deleteAdmin);
 
 // Plans management (legacy - keeping for compatibility)
 router.get("/plans", AdminController.getPlans);
@@ -58,7 +63,10 @@ router.get("/campaigns/:id/stats", AdminCampaignController.getCampaignStats);
 // Users management
 router.get("/users", AdminController.getUsers);
 router.get("/users/stats", AdminController.getUserStats);
+router.get("/users/:id", AdminController.getUserById);
+router.put("/users/:id", AdminController.updateUser);
 router.patch("/users/:id/status", AdminController.updateUserStatus);
+router.delete("/users/:id", AdminController.deleteUser);
 
 // Payments management
 router.get("/payments", AdminController.getPayments);

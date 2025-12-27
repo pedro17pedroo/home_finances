@@ -121,9 +121,62 @@ export class AdminController {
       const limit = parseInt(req.query.limit as string) || 50;
       const search = req.query.search as string;
       const status = req.query.status as string;
+      const plan = req.query.plan as string;
       
-      const users = await AdminService.getAllUsers(page, limit, search, status);
+      const users = await AdminService.getAllUsers(page, limit, search, status, plan);
       res.json({ users });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getUserById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = parseInt(req.params.id);
+      const user = await AdminService.getUserById(userId);
+      
+      if (!user) {
+        return res.status(404).json({
+          status: "error",
+          message: "Utilizador não encontrado"
+        });
+      }
+      
+      res.json({
+        status: "success",
+        data: { user }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = parseInt(req.params.id);
+      const adminId = req.user!.id;
+      const user = await AdminService.updateUser(userId, req.body, adminId);
+      
+      res.json({
+        status: "success",
+        data: { user },
+        message: "Utilizador atualizado com sucesso"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = parseInt(req.params.id);
+      const adminId = req.user!.id;
+      await AdminService.deleteUser(userId, adminId);
+      
+      res.json({
+        status: "success",
+        message: "Utilizador eliminado com sucesso"
+      });
     } catch (error) {
       next(error);
     }
@@ -151,6 +204,88 @@ export class AdminController {
       res.json({
         status: "success",
         message: "Status do usuário atualizado"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Admin Users Management
+  static async getAdmins(req: Request, res: Response, next: NextFunction) {
+    try {
+      const admins = await AdminService.getAllAdmins();
+      res.json({
+        status: "success",
+        data: { admins }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getAdminById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const adminId = parseInt(req.params.id);
+      const admin = await AdminService.getAdminById(adminId);
+      
+      if (!admin) {
+        return res.status(404).json({
+          status: "error",
+          message: "Administrador não encontrado"
+        });
+      }
+      
+      res.json({
+        status: "success",
+        data: { admin }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateAdmin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const adminId = parseInt(req.params.id);
+      const updatedBy = req.user!.id;
+      const admin = await AdminService.updateAdmin(adminId, req.body, updatedBy);
+      
+      res.json({
+        status: "success",
+        data: { admin },
+        message: "Administrador atualizado com sucesso"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async toggleAdminStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const adminId = parseInt(req.params.id);
+      const updatedBy = req.user!.id;
+      const { isActive } = req.body;
+      const admin = await AdminService.toggleAdminStatus(adminId, isActive, updatedBy);
+      
+      res.json({
+        status: "success",
+        data: { admin },
+        message: isActive ? "Administrador ativado" : "Administrador desativado"
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteAdmin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const adminId = parseInt(req.params.id);
+      const deletedBy = req.user!.id;
+      await AdminService.deleteAdmin(adminId, deletedBy);
+      
+      res.json({
+        status: "success",
+        message: "Administrador eliminado com sucesso"
       });
     } catch (error) {
       next(error);
