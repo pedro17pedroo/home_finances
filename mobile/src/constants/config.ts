@@ -1,15 +1,18 @@
 import { Platform } from 'react-native';
 
+// Detectar ambiente de build
+const isStaging = process.env.APP_ENV === 'staging' || process.env.APP_ENV === 'production';
+
 // Configurações da aplicação
 export const APP_CONFIG = {
-  // API - Android emulator uses 10.0.2.2, physical device needs actual IP
-  API_BASE_URL: __DEV__ 
-    ? Platform.select({
-        android: 'http://192.168.1.46:5001/api', // Your machine's IP
-        ios: 'http://localhost:5001/api',
-        default: 'http://localhost:5001/api',
-      })!
-    : 'https://your-production-api.com/api',
+  // API - Em staging/production usa URL de produção, em dev usa IP local
+  API_BASE_URL: (!__DEV__ || isStaging)
+    ? 'https://tfinance-backend.tatusolutions.com/api'
+    : Platform.select({
+        android: 'http://192.168.1.46:4005/api', // Your machine's IP
+        ios: 'http://localhost:4005/api',
+        default: 'http://localhost:4005/api',
+      })!,
   
   // Cache
   CACHE_TTL_MINUTES: 30,

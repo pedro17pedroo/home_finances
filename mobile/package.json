@@ -8,8 +8,13 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "clean": "expo r -c",
-    "build:android": "eas build --platform android",
-    "build:ios": "eas build --platform ios"
+    "build:android:preview": "eas build --platform android --profile preview",
+    "build:android:staging": "eas build --platform android --profile staging",
+    "build:android:prod": "eas build --platform android --profile production",
+    "build:ios:preview": "eas build --platform ios --profile preview",
+    "build:ios:prod": "eas build --platform ios --profile production",
+    "submit:android": "eas submit --platform android",
+    "submit:ios": "eas submit --platform ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.4",
@@ -31,6 +36,7 @@
     "expo-print": "~13.0.1",
     "expo-sharing": "~12.0.1",
     "expo-status-bar": "~1.12.1",
+    "expo-updates": "~0.25.28",
     "react": "18.2.0",
     "react-hook-form": "^7.54.2",
     "react-native": "0.74.5",

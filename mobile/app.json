@@ -30,6 +30,17 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "financecontrol"
+    "scheme": "financecontrol",
+    "extra": {
+      "eas": {
+        "projectId": "fbcf9035-87dc-4183-bdee-77c7209953ee"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fbcf9035-87dc-4183-bdee-77c7209953ee"
+    }
   }
 }
