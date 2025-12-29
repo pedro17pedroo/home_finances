@@ -447,6 +447,173 @@ router.post('/cancel', authenticate, async (req, res) => {
   }
 });
 
+// ==========================================
+// UPGRADE / DOWNGRADE ENDPOINTS
+// ==========================================
+
+// Preview plan change (upgrade or downgrade)
+router.get('/plan-change/preview/:planId', authenticate, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const planId = parseInt(req.params.planId);
+
+    if (!planId || isNaN(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'planId inválido',
+      });
+    }
+
+    const preview = await subscriptionService.previewPlanChange(userId, planId);
+
+    res.json({
+      success: true,
+      preview,
+    });
+  } catch (error: any) {
+    console.error('Preview plan change error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Execute plan upgrade
+router.post('/upgrade', authenticate, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { planId, paymentMethod, payerPhone, payerName, payerEmail } = req.body;
+
+    if (!planId) {
+      return res.status(400).json({
+        success: false,
+        message: 'planId é obrigatório',
+      });
+    }
+
+    // Get preview to check if payment is needed
+    const preview = await subscriptionService.previewPlanChange(userId, planId);
+    
+    if (preview.changeType !== 'upgrade') {
+      return res.status(400).json({
+        success: false,
+        message: 'Esta operação é um downgrade. Use o endpoint /downgrade.',
+      });
+    }
+
+    // If payment is needed, validate payment method
+    if (preview.amountToPay > 0 && !paymentMethod) {
+      return res.status(400).json({
+        success: false,
+        message: 'Método de pagamento é obrigatório para este upgrade',
+      });
+    }
+
+    // For E-Kwanza and GPO, phone is required
+    if (preview.amountToPay > 0 && (paymentMethod === 'ekwanza' || paymentMethod === 'gpo') && !payerPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Número de telefone é obrigatório para este método de pagamento',
+      });
+    }
+
+    const result = await subscriptionService.upgradePlan(
+      userId,
+      planId,
+      paymentMethod || 'gpo',
+      payerPhone,
+      payerName,
+      payerEmail
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Upgrade plan error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Schedule plan downgrade
+router.post('/downgrade', authenticate, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { planId, reason } = req.body;
+
+    if (!planId) {
+      return res.status(400).json({
+        success: false,
+        message: 'planId é obrigatório',
+      });
+    }
+
+    // Get preview to validate
+    const preview = await subscriptionService.previewPlanChange(userId, planId);
+    
+    if (preview.changeType !== 'downgrade') {
+      return res.status(400).json({
+        success: false,
+        message: 'Esta operação é um upgrade. Use o endpoint /upgrade.',
+      });
+    }
+
+    const result = await subscriptionService.downgradePlan(userId, planId, reason);
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Downgrade plan error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Cancel scheduled downgrade
+router.delete('/downgrade', authenticate, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+
+    await subscriptionService.cancelScheduledDowngrade(userId);
+
+    res.json({
+      success: true,
+      message: 'Downgrade agendado cancelado com sucesso',
+    });
+  } catch (error: any) {
+    console.error('Cancel downgrade error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get pending plan changes
+router.get('/plan-changes/pending', authenticate, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+
+    const changes = await subscriptionService.getPendingPlanChanges(userId);
+
+    res.json({
+      success: true,
+      planChanges: changes,
+    });
+  } catch (error: any) {
+    console.error('Get pending plan changes error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get plan change history
+router.get('/plan-changes/history', authenticate, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+
+    const changes = await subscriptionService.getPlanChangeHistory(userId);
+
+    res.json({
+      success: true,
+      planChanges: changes,
+    });
+  } catch (error: any) {
+    console.error('Get plan change history error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Webhook for payment notifications
 router.post('/webhook', async (req, res) => {
   try {

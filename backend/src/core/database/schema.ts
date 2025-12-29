@@ -236,6 +236,40 @@ export const subscriptionNotifications = pgTable("subscription_notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Plan Changes table - for tracking upgrades/downgrades with proration
+export const planChanges = pgTable("plan_changes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
+  subscriptionId: integer("subscription_id").references(() => subscriptions.id),
+  
+  // Plan info
+  fromPlanId: integer("from_plan_id").references(() => plans.id),
+  toPlanId: integer("to_plan_id").references(() => plans.id).notNull(),
+  changeType: varchar("change_type", { length: 20 }).notNull(), // 'upgrade', 'downgrade', 'new'
+  
+  // Proration calculation
+  fromPlanPrice: decimal("from_plan_price", { precision: 10, scale: 2 }),
+  toPlanPrice: decimal("to_plan_price", { precision: 10, scale: 2 }).notNull(),
+  daysRemaining: integer("days_remaining"), // Days remaining on old plan
+  creditAmount: decimal("credit_amount", { precision: 10, scale: 2 }).default('0'), // Credit from old plan
+  amountToPay: decimal("amount_to_pay", { precision: 10, scale: 2 }).notNull(), // Final amount after proration
+  
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // 'pending', 'completed', 'cancelled', 'scheduled'
+  effectiveDate: timestamp("effective_date").notNull(), // When the change takes effect
+  scheduledFor: timestamp("scheduled_for"), // For downgrades: when it will be applied (end of current cycle)
+  
+  // Payment info (for upgrades)
+  paymentId: integer("payment_id").references(() => subscriptionPayments.id),
+  
+  // Metadata
+  reason: text("reason"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Payment Methods table - for Phase 3
 export const paymentMethods = pgTable("payment_methods", {
   id: serial("id").primaryKey(),
@@ -936,6 +970,9 @@ export type InsertSubscriptionPayment = typeof subscriptionPayments.$inferInsert
 
 export type SubscriptionNotification = typeof subscriptionNotifications.$inferSelect;
 export type InsertSubscriptionNotification = typeof subscriptionNotifications.$inferInsert;
+
+export type PlanChange = typeof planChanges.$inferSelect;
+export type InsertPlanChange = typeof planChanges.$inferInsert;
 
 
 // Password Reset Tokens table

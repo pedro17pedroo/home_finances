@@ -5,6 +5,7 @@ import {
   subscriptionNotifications,
   users,
   plans,
+  planChanges,
 } from '../../core/database/schema.js';
 import { eq, desc, and, gte, lte, or, sql, count, inArray } from 'drizzle-orm';
 import tpagamentoService, {
@@ -75,6 +76,25 @@ export interface SubscriptionStats {
   expired: number;
   cancelled: number;
   byPlan: { planId: string; planName: string; count: number }[];
+}
+
+export interface PlanChangePreview {
+  changeType: 'upgrade' | 'downgrade';
+  fromPlan: PlanData | null;
+  toPlan: PlanData;
+  daysRemaining: number;
+  creditAmount: number;
+  amountToPay: number;
+  effectiveDate: Date;
+  scheduledFor?: Date; // For downgrades
+  message: string;
+}
+
+export interface PlanChangeResult {
+  success: boolean;
+  planChange: any;
+  payment?: any;
+  message: string;
 }
 
 class SubscriptionService {
@@ -1152,6 +1172,613 @@ class SubscriptionService {
     });
 
     return { subscription, trialDays };
+  }
+
+  // ==========================================
+  // UPGRADE / DOWNGRADE METHODS
+  // ==========================================
+
+  /**
+   * Preview a plan change (upgrade or downgrade)
+   * Shows the user what will happen before they confirm
+   */
+  async previewPlanChange(userId: number, newPlanId: number): Promise<PlanChangePreview> {
+    // Get user and current subscription
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) throw new Error('Utilizador não encontrado');
+
+    const currentSubscription = await this.getUserSubscription(userId);
+    const newPlan = await this.getPlanById(newPlanId);
+    
+    if (!newPlan) throw new Error('Plano não encontrado');
+    if (!newPlan.isActive) throw new Error('Este plano não está disponível');
+
+    // Get current plan if exists
+    let currentPlan: PlanData | null = null;
+    let daysRemaining = 0;
+    let creditAmount = 0;
+
+    if (currentSubscription && currentSubscription.status === 'active') {
+      currentPlan = await this.getPlanById(parseInt(currentSubscription.planId));
+      
+      // Calculate days remaining
+      if (currentSubscription.endDate) {
+        const now = new Date();
+        const endDate = new Date(currentSubscription.endDate);
+        daysRemaining = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+      }
+    } else if (currentSubscription && currentSubscription.status === 'trial') {
+      currentPlan = await this.getPlanById(parseInt(currentSubscription.planId));
+      
+      // For trial, calculate days remaining from trial end
+      if (currentSubscription.trialEndsAt) {
+        const now = new Date();
+        const trialEnd = new Date(currentSubscription.trialEndsAt);
+        daysRemaining = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+      }
+    }
+
+    // Determine change type
+    const currentPrice = currentPlan?.price || 0;
+    const newPrice = newPlan.price;
+    const isUpgrade = newPrice > currentPrice;
+    const changeType = isUpgrade ? 'upgrade' : 'downgrade';
+
+    // Calculate proration for upgrades
+    if (isUpgrade && currentPlan && daysRemaining > 0) {
+      // Calculate daily rate of current plan
+      const billingCycleDays = this.getBillingCycleDays(currentPlan.billingCycle || 'monthly');
+      const dailyRate = currentPrice / billingCycleDays;
+      creditAmount = Math.round(dailyRate * daysRemaining * 100) / 100;
+    }
+
+    // Calculate amount to pay
+    let amountToPay = newPrice;
+    let effectiveDate = new Date();
+    let scheduledFor: Date | undefined;
+    let message = '';
+
+    if (isUpgrade) {
+      // Upgrade: Apply credit and charge difference immediately
+      amountToPay = Math.max(0, newPrice - creditAmount);
+      message = creditAmount > 0 
+        ? `Upgrade imediato. Crédito de ${creditAmount.toFixed(2)} AOA aplicado dos ${daysRemaining} dias restantes do plano atual.`
+        : `Upgrade imediato para o plano ${newPlan.name}.`;
+    } else {
+      // Downgrade: Schedule for end of current cycle
+      amountToPay = 0; // No payment needed for downgrade
+      if (currentSubscription?.endDate) {
+        scheduledFor = new Date(currentSubscription.endDate);
+        effectiveDate = scheduledFor;
+        message = `Downgrade agendado para ${scheduledFor.toLocaleDateString('pt-AO')}. Continuará com o plano atual até essa data.`;
+      } else {
+        message = `Downgrade para o plano ${newPlan.name}. Será aplicado imediatamente.`;
+      }
+    }
+
+    return {
+      changeType,
+      fromPlan: currentPlan,
+      toPlan: newPlan,
+      daysRemaining,
+      creditAmount,
+      amountToPay,
+      effectiveDate,
+      scheduledFor,
+      message,
+    };
+  }
+
+  /**
+   * Execute a plan upgrade
+   * Applies proration credit and creates payment for the difference
+   */
+  async upgradePlan(
+    userId: number,
+    newPlanId: number,
+    paymentMethod: PaymentMethod,
+    payerPhone?: string,
+    payerName?: string,
+    payerEmail?: string
+  ): Promise<PlanChangeResult> {
+    // Get preview to validate and calculate amounts
+    const preview = await this.previewPlanChange(userId, newPlanId);
+    
+    if (preview.changeType !== 'upgrade') {
+      throw new Error('Esta operação é um downgrade. Use o método de downgrade.');
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) throw new Error('Utilizador não encontrado');
+
+    const currentSubscription = await this.getUserSubscription(userId);
+
+    // Create plan change record
+    const [planChange] = await db
+      .insert(planChanges)
+      .values({
+        userId,
+        organizationId: user.organizationId || undefined,
+        subscriptionId: currentSubscription?.id,
+        fromPlanId: preview.fromPlan?.id,
+        toPlanId: preview.toPlan.id,
+        changeType: 'upgrade',
+        fromPlanPrice: preview.fromPlan?.price.toString(),
+        toPlanPrice: preview.toPlan.price.toString(),
+        daysRemaining: preview.daysRemaining,
+        creditAmount: preview.creditAmount.toString(),
+        amountToPay: preview.amountToPay.toString(),
+        status: 'pending',
+        effectiveDate: preview.effectiveDate,
+      })
+      .returning();
+
+    let payment = null;
+
+    // If there's an amount to pay, create payment
+    if (preview.amountToPay > 0) {
+      const customerName = payerName || `${user.firstName} ${user.lastName}`;
+      const customerPhone = payerPhone || user.phone || '';
+      const customerEmail = payerEmail || user.email || '';
+
+      const paymentResult = await tpagamentoService.createPayment(
+        paymentMethod,
+        preview.amountToPay,
+        {
+          name: customerName,
+          email: customerEmail,
+          phone: customerPhone,
+        },
+        `Upgrade para ${preview.toPlan.name} - FinanceControl`
+      );
+
+      if (!paymentResult.success) {
+        // Mark plan change as cancelled
+        await db
+          .update(planChanges)
+          .set({ status: 'cancelled', updatedAt: new Date() })
+          .where(eq(planChanges.id, planChange.id));
+        
+        throw new Error(paymentResult.message || 'Erro ao criar pagamento');
+      }
+
+      const isAlreadyPaid = paymentResult.status === 'paid';
+
+      // Calculate new end date
+      const billingCycleDays = this.getBillingCycleDays(preview.toPlan.billingCycle || 'monthly');
+      const newEndDate = new Date();
+      newEndDate.setDate(newEndDate.getDate() + billingCycleDays);
+
+      // Create or update subscription
+      let subscription;
+      if (currentSubscription) {
+        // Update existing subscription
+        [subscription] = await db
+          .update(subscriptions)
+          .set({
+            planId: preview.toPlan.id.toString(),
+            status: isAlreadyPaid ? 'active' : 'pending',
+            startDate: new Date(),
+            endDate: newEndDate,
+            nextBillingDate: newEndDate,
+            updatedAt: new Date(),
+          })
+          .where(eq(subscriptions.id, currentSubscription.id))
+          .returning();
+      } else {
+        // Create new subscription
+        [subscription] = await db
+          .insert(subscriptions)
+          .values({
+            userId,
+            organizationId: user.organizationId || undefined,
+            planId: preview.toPlan.id.toString(),
+            status: isAlreadyPaid ? 'active' : 'pending',
+            paymentType: 'one_time',
+            paymentMethod,
+            startDate: new Date(),
+            endDate: newEndDate,
+            nextBillingDate: newEndDate,
+          })
+          .returning();
+      }
+
+      // Record payment
+      const [paymentRecord] = await db
+        .insert(subscriptionPayments)
+        .values({
+          subscriptionId: subscription.id,
+          userId,
+          organizationId: user.organizationId || undefined,
+          amount: preview.amountToPay.toString(),
+          paymentMethod,
+          paymentId: paymentResult.paymentId || null,
+          referenceCode: paymentResult.referenceCode || null,
+          status: isAlreadyPaid ? 'paid' : 'pending',
+          paidAt: isAlreadyPaid ? new Date() : null,
+        })
+        .returning();
+
+      // Update plan change with payment info
+      await db
+        .update(planChanges)
+        .set({
+          subscriptionId: subscription.id,
+          paymentId: paymentRecord.id,
+          status: isAlreadyPaid ? 'completed' : 'pending',
+          processedAt: isAlreadyPaid ? new Date() : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(planChanges.id, planChange.id));
+
+      // If already paid, update user's plan
+      if (isAlreadyPaid) {
+        await db
+          .update(users)
+          .set({
+            planType: preview.toPlan.type as any,
+            subscriptionStatus: 'active',
+          })
+          .where(eq(users.id, userId));
+
+        // Sync organization members
+        if (user.organizationId) {
+          await this.syncOrganizationMembers(user.organizationId, preview.toPlan.type, 'active');
+        }
+
+        // Send confirmation email
+        if (user.email) {
+          emailService.sendSubscriptionConfirmationEmail(
+            user.email,
+            user.firstName || 'Utilizador',
+            preview.toPlan.name,
+            preview.amountToPay,
+            newEndDate
+          ).catch(err => console.error('Error sending upgrade email:', err));
+        }
+      }
+
+      payment = {
+        ...paymentRecord,
+        paymentData: paymentResult.data,
+      };
+    } else {
+      // No payment needed (full credit covers the upgrade)
+      const billingCycleDays = this.getBillingCycleDays(preview.toPlan.billingCycle || 'monthly');
+      const newEndDate = new Date();
+      newEndDate.setDate(newEndDate.getDate() + billingCycleDays);
+
+      // Update subscription
+      if (currentSubscription) {
+        await db
+          .update(subscriptions)
+          .set({
+            planId: preview.toPlan.id.toString(),
+            status: 'active',
+            startDate: new Date(),
+            endDate: newEndDate,
+            nextBillingDate: newEndDate,
+            updatedAt: new Date(),
+          })
+          .where(eq(subscriptions.id, currentSubscription.id));
+      }
+
+      // Update plan change as completed
+      await db
+        .update(planChanges)
+        .set({
+          status: 'completed',
+          processedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(planChanges.id, planChange.id));
+
+      // Update user's plan
+      await db
+        .update(users)
+        .set({
+          planType: preview.toPlan.type as any,
+          subscriptionStatus: 'active',
+        })
+        .where(eq(users.id, userId));
+
+      // Sync organization members
+      if (user.organizationId) {
+        await this.syncOrganizationMembers(user.organizationId, preview.toPlan.type, 'active');
+      }
+    }
+
+    console.log(`[upgradePlan] Plan upgrade completed:`, {
+      userId,
+      fromPlan: preview.fromPlan?.name,
+      toPlan: preview.toPlan.name,
+      creditAmount: preview.creditAmount,
+      amountToPay: preview.amountToPay,
+    });
+
+    return {
+      success: true,
+      planChange,
+      payment,
+      message: preview.message,
+    };
+  }
+
+  /**
+   * Schedule a plan downgrade
+   * Downgrade takes effect at the end of the current billing cycle
+   */
+  async downgradePlan(userId: number, newPlanId: number, reason?: string): Promise<PlanChangeResult> {
+    // Get preview to validate
+    const preview = await this.previewPlanChange(userId, newPlanId);
+    
+    if (preview.changeType !== 'downgrade') {
+      throw new Error('Esta operação é um upgrade. Use o método de upgrade.');
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) throw new Error('Utilizador não encontrado');
+
+    const currentSubscription = await this.getUserSubscription(userId);
+
+    // Check if there's already a scheduled downgrade
+    const existingDowngrade = await db
+      .select()
+      .from(planChanges)
+      .where(and(
+        eq(planChanges.userId, userId),
+        eq(planChanges.status, 'scheduled'),
+        eq(planChanges.changeType, 'downgrade')
+      ))
+      .limit(1);
+
+    if (existingDowngrade.length > 0) {
+      throw new Error('Já existe um downgrade agendado. Cancele-o primeiro para agendar outro.');
+    }
+
+    // Create plan change record
+    const [planChange] = await db
+      .insert(planChanges)
+      .values({
+        userId,
+        organizationId: user.organizationId || undefined,
+        subscriptionId: currentSubscription?.id,
+        fromPlanId: preview.fromPlan?.id,
+        toPlanId: preview.toPlan.id,
+        changeType: 'downgrade',
+        fromPlanPrice: preview.fromPlan?.price.toString(),
+        toPlanPrice: preview.toPlan.price.toString(),
+        daysRemaining: preview.daysRemaining,
+        creditAmount: '0',
+        amountToPay: '0',
+        status: preview.scheduledFor ? 'scheduled' : 'completed',
+        effectiveDate: preview.effectiveDate,
+        scheduledFor: preview.scheduledFor,
+        reason,
+      })
+      .returning();
+
+    // If no scheduled date (immediate downgrade), apply now
+    if (!preview.scheduledFor) {
+      await this.applyDowngrade(planChange.id);
+    }
+
+    console.log(`[downgradePlan] Plan downgrade ${preview.scheduledFor ? 'scheduled' : 'applied'}:`, {
+      userId,
+      fromPlan: preview.fromPlan?.name,
+      toPlan: preview.toPlan.name,
+      scheduledFor: preview.scheduledFor,
+    });
+
+    return {
+      success: true,
+      planChange,
+      message: preview.message,
+    };
+  }
+
+  /**
+   * Apply a scheduled downgrade
+   * Called by a job when the scheduled date arrives
+   */
+  async applyDowngrade(planChangeId: number): Promise<void> {
+    const [planChange] = await db
+      .select()
+      .from(planChanges)
+      .where(eq(planChanges.id, planChangeId));
+
+    if (!planChange) throw new Error('Mudança de plano não encontrada');
+    if (planChange.status === 'completed') return; // Already applied
+
+    const newPlan = await this.getPlanById(planChange.toPlanId);
+    if (!newPlan) throw new Error('Plano não encontrado');
+
+    const [user] = await db.select().from(users).where(eq(users.id, planChange.userId));
+    if (!user) throw new Error('Utilizador não encontrado');
+
+    // Calculate new end date
+    const billingCycleDays = this.getBillingCycleDays(newPlan.billingCycle || 'monthly');
+    const newEndDate = new Date();
+    newEndDate.setDate(newEndDate.getDate() + billingCycleDays);
+
+    // Update subscription
+    if (planChange.subscriptionId) {
+      await db
+        .update(subscriptions)
+        .set({
+          planId: newPlan.id.toString(),
+          status: 'active',
+          startDate: new Date(),
+          endDate: newEndDate,
+          nextBillingDate: newEndDate,
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.id, planChange.subscriptionId));
+    }
+
+    // Update user's plan
+    await db
+      .update(users)
+      .set({
+        planType: newPlan.type as any,
+        subscriptionStatus: 'active',
+      })
+      .where(eq(users.id, planChange.userId));
+
+    // Sync organization members
+    if (user.organizationId) {
+      await this.syncOrganizationMembers(user.organizationId, newPlan.type, 'active');
+    }
+
+    // Mark plan change as completed
+    await db
+      .update(planChanges)
+      .set({
+        status: 'completed',
+        processedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(planChanges.id, planChangeId));
+
+    // Send notification email
+    if (user.email) {
+      emailService.sendEmail({
+        to: user.email,
+        subject: 'Plano Alterado - FinanceControl',
+        html: emailService['getEmailTemplate']('Plano Alterado', `
+          <h2>Olá ${user.firstName || 'Utilizador'},</h2>
+          <p>O seu plano foi alterado para <strong>${newPlan.name}</strong>.</p>
+          <p>O novo plano está agora ativo e válido até ${newEndDate.toLocaleDateString('pt-AO')}.</p>
+        `)
+      }).catch(err => console.error('Error sending downgrade email:', err));
+    }
+
+    console.log(`[applyDowngrade] Downgrade applied:`, {
+      planChangeId,
+      userId: planChange.userId,
+      newPlan: newPlan.name,
+    });
+  }
+
+  /**
+   * Cancel a scheduled downgrade
+   */
+  async cancelScheduledDowngrade(userId: number): Promise<void> {
+    const [scheduledDowngrade] = await db
+      .select()
+      .from(planChanges)
+      .where(and(
+        eq(planChanges.userId, userId),
+        eq(planChanges.status, 'scheduled'),
+        eq(planChanges.changeType, 'downgrade')
+      ))
+      .limit(1);
+
+    if (!scheduledDowngrade) {
+      throw new Error('Nenhum downgrade agendado encontrado');
+    }
+
+    await db
+      .update(planChanges)
+      .set({
+        status: 'cancelled',
+        updatedAt: new Date(),
+      })
+      .where(eq(planChanges.id, scheduledDowngrade.id));
+
+    console.log(`[cancelScheduledDowngrade] Downgrade cancelled:`, {
+      planChangeId: scheduledDowngrade.id,
+      userId,
+    });
+  }
+
+  /**
+   * Get pending/scheduled plan changes for a user
+   */
+  async getPendingPlanChanges(userId: number): Promise<any[]> {
+    const changes = await db
+      .select()
+      .from(planChanges)
+      .where(and(
+        eq(planChanges.userId, userId),
+        or(
+          eq(planChanges.status, 'pending'),
+          eq(planChanges.status, 'scheduled')
+        )
+      ))
+      .orderBy(desc(planChanges.createdAt));
+
+    // Enrich with plan info
+    const enrichedChanges = await Promise.all(
+      changes.map(async (change) => {
+        const fromPlan = change.fromPlanId ? await this.getPlanById(change.fromPlanId) : null;
+        const toPlan = await this.getPlanById(change.toPlanId);
+        return {
+          ...change,
+          fromPlan,
+          toPlan,
+        };
+      })
+    );
+
+    return enrichedChanges;
+  }
+
+  /**
+   * Get plan change history for a user
+   */
+  async getPlanChangeHistory(userId: number): Promise<any[]> {
+    const changes = await db
+      .select()
+      .from(planChanges)
+      .where(eq(planChanges.userId, userId))
+      .orderBy(desc(planChanges.createdAt));
+
+    // Enrich with plan info
+    const enrichedChanges = await Promise.all(
+      changes.map(async (change) => {
+        const fromPlan = change.fromPlanId ? await this.getPlanById(change.fromPlanId) : null;
+        const toPlan = await this.getPlanById(change.toPlanId);
+        return {
+          ...change,
+          fromPlan,
+          toPlan,
+        };
+      })
+    );
+
+    return enrichedChanges;
+  }
+
+  /**
+   * Process all scheduled downgrades that are due
+   * Should be called by a cron job daily
+   */
+  async processScheduledDowngrades(): Promise<number> {
+    const now = new Date();
+    
+    const dueDowngrades = await db
+      .select()
+      .from(planChanges)
+      .where(and(
+        eq(planChanges.status, 'scheduled'),
+        eq(planChanges.changeType, 'downgrade'),
+        lte(planChanges.scheduledFor, now)
+      ));
+
+    let processedCount = 0;
+
+    for (const downgrade of dueDowngrades) {
+      try {
+        await this.applyDowngrade(downgrade.id);
+        processedCount++;
+      } catch (error) {
+        console.error(`[processScheduledDowngrades] Error processing downgrade ${downgrade.id}:`, error);
+      }
+    }
+
+    console.log(`[processScheduledDowngrades] Processed ${processedCount} scheduled downgrades`);
+    return processedCount;
   }
 }
 
