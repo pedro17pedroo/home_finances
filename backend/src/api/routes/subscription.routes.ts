@@ -480,7 +480,7 @@ router.get('/plan-change/preview/:planId', authenticate, async (req, res) => {
 router.post('/upgrade', authenticate, async (req, res) => {
   try {
     const userId = (req as any).user.id;
-    const { planId, paymentMethod, payerPhone, payerName, payerEmail } = req.body;
+    const { planId, paymentMethod, payerPhone, payerName, payerEmail, useTrialWhilePending } = req.body;
 
     if (!planId) {
       return res.status(400).json({
@@ -521,7 +521,8 @@ router.post('/upgrade', authenticate, async (req, res) => {
       paymentMethod || 'gpo',
       payerPhone,
       payerName,
-      payerEmail
+      payerEmail,
+      useTrialWhilePending // Pass option to use trial while payment is pending
     );
 
     res.json(result);

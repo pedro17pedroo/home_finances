@@ -472,6 +472,9 @@ class SubscriptionService {
         .set({ status: 'paid', paidAt: new Date() })
         .where(eq(subscriptionPayments.id, paymentId));
 
+      // Check if this payment is for a pending upgrade
+      await this.completePendingUpgrade(paymentId);
+
       // Get subscription to find plan
       const [subscription] = await db
         .select()
@@ -520,6 +523,9 @@ class SubscriptionService {
         .update(subscriptionPayments)
         .set({ status: statusResult.status })
         .where(eq(subscriptionPayments.id, paymentId));
+
+      // Cancel any pending upgrade associated with this payment
+      await this.cancelPendingUpgrade(paymentId, `Pagamento ${statusResult.status === 'failed' ? 'falhou' : 'expirou'}`);
     }
 
     return {
@@ -1271,7 +1277,12 @@ class SubscriptionService {
 
   /**
    * Execute a plan upgrade
-   * Applies proration credit and creates payment for the difference
+   * 
+   * IMPORTANT BEHAVIOR:
+   * - If payment is instant (paid immediately): Upgrade is applied immediately
+   * - If payment is pending: User KEEPS current plan until payment is confirmed
+   * - If payment fails: User keeps current plan, upgrade is cancelled
+   * - If new plan has trial and payment is pending: Offer trial option
    */
   async upgradePlan(
     userId: number,
@@ -1279,7 +1290,8 @@ class SubscriptionService {
     paymentMethod: PaymentMethod,
     payerPhone?: string,
     payerName?: string,
-    payerEmail?: string
+    payerEmail?: string,
+    useTrialWhilePending?: boolean // Option to use trial while payment is pending
   ): Promise<PlanChangeResult> {
     // Get preview to validate and calculate amounts
     const preview = await this.previewPlanChange(userId, newPlanId);
@@ -1314,6 +1326,7 @@ class SubscriptionService {
       .returning();
 
     let payment = null;
+    let message = preview.message;
 
     // If there's an amount to pay, create payment
     if (preview.amountToPay > 0) {
@@ -1333,10 +1346,15 @@ class SubscriptionService {
       );
 
       if (!paymentResult.success) {
-        // Mark plan change as cancelled
+        // Payment creation failed - mark plan change as cancelled
+        // User KEEPS their current plan
         await db
           .update(planChanges)
-          .set({ status: 'cancelled', updatedAt: new Date() })
+          .set({ 
+            status: 'cancelled', 
+            reason: paymentResult.message || 'Erro ao criar pagamento',
+            updatedAt: new Date() 
+          })
           .where(eq(planChanges.id, planChange.id));
         
         throw new Error(paymentResult.message || 'Erro ao criar pagamento');
@@ -1344,50 +1362,16 @@ class SubscriptionService {
 
       const isAlreadyPaid = paymentResult.status === 'paid';
 
-      // Calculate new end date
+      // Calculate new end date for when upgrade is applied
       const billingCycleDays = this.getBillingCycleDays(preview.toPlan.billingCycle || 'monthly');
       const newEndDate = new Date();
       newEndDate.setDate(newEndDate.getDate() + billingCycleDays);
 
-      // Create or update subscription
-      let subscription;
-      if (currentSubscription) {
-        // Update existing subscription
-        [subscription] = await db
-          .update(subscriptions)
-          .set({
-            planId: preview.toPlan.id.toString(),
-            status: isAlreadyPaid ? 'active' : 'pending',
-            startDate: new Date(),
-            endDate: newEndDate,
-            nextBillingDate: newEndDate,
-            updatedAt: new Date(),
-          })
-          .where(eq(subscriptions.id, currentSubscription.id))
-          .returning();
-      } else {
-        // Create new subscription
-        [subscription] = await db
-          .insert(subscriptions)
-          .values({
-            userId,
-            organizationId: user.organizationId || undefined,
-            planId: preview.toPlan.id.toString(),
-            status: isAlreadyPaid ? 'active' : 'pending',
-            paymentType: 'one_time',
-            paymentMethod,
-            startDate: new Date(),
-            endDate: newEndDate,
-            nextBillingDate: newEndDate,
-          })
-          .returning();
-      }
-
-      // Record payment
+      // Record payment FIRST (before any subscription changes)
       const [paymentRecord] = await db
         .insert(subscriptionPayments)
         .values({
-          subscriptionId: subscription.id,
+          subscriptionId: currentSubscription?.id || 0, // Will update after
           userId,
           organizationId: user.organizationId || undefined,
           amount: preview.amountToPay.toString(),
@@ -1403,16 +1387,62 @@ class SubscriptionService {
       await db
         .update(planChanges)
         .set({
-          subscriptionId: subscription.id,
           paymentId: paymentRecord.id,
-          status: isAlreadyPaid ? 'completed' : 'pending',
-          processedAt: isAlreadyPaid ? new Date() : null,
           updatedAt: new Date(),
         })
         .where(eq(planChanges.id, planChange.id));
 
-      // If already paid, update user's plan
       if (isAlreadyPaid) {
+        // Payment confirmed immediately - apply upgrade NOW
+        let subscription;
+        if (currentSubscription) {
+          [subscription] = await db
+            .update(subscriptions)
+            .set({
+              planId: preview.toPlan.id.toString(),
+              status: 'active',
+              startDate: new Date(),
+              endDate: newEndDate,
+              nextBillingDate: newEndDate,
+              updatedAt: new Date(),
+            })
+            .where(eq(subscriptions.id, currentSubscription.id))
+            .returning();
+        } else {
+          [subscription] = await db
+            .insert(subscriptions)
+            .values({
+              userId,
+              organizationId: user.organizationId || undefined,
+              planId: preview.toPlan.id.toString(),
+              status: 'active',
+              paymentType: 'one_time',
+              paymentMethod,
+              startDate: new Date(),
+              endDate: newEndDate,
+              nextBillingDate: newEndDate,
+            })
+            .returning();
+        }
+
+        // Update payment with correct subscription ID
+        await db
+          .update(subscriptionPayments)
+          .set({ subscriptionId: subscription.id })
+          .where(eq(subscriptionPayments.id, paymentRecord.id));
+
+        // Mark plan change as completed
+        await db
+          .update(planChanges)
+          .set({
+            subscriptionId: subscription.id,
+            status: 'completed',
+            processedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(planChanges.id, planChange.id));
+
+        // Update user's plan
         await db
           .update(users)
           .set({
@@ -1436,19 +1466,69 @@ class SubscriptionService {
             newEndDate
           ).catch(err => console.error('Error sending upgrade email:', err));
         }
+
+        message = `Upgrade concluído! Agora está no plano ${preview.toPlan.name}.`;
+
+      } else {
+        // Payment is PENDING - user KEEPS current plan
+        // DO NOT change the subscription or user's plan yet!
+        
+        // Check if user wants to use trial while waiting for payment
+        const newPlanHasTrial = preview.toPlan.trialDays && preview.toPlan.trialDays > 0;
+        const hasUsedTrial = currentSubscription?.trialUsed === true;
+        const canUseTrial = newPlanHasTrial && !hasUsedTrial && useTrialWhilePending;
+
+        if (canUseTrial) {
+          // Start trial on new plan while payment is pending
+          const trialEndsAt = new Date();
+          trialEndsAt.setDate(trialEndsAt.getDate() + (preview.toPlan.trialDays || 7));
+
+          if (currentSubscription) {
+            await db
+              .update(subscriptions)
+              .set({
+                planId: preview.toPlan.id.toString(),
+                status: 'trial',
+                trialEndsAt,
+                trialUsed: true,
+                updatedAt: new Date(),
+              })
+              .where(eq(subscriptions.id, currentSubscription.id));
+          }
+
+          // Update user to trial status on new plan
+          await db
+            .update(users)
+            .set({
+              planType: preview.toPlan.type as any,
+              subscriptionStatus: 'trialing',
+              trialEndsAt,
+            })
+            .where(eq(users.id, userId));
+
+          if (user.organizationId) {
+            await this.syncOrganizationMembers(user.organizationId, preview.toPlan.type, 'trial');
+          }
+
+          message = `Período de teste de ${preview.toPlan.trialDays} dias iniciado no plano ${preview.toPlan.name}. Pagamento pendente.`;
+        } else {
+          // No trial - user keeps current plan until payment is confirmed
+          message = `Pagamento pendente. Continuará com o plano ${preview.fromPlan?.name || 'atual'} até a confirmação do pagamento.`;
+        }
       }
 
       payment = {
         ...paymentRecord,
         paymentData: paymentResult.data,
       };
+
     } else {
       // No payment needed (full credit covers the upgrade)
       const billingCycleDays = this.getBillingCycleDays(preview.toPlan.billingCycle || 'monthly');
       const newEndDate = new Date();
       newEndDate.setDate(newEndDate.getDate() + billingCycleDays);
 
-      // Update subscription
+      // Update subscription immediately
       if (currentSubscription) {
         await db
           .update(subscriptions)
@@ -1486,22 +1566,207 @@ class SubscriptionService {
       if (user.organizationId) {
         await this.syncOrganizationMembers(user.organizationId, preview.toPlan.type, 'active');
       }
+
+      message = `Upgrade concluído! O crédito de ${preview.creditAmount.toFixed(2)} AOA cobriu o valor total.`;
     }
 
-    console.log(`[upgradePlan] Plan upgrade completed:`, {
+    console.log(`[upgradePlan] Plan upgrade processed:`, {
       userId,
       fromPlan: preview.fromPlan?.name,
       toPlan: preview.toPlan.name,
       creditAmount: preview.creditAmount,
       amountToPay: preview.amountToPay,
+      paymentStatus: payment?.status || 'no_payment',
     });
 
     return {
       success: true,
       planChange,
       payment,
-      message: preview.message,
+      message,
     };
+  }
+
+  /**
+   * Complete a pending upgrade when payment is confirmed
+   * Called by checkPaymentStatus or webhook
+   */
+  async completePendingUpgrade(paymentId: number): Promise<void> {
+    // Find the plan change associated with this payment
+    const [planChangeRecord] = await db
+      .select()
+      .from(planChanges)
+      .where(and(
+        eq(planChanges.paymentId, paymentId),
+        eq(planChanges.status, 'pending'),
+        eq(planChanges.changeType, 'upgrade')
+      ))
+      .limit(1);
+
+    if (!planChangeRecord) {
+      console.log(`[completePendingUpgrade] No pending upgrade found for payment ${paymentId}`);
+      return;
+    }
+
+    const newPlan = await this.getPlanById(planChangeRecord.toPlanId);
+    if (!newPlan) {
+      console.error(`[completePendingUpgrade] Plan not found: ${planChangeRecord.toPlanId}`);
+      return;
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, planChangeRecord.userId));
+    if (!user) {
+      console.error(`[completePendingUpgrade] User not found: ${planChangeRecord.userId}`);
+      return;
+    }
+
+    // Calculate new end date
+    const billingCycleDays = this.getBillingCycleDays(newPlan.billingCycle || 'monthly');
+    const newEndDate = new Date();
+    newEndDate.setDate(newEndDate.getDate() + billingCycleDays);
+
+    // Update or create subscription
+    if (planChangeRecord.subscriptionId) {
+      await db
+        .update(subscriptions)
+        .set({
+          planId: newPlan.id.toString(),
+          status: 'active',
+          startDate: new Date(),
+          endDate: newEndDate,
+          nextBillingDate: newEndDate,
+          trialEndsAt: null, // Clear trial if was in trial
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.id, planChangeRecord.subscriptionId));
+    } else {
+      const [newSubscription] = await db
+        .insert(subscriptions)
+        .values({
+          userId: planChangeRecord.userId,
+          organizationId: planChangeRecord.organizationId || undefined,
+          planId: newPlan.id.toString(),
+          status: 'active',
+          paymentType: 'one_time',
+          startDate: new Date(),
+          endDate: newEndDate,
+          nextBillingDate: newEndDate,
+        })
+        .returning();
+
+      // Update plan change with subscription ID
+      await db
+        .update(planChanges)
+        .set({ subscriptionId: newSubscription.id })
+        .where(eq(planChanges.id, planChangeRecord.id));
+    }
+
+    // Mark plan change as completed
+    await db
+      .update(planChanges)
+      .set({
+        status: 'completed',
+        processedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(planChanges.id, planChangeRecord.id));
+
+    // Update user's plan
+    await db
+      .update(users)
+      .set({
+        planType: newPlan.type as any,
+        subscriptionStatus: 'active',
+        trialEndsAt: null,
+      })
+      .where(eq(users.id, planChangeRecord.userId));
+
+    // Sync organization members
+    if (user.organizationId) {
+      await this.syncOrganizationMembers(user.organizationId, newPlan.type, 'active');
+    }
+
+    // Send confirmation email
+    if (user.email) {
+      emailService.sendSubscriptionConfirmationEmail(
+        user.email,
+        user.firstName || 'Utilizador',
+        newPlan.name,
+        parseFloat(planChangeRecord.amountToPay || '0'),
+        newEndDate
+      ).catch(err => console.error('Error sending upgrade confirmation email:', err));
+    }
+
+    console.log(`[completePendingUpgrade] Upgrade completed for user ${planChangeRecord.userId} to plan ${newPlan.name}`);
+  }
+
+  /**
+   * Cancel a pending upgrade (when payment fails or expires)
+   */
+  async cancelPendingUpgrade(paymentId: number, reason?: string): Promise<void> {
+    const [planChangeRecord] = await db
+      .select()
+      .from(planChanges)
+      .where(and(
+        eq(planChanges.paymentId, paymentId),
+        eq(planChanges.status, 'pending'),
+        eq(planChanges.changeType, 'upgrade')
+      ))
+      .limit(1);
+
+    if (!planChangeRecord) {
+      return;
+    }
+
+    // Mark plan change as cancelled
+    await db
+      .update(planChanges)
+      .set({
+        status: 'cancelled',
+        reason: reason || 'Pagamento falhou ou expirou',
+        updatedAt: new Date(),
+      })
+      .where(eq(planChanges.id, planChangeRecord.id));
+
+    // If user was in trial on new plan, revert to previous plan
+    const [user] = await db.select().from(users).where(eq(users.id, planChangeRecord.userId));
+    if (user && planChangeRecord.fromPlanId) {
+      const previousPlan = await this.getPlanById(planChangeRecord.fromPlanId);
+      if (previousPlan) {
+        // Check if user was in trial on the new plan
+        const subscription = planChangeRecord.subscriptionId 
+          ? await db.select().from(subscriptions).where(eq(subscriptions.id, planChangeRecord.subscriptionId)).then(r => r[0])
+          : null;
+
+        if (subscription?.status === 'trial') {
+          // Revert to previous plan
+          await db
+            .update(subscriptions)
+            .set({
+              planId: previousPlan.id.toString(),
+              status: 'active',
+              trialEndsAt: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(subscriptions.id, subscription.id));
+
+          await db
+            .update(users)
+            .set({
+              planType: previousPlan.type as any,
+              subscriptionStatus: 'active',
+              trialEndsAt: null,
+            })
+            .where(eq(users.id, planChangeRecord.userId));
+
+          if (user.organizationId) {
+            await this.syncOrganizationMembers(user.organizationId, previousPlan.type, 'active');
+          }
+        }
+      }
+    }
+
+    console.log(`[cancelPendingUpgrade] Upgrade cancelled for payment ${paymentId}: ${reason}`);
   }
 
   /**
