@@ -132,13 +132,12 @@ export function RecurringTransactionsScreen() {
   };
 
   const renderTransaction = ({ item }: { item: RecurringTransaction }) => (
-    <TouchableOpacity
+    <View
       style={[
         styles.transactionCard,
         { backgroundColor: theme.colors.card },
         !item.isActive && styles.inactiveCard,
       ]}
-      onPress={() => navigation.navigate('RecurringTransactionDetail' as never, { id: item.id } as never)}
     >
       <View style={styles.transactionHeader}>
         <View style={styles.transactionIcon}>
@@ -158,8 +157,8 @@ export function RecurringTransactionsScreen() {
                 {item.categoryName}
               </Text>
             </View>
-            <View style={[styles.badge, { backgroundColor: theme.colors.secondary + '20' }]}>
-              <Text style={[styles.badgeText, { color: theme.colors.secondary }]}>
+            <View style={[styles.badge, { backgroundColor: theme.colors.info + '20' }]}>
+              <Text style={[styles.badgeText, { color: theme.colors.info }]}>
                 {getFrequencyLabel(item.frequency, item.interval)}
               </Text>
             </View>
@@ -214,12 +213,12 @@ export function RecurringTransactionsScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.colors.secondary + '20' }]}
+          style={[styles.actionButton, { backgroundColor: theme.colors.success + '20' }]}
           onPress={() => handleExecuteNow(item.id)}
           disabled={!item.isActive}
         >
-          <Ionicons name="play-circle-outline" size={16} color={theme.colors.secondary} />
-          <Text style={[styles.actionText, { color: theme.colors.secondary }]}>
+          <Ionicons name="play-circle-outline" size={16} color={theme.colors.success} />
+          <Text style={[styles.actionText, { color: theme.colors.success }]}>
             Executar
           </Text>
         </TouchableOpacity>
@@ -234,7 +233,7 @@ export function RecurringTransactionsScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   if (loading) {
@@ -253,10 +252,10 @@ export function RecurringTransactionsScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            icon="calendar-outline"
+            icon="📅"
             title="Nenhuma transação recorrente"
-            message="Configure transações automáticas para receitas e despesas fixas"
-            actionLabel="Criar Transação"
+            description="Configure transações automáticas para receitas e despesas fixas"
+            actionText="Criar Transação"
             onAction={() => navigation.navigate('RecurringTransactionForm' as never)}
           />
         }
