@@ -19,4 +19,7 @@ router.post("/:id/read", NotificationController.markAsRead);
 // POST /api/notifications/read-all - Marcar todas como lidas
 router.post("/read-all", NotificationController.markAllAsRead);
 
+// DELETE /api/notifications/:id - Excluir notificação
+router.delete("/:id", NotificationController.deleteNotification);
+
 export default router;
