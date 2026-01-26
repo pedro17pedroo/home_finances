@@ -1,4 +1,4 @@
-import { AccountRepository } from "../repositories/account.repository.js";
+import { AccountRepository, AccountWithBank } from "../repositories/account.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
 import { 
   NotFoundError, 
@@ -9,18 +9,20 @@ import type { Account, InsertAccount } from "../../core/database/schema.js";
 
 export interface CreateAccountRequest {
   name: string;
-  type: 'corrente' | 'poupanca';
+  type: 'corrente' | 'poupanca' | 'investimento' | 'carteira' | 'outro';
   bank?: string;
   bankId?: number;
   balance: number;
+  color?: string;
   interestRate?: number;
 }
 
 export interface UpdateAccountRequest {
   name?: string;
-  type?: 'corrente' | 'poupanca';
+  type?: 'corrente' | 'poupanca' | 'investimento' | 'carteira' | 'outro';
   bank?: string;
-  bankId?: number;
+  bankId?: number | null;
+  color?: string;
   interestRate?: number;
 }
 
@@ -31,7 +33,7 @@ export interface AccountContext {
 
 export class AccountService {
   // Get accounts by organization (preferred) or user (fallback)
-  static async getAccounts(ctx: AccountContext): Promise<Account[]> {
+  static async getAccounts(ctx: AccountContext): Promise<AccountWithBank[]> {
     if (ctx.organizationId) {
       return AccountRepository.findByOrganizationId(ctx.organizationId);
     }
@@ -39,12 +41,12 @@ export class AccountService {
   }
 
   // Legacy method for backward compatibility
-  static async getUserAccounts(userId: number): Promise<Account[]> {
+  static async getUserAccounts(userId: number): Promise<AccountWithBank[]> {
     return AccountRepository.findByUserId(userId);
   }
 
   // Get savings accounts by organization or user
-  static async getSavingsAccounts(userId: number, organizationId?: number | null): Promise<Account[]> {
+  static async getSavingsAccounts(userId: number, organizationId?: number | null): Promise<AccountWithBank[]> {
     if (organizationId) {
       return AccountRepository.findByOrganizationIdAndType(organizationId, 'poupanca');
     }
@@ -55,7 +57,7 @@ export class AccountService {
     id: number,
     userId: number,
     organizationId?: number | null
-  ): Promise<Account> {
+  ): Promise<AccountWithBank> {
     const account = await AccountRepository.findById(id);
     
     if (!account) {
@@ -115,6 +117,7 @@ export class AccountService {
       bank: data.bank,
       bankId: data.bankId,
       balance: data.balance.toString(),
+      color: data.color,
       interestRate: data.interestRate?.toString(),
     };
 
@@ -143,6 +146,7 @@ export class AccountService {
     if (data.type !== undefined) updateData.type = data.type;
     if (data.bank !== undefined) updateData.bank = data.bank;
     if (data.bankId !== undefined) updateData.bankId = data.bankId;
+    if (data.color !== undefined) updateData.color = data.color;
     if (data.interestRate !== undefined) updateData.interestRate = data.interestRate.toString();
 
     return AccountRepository.update(id, updateData);

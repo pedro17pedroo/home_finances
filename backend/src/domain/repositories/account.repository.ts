@@ -1,12 +1,38 @@
 import { eq, sql, and, or, isNull } from "drizzle-orm";
 import { db } from "../../core/database/db.js";
-import { accounts, type Account, type InsertAccount } from "../../core/database/schema.js";
+import { accounts, banks, type Account, type InsertAccount } from "../../core/database/schema.js";
+
+// Extended Account type with bank information
+export interface AccountWithBank extends Account {
+  bankName?: string | null;
+  bankCode?: string | null;
+  bankLogoUrl?: string | null;
+}
 
 export class AccountRepository {
-  static async findById(id: number): Promise<Account | null> {
+  static async findById(id: number): Promise<AccountWithBank | null> {
     const result = await db
-      .select()
+      .select({
+        // Account fields
+        id: accounts.id,
+        userId: accounts.userId,
+        organizationId: accounts.organizationId,
+        name: accounts.name,
+        type: accounts.type,
+        bank: accounts.bank,
+        bankId: accounts.bankId,
+        balance: accounts.balance,
+        color: accounts.color,
+        interestRate: accounts.interestRate,
+        createdAt: accounts.createdAt,
+        updatedAt: accounts.updatedAt,
+        // Bank fields
+        bankName: banks.name,
+        bankCode: banks.code,
+        bankLogoUrl: banks.logoUrl,
+      })
       .from(accounts)
+      .leftJoin(banks, eq(accounts.bankId, banks.id))
       .where(eq(accounts.id, id))
       .limit(1);
     
@@ -14,44 +40,120 @@ export class AccountRepository {
   }
 
   // Find by user ID (backward compatibility)
-  static async findByUserId(userId: number): Promise<Account[]> {
+  static async findByUserId(userId: number): Promise<AccountWithBank[]> {
     return db
-      .select()
+      .select({
+        // Account fields
+        id: accounts.id,
+        userId: accounts.userId,
+        organizationId: accounts.organizationId,
+        name: accounts.name,
+        type: accounts.type,
+        bank: accounts.bank,
+        bankId: accounts.bankId,
+        balance: accounts.balance,
+        color: accounts.color,
+        interestRate: accounts.interestRate,
+        createdAt: accounts.createdAt,
+        updatedAt: accounts.updatedAt,
+        // Bank fields
+        bankName: banks.name,
+        bankCode: banks.code,
+        bankLogoUrl: banks.logoUrl,
+      })
       .from(accounts)
+      .leftJoin(banks, eq(accounts.bankId, banks.id))
       .where(eq(accounts.userId, userId))
       .orderBy(accounts.name);
   }
 
   // Find by organization ID (multi-tenant)
-  static async findByOrganizationId(organizationId: number): Promise<Account[]> {
+  static async findByOrganizationId(organizationId: number): Promise<AccountWithBank[]> {
     return db
-      .select()
+      .select({
+        // Account fields
+        id: accounts.id,
+        userId: accounts.userId,
+        organizationId: accounts.organizationId,
+        name: accounts.name,
+        type: accounts.type,
+        bank: accounts.bank,
+        bankId: accounts.bankId,
+        balance: accounts.balance,
+        color: accounts.color,
+        interestRate: accounts.interestRate,
+        createdAt: accounts.createdAt,
+        updatedAt: accounts.updatedAt,
+        // Bank fields
+        bankName: banks.name,
+        bankCode: banks.code,
+        bankLogoUrl: banks.logoUrl,
+      })
       .from(accounts)
+      .leftJoin(banks, eq(accounts.bankId, banks.id))
       .where(eq(accounts.organizationId, organizationId))
       .orderBy(accounts.name);
   }
 
   // Find by organization or user (for migration period)
-  static async findByOrganizationOrUser(organizationId: number | null, userId: number): Promise<Account[]> {
+  static async findByOrganizationOrUser(organizationId: number | null, userId: number): Promise<AccountWithBank[]> {
     if (organizationId) {
       return this.findByOrganizationId(organizationId);
     }
     return this.findByUserId(userId);
   }
 
-  static async findByUserIdAndType(userId: number, type: 'corrente' | 'poupanca'): Promise<Account[]> {
+  static async findByUserIdAndType(userId: number, type: 'corrente' | 'poupanca'): Promise<AccountWithBank[]> {
     return db
-      .select()
+      .select({
+        // Account fields
+        id: accounts.id,
+        userId: accounts.userId,
+        organizationId: accounts.organizationId,
+        name: accounts.name,
+        type: accounts.type,
+        bank: accounts.bank,
+        bankId: accounts.bankId,
+        balance: accounts.balance,
+        color: accounts.color,
+        interestRate: accounts.interestRate,
+        createdAt: accounts.createdAt,
+        updatedAt: accounts.updatedAt,
+        // Bank fields
+        bankName: banks.name,
+        bankCode: banks.code,
+        bankLogoUrl: banks.logoUrl,
+      })
       .from(accounts)
+      .leftJoin(banks, eq(accounts.bankId, banks.id))
       .where(and(eq(accounts.userId, userId), eq(accounts.type, type)))
       .orderBy(accounts.name);
   }
 
   // Find by organization and type
-  static async findByOrganizationIdAndType(organizationId: number, type: 'corrente' | 'poupanca'): Promise<Account[]> {
+  static async findByOrganizationIdAndType(organizationId: number, type: 'corrente' | 'poupanca'): Promise<AccountWithBank[]> {
     return db
-      .select()
+      .select({
+        // Account fields
+        id: accounts.id,
+        userId: accounts.userId,
+        organizationId: accounts.organizationId,
+        name: accounts.name,
+        type: accounts.type,
+        bank: accounts.bank,
+        bankId: accounts.bankId,
+        balance: accounts.balance,
+        color: accounts.color,
+        interestRate: accounts.interestRate,
+        createdAt: accounts.createdAt,
+        updatedAt: accounts.updatedAt,
+        // Bank fields
+        bankName: banks.name,
+        bankCode: banks.code,
+        bankLogoUrl: banks.logoUrl,
+      })
       .from(accounts)
+      .leftJoin(banks, eq(accounts.bankId, banks.id))
       .where(and(eq(accounts.organizationId, organizationId), eq(accounts.type, type)))
       .orderBy(accounts.name);
   }
