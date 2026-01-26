@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { DebtService } from "../../domain/services/debt.service.js";
+import { LoanReminderService } from "../../domain/services/loan-reminder.service.js";
 import { getOrganizationId } from "../middlewares/organization.js";
 
 export class DebtController {
@@ -108,6 +109,46 @@ export class DebtController {
       res.json({
         status: "success",
         data: { debts: overdueDebts }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async sendReminder(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const organizationId = getOrganizationId(req);
+      const debtId = parseInt(req.params.id);
+      
+      // Get debt details
+      const debt = await DebtService.getDebtById(userId, debtId, organizationId);
+      
+      if (!debt) {
+        return res.status(404).json({
+          status: "error",
+          message: "Dívida não encontrada"
+        });
+      }
+
+      // Get user info for sender name
+      const user = req.user!;
+      const senderName = user.email || 'Sistema';
+
+      // Send reminder
+      await LoanReminderService.sendDebtReminder(debtId, userId, {
+        recipientName: debt.creditor,
+        recipientEmail: (debt as any).creditorEmail,
+        recipientPhone: (debt as any).creditorPhone,
+        amount: debt.amount,
+        dueDate: debt.dueDate ? new Date(debt.dueDate) : new Date(),
+        customMessage: req.body.customMessage,
+        senderName,
+      });
+
+      res.json({
+        status: "success",
+        message: "Lembrete enviado com sucesso"
       });
     } catch (error) {
       next(error);

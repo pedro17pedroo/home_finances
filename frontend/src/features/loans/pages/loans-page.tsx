@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Filter, Handshake, Clock, CreditCard, X, Ban, DollarSign, CheckCircle } from 'lucide-react';
-import { loansApi, MakePaymentRequest, CancelRequest } from '../../../shared/api/loans';
+import { Plus, Search, Filter, Handshake, Clock, CreditCard, X, Ban, DollarSign, CheckCircle, Bell, MessageSquare } from 'lucide-react';
+import { loansApi, MakePaymentRequest, CancelRequest, SendReminderRequest } from '../../../shared/api/loans';
 import { debtsApi } from '../../../shared/api/debts';
 import { accountsApi } from '../../../shared/api/accounts';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
-import { showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
+import { showSuccessToast, showErrorToast, showConfirm } from '../../../shared/lib/alerts';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
 import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
-import { Select } from '../../../shared/components/ui/select';
+import { SelectNative as Select } from '../../../shared/components/ui/select-native';
 import type { CreateLoanRequest, CreateDebtRequest, Loan, Debt } from '../../../shared/types';
 
 type TabType = 'loans' | 'debts';
 type FilterType = 'todos' | 'pendente' | 'pago' | 'cancelado';
-type ModalType = 'create' | 'payment' | 'cancel' | null;
+type ModalType = 'create' | 'payment' | 'cancel' | 'reminder' | null;
 
 export function LoansPage() {
   const [activeTab, setActiveTab] = useState<TabType>('loans');
@@ -107,10 +107,46 @@ export function LoansPage() {
     onError: (error: any) => showErrorToast(error.response?.data?.message || 'Erro ao cancelar dívida')
   });
 
+  // Reminder mutations
+  const sendLoanReminderMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data?: SendReminderRequest }) => loansApi.sendReminder(id, data),
+    onSuccess: () => {
+      setModalType(null);
+      setSelectedItem(null);
+      setCustomMessage('');
+      setUseCustomMessage(false);
+      showSuccessToast('Lembrete enviado com sucesso!');
+    },
+    onError: (error: any) => showErrorToast(error.response?.data?.message || 'Erro ao enviar lembrete')
+  });
+
+  const sendDebtReminderMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data?: SendReminderRequest }) => debtsApi.sendReminder(id, data),
+    onSuccess: () => {
+      setModalType(null);
+      setSelectedItem(null);
+      setCustomMessage('');
+      setUseCustomMessage(false);
+      showSuccessToast('Lembrete enviado com sucesso!');
+    },
+    onError: (error: any) => showErrorToast(error.response?.data?.message || 'Erro ao enviar lembrete')
+  });
+
   // Form states
-  const [createFormData, setCreateFormData] = useState({ accountId: '', amount: '', person: '', interestRate: '', dueDate: '', description: '' });
+  const [createFormData, setCreateFormData] = useState({ 
+    accountId: '', 
+    amount: '', 
+    person: '', 
+    phone: '',
+    email: '',
+    interestRate: '', 
+    dueDate: '', 
+    description: '' 
+  });
   const [paymentAmount, setPaymentAmount] = useState('');
   const [cancelReason, setCancelReason] = useState('');
+  const [customMessage, setCustomMessage] = useState('');
+  const [useCustomMessage, setUseCustomMessage] = useState(false);
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,20 +154,30 @@ export function LoansPage() {
     
     if (activeTab === 'loans') {
       const data: CreateLoanRequest = {
-        accountId: parseInt(createFormData.accountId), amount: parseFloat(createFormData.amount), borrower: createFormData.person,
+        accountId: parseInt(createFormData.accountId), 
+        amount: parseFloat(createFormData.amount), 
+        borrower: createFormData.person,
+        borrowerPhone: createFormData.phone || undefined,
+        borrowerEmail: createFormData.email || undefined,
         interestRate: createFormData.interestRate ? parseFloat(createFormData.interestRate) : undefined,
-        dueDate: createFormData.dueDate || undefined, description: createFormData.description || undefined
+        dueDate: createFormData.dueDate || undefined, 
+        description: createFormData.description || undefined
       };
       createLoanMutation.mutate(data);
     } else {
       const data: CreateDebtRequest = {
-        accountId: parseInt(createFormData.accountId), amount: parseFloat(createFormData.amount), creditor: createFormData.person,
+        accountId: parseInt(createFormData.accountId), 
+        amount: parseFloat(createFormData.amount), 
+        creditor: createFormData.person,
+        creditorPhone: createFormData.phone || undefined,
+        creditorEmail: createFormData.email || undefined,
         interestRate: createFormData.interestRate ? parseFloat(createFormData.interestRate) : undefined,
-        dueDate: createFormData.dueDate || undefined, description: createFormData.description || undefined
+        dueDate: createFormData.dueDate || undefined, 
+        description: createFormData.description || undefined
       };
       createDebtMutation.mutate(data);
     }
-    setCreateFormData({ accountId: '', amount: '', person: '', interestRate: '', dueDate: '', description: '' });
+    setCreateFormData({ accountId: '', amount: '', person: '', phone: '', email: '', interestRate: '', dueDate: '', description: '' });
   };
 
   const handlePaymentSubmit = (e: React.FormEvent) => {
@@ -160,6 +206,21 @@ export function LoansPage() {
 
   const openPaymentModal = (item: Loan | Debt) => { setSelectedItem(item); setModalType('payment'); };
   const openCancelModal = (item: Loan | Debt) => { setSelectedItem(item); setModalType('cancel'); };
+  const openReminderModal = (item: Loan | Debt) => { setSelectedItem(item); setModalType('reminder'); };
+
+  const handleSendReminder = async () => {
+    if (!selectedItem) return;
+    
+    const data: SendReminderRequest = useCustomMessage && customMessage.trim() 
+      ? { customMessage: customMessage.trim() }
+      : undefined;
+
+    if (activeTab === 'loans') {
+      sendLoanReminderMutation.mutate({ id: selectedItem.id, data });
+    } else {
+      sendDebtReminderMutation.mutate({ id: selectedItem.id, data });
+    }
+  };
 
   // Filter data
   const filterData = <T extends Loan | Debt>(items: T[]): T[] => {
@@ -214,7 +275,7 @@ export function LoansPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Empréstimos e Dívidas</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Gerencie empréstimos dados e dívidas</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Gerencie dinheiro emprestado e dívidas</p>
         </div>
 
         {/* Summary Cards */}
@@ -223,7 +284,7 @@ export function LoansPage() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Empréstimos Dados</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Dinheiro Emprestado</p>
                   <p className="text-xl font-bold text-orange-600 mt-1">{formatCurrency(totalLoansAmount)}</p>
                   <p className="text-xs text-gray-400">{loans.length} empréstimos</p>
                 </div>
@@ -280,7 +341,7 @@ export function LoansPage() {
         {/* Tabs */}
         <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
           <button onClick={() => setActiveTab('loans')} className={`flex items-center px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'loans' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            <Handshake className="w-4 h-4 mr-2" />Empréstimos Dados
+            <Handshake className="w-4 h-4 mr-2" />Dinheiro Emprestado
           </button>
           <button onClick={() => setActiveTab('debts')} className={`flex items-center px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'debts' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             <CreditCard className="w-4 h-4 mr-2" />Dívidas
@@ -291,7 +352,7 @@ export function LoansPage() {
         <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           <CardContent className="p-6">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{activeTab === 'loans' ? 'Empréstimos Dados' : 'Dívidas'}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{activeTab === 'loans' ? 'Dinheiro Emprestado' : 'Dívidas'}</h3>
               <Button onClick={() => setModalType('create')} size="sm" className={activeTab === 'loans' ? "bg-orange-500 hover:bg-orange-600 text-white" : "bg-red-500 hover:bg-red-600 text-white"}>
                 <Plus className="w-4 h-4 mr-2" />{activeTab === 'loans' ? 'Novo Empréstimo' : 'Nova Dívida'}
               </Button>
@@ -345,6 +406,16 @@ export function LoansPage() {
                             </div>
                           </div>
                           <div className="flex justify-end gap-2">
+                            {(loan.borrowerEmail || loan.borrowerPhone) && (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => openReminderModal(loan)} 
+                                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                              >
+                                <Bell className="w-3 h-3 mr-1" />Enviar Lembrete
+                              </Button>
+                            )}
                             <Button size="sm" variant="outline" onClick={() => openCancelModal(loan)} className="text-gray-600">
                               <Ban className="w-3 h-3 mr-1" />Cancelar
                             </Button>
@@ -369,7 +440,7 @@ export function LoansPage() {
                 <div className="text-center py-12">
                   <Handshake className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <h4 className="text-gray-900 dark:text-white font-medium mb-2">Nenhum empréstimo</h4>
-                  <p className="text-gray-500 text-sm mb-6">Comece registrando um empréstimo dado.</p>
+                  <p className="text-gray-500 text-sm mb-6">Comece registrando dinheiro emprestado.</p>
                   <Button onClick={() => setModalType('create')} className="bg-orange-500 hover:bg-orange-600"><Plus className="w-4 h-4 mr-2" />Novo Empréstimo</Button>
                 </div>
               )
@@ -403,6 +474,16 @@ export function LoansPage() {
                             </div>
                           </div>
                           <div className="flex justify-end gap-2">
+                            {(debt.creditorEmail || debt.creditorPhone) && (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => openReminderModal(debt)} 
+                                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                              >
+                                <Bell className="w-3 h-3 mr-1" />Enviar Lembrete
+                              </Button>
+                            )}
                             <Button size="sm" variant="outline" onClick={() => openCancelModal(debt)} className="text-gray-600">
                               <Ban className="w-3 h-3 mr-1" />Cancelar
                             </Button>
@@ -437,8 +518,8 @@ export function LoansPage() {
 
         {/* Create Modal */}
         {modalType === 'create' && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md my-8 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{activeTab === 'loans' ? 'Novo Empréstimo' : 'Nova Dívida'}</h2>
                 <button onClick={() => setModalType(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -455,6 +536,31 @@ export function LoansPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{activeTab === 'loans' ? 'Nome do Devedor' : 'Nome do Credor'}</label>
                   <Input value={createFormData.person} onChange={(e) => setCreateFormData({ ...createFormData, person: e.target.value })} placeholder={activeTab === 'loans' ? 'Quem recebeu o empréstimo' : 'A quem você deve'} required />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone (Opcional)</label>
+                    <Input 
+                      type="tel" 
+                      value={createFormData.phone} 
+                      onChange={(e) => setCreateFormData({ ...createFormData, phone: e.target.value })} 
+                      placeholder="+244 900 000 000" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email (Opcional)</label>
+                    <Input 
+                      type="email" 
+                      value={createFormData.email} 
+                      onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })} 
+                      placeholder="email@exemplo.com" 
+                    />
+                  </div>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    💡 Adicione telefone ou email para poder enviar lembretes de pagamento
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor (Kz)</label>
@@ -485,8 +591,8 @@ export function LoansPage() {
 
         {/* Payment Modal */}
         {modalType === 'payment' && selectedItem && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md my-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Registar Pagamento</h2>
                 <button onClick={() => { setModalType(null); setSelectedItem(null); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -516,8 +622,8 @@ export function LoansPage() {
 
         {/* Cancel Modal */}
         {modalType === 'cancel' && selectedItem && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md my-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cancelar {activeTab === 'loans' ? 'Empréstimo' : 'Dívida'}</h2>
                 <button onClick={() => { setModalType(null); setSelectedItem(null); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -541,6 +647,108 @@ export function LoansPage() {
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Reminder Modal */}
+        {modalType === 'reminder' && selectedItem && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md my-8 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                  <Bell className="w-5 h-5 mr-2 text-blue-600" />
+                  Enviar Lembrete de Pagamento
+                </h2>
+                <button onClick={() => { setModalType(null); setSelectedItem(null); setCustomMessage(''); setUseCustomMessage(false); }} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+                  Para: {'borrower' in selectedItem ? selectedItem.borrower : selectedItem.creditor}
+                </p>
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  Valor: {formatCurrency(Number(selectedItem.amount))}
+                </p>
+                {selectedItem.dueDate && (
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    Vencimento: {formatDate(selectedItem.dueDate)}
+                  </p>
+                )}
+                <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    {('borrowerEmail' in selectedItem && selectedItem.borrowerEmail) || ('creditorEmail' in selectedItem && selectedItem.creditorEmail) ? '📧 Email' : ''}
+                    {(('borrowerEmail' in selectedItem && selectedItem.borrowerEmail) || ('creditorEmail' in selectedItem && selectedItem.creditorEmail)) && 
+                     (('borrowerPhone' in selectedItem && selectedItem.borrowerPhone) || ('creditorPhone' in selectedItem && selectedItem.creditorPhone)) ? ' • ' : ''}
+                    {('borrowerPhone' in selectedItem && selectedItem.borrowerPhone) || ('creditorPhone' in selectedItem && selectedItem.creditorPhone) ? '📱 SMS' : ''}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="useCustomMessage"
+                    checked={useCustomMessage}
+                    onChange={(e) => setUseCustomMessage(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="useCustomMessage" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer flex items-center">
+                    <MessageSquare className="w-4 h-4 mr-1" />
+                    Escrever mensagem personalizada
+                  </label>
+                </div>
+
+                {useCustomMessage && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Mensagem Personalizada
+                    </label>
+                    <textarea
+                      value={customMessage}
+                      onChange={(e) => setCustomMessage(e.target.value)}
+                      placeholder="Escreva sua mensagem aqui..."
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                      rows={4}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Deixe vazio para usar a mensagem padrão do sistema
+                    </p>
+                  </div>
+                )}
+
+                {!useCustomMessage && (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
+                      Mensagem Padrão:
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                      O sistema enviará uma mensagem automática com informações sobre o valor, data de vencimento e status do pagamento.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex space-x-3 pt-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => { setModalType(null); setSelectedItem(null); setCustomMessage(''); setUseCustomMessage(false); }} 
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handleSendReminder}
+                    disabled={sendLoanReminderMutation.isPending || sendDebtReminderMutation.isPending}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {(sendLoanReminderMutation.isPending || sendDebtReminderMutation.isPending) ? 'Enviando...' : 'Enviar Lembrete'}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -8,6 +8,8 @@ export interface CreateDebtRequest {
   accountId: number;
   amount: number;
   creditor: string;
+  creditorPhone?: string;
+  creditorEmail?: string;
   interestRate?: number;
   dueDate?: string;
   description?: string;
@@ -24,7 +26,7 @@ export interface CancelDebtRequest {
 
 export class DebtService {
   static async createDebt(userId: number, data: CreateDebtRequest, organizationId?: number | null) {
-    const { accountId, amount, creditor, interestRate, dueDate, description } = data;
+    const { accountId, amount, creditor, creditorPhone, creditorEmail, interestRate, dueDate, description } = data;
 
     // Verificar se a conta existe e pertence ao usuário/organização
     const account = await AccountRepository.findById(accountId);
@@ -48,6 +50,8 @@ export class DebtService {
       amount: amount.toString(),
       paidAmount: '0',
       creditor,
+      creditorPhone,
+      creditorEmail,
       interestRate: interestRate?.toString(),
       dueDate: dueDate ? new Date(dueDate) : undefined,
       status: 'pendente',

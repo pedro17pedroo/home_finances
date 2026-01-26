@@ -36,4 +36,7 @@ router.post("/:id/payment", validate(debtIdSchema), DebtController.makePayment);
 // POST /api/debts/:id/cancel - Cancelar dívida
 router.post("/:id/cancel", validate(debtIdSchema), DebtController.cancel);
 
+// POST /api/debts/:id/send-reminder - Enviar lembrete de pagamento
+router.post("/:id/send-reminder", validate(debtIdSchema), DebtController.sendReminder);
+
 export default router;

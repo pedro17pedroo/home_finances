@@ -15,6 +15,10 @@ export interface CancelRequest {
   reason: string;
 }
 
+export interface SendReminderRequest {
+  customMessage?: string;
+}
+
 export const loansApi = {
   // Get all user loans
   getLoans: async (): Promise<Loan[]> => {
@@ -76,5 +80,10 @@ export const loansApi = {
   getOverdueLoans: async (): Promise<Loan[]> => {
     const response = await apiClient.get<ApiResponse<{ loans: Loan[] }>>('/loans/overdue');
     return response.data.data?.loans || [];
+  },
+
+  // Send payment reminder
+  sendReminder: async (id: number, data?: SendReminderRequest): Promise<void> => {
+    await apiClient.post(`/loans/${id}/send-reminder`, data || {});
   }
 };

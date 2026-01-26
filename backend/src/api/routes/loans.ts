@@ -36,4 +36,7 @@ router.post("/:id/payment", validate(loanIdSchema), LoanController.makePayment);
 // POST /api/loans/:id/cancel - Cancelar empréstimo
 router.post("/:id/cancel", validate(loanIdSchema), LoanController.cancel);
 
+// POST /api/loans/:id/send-reminder - Enviar lembrete de pagamento
+router.post("/:id/send-reminder", validate(loanIdSchema), LoanController.sendReminder);
+
 export default router;

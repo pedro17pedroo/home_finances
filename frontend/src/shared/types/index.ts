@@ -18,6 +18,7 @@ export interface Organization {
   id: number;
   name: string;
   ownerId: number;
+  role?: string; // User's role in this organization
   planType: string;
   subscriptionStatus: string;
   maxUsers: number;
@@ -90,7 +91,7 @@ export interface Account {
 
 export interface CreateAccountRequest {
   name: string;
-  type: 'corrente' | 'poupanca';
+  type: string;
   bank: string;
   balance: number;
   interestRate?: number;
@@ -98,7 +99,7 @@ export interface CreateAccountRequest {
 
 export interface UpdateAccountRequest {
   name?: string;
-  type?: 'corrente' | 'poupanca';
+  type?: string;
   bank?: string;
   interestRate?: number;
 }
@@ -237,6 +238,8 @@ export interface Loan {
   amount: string;
   paidAmount: string;
   borrower: string;
+  borrowerPhone?: string;
+  borrowerEmail?: string;
   interestRate?: string;
   dueDate?: string;
   status: 'pendente' | 'pago' | 'cancelado';
@@ -250,6 +253,8 @@ export interface CreateLoanRequest {
   accountId: number;
   amount: number;
   borrower: string;
+  borrowerPhone?: string;
+  borrowerEmail?: string;
   interestRate?: number;
   dueDate?: string;
   description?: string;
@@ -273,6 +278,8 @@ export interface Debt {
   amount: string;
   paidAmount: string;
   creditor: string;
+  creditorPhone?: string;
+  creditorEmail?: string;
   interestRate?: string;
   dueDate?: string;
   status: 'pendente' | 'pago' | 'cancelado';
@@ -286,6 +293,8 @@ export interface CreateDebtRequest {
   accountId: number;
   amount: number;
   creditor: string;
+  creditorPhone?: string;
+  creditorEmail?: string;
   interestRate?: number;
   dueDate?: string;
   description?: string;
@@ -306,7 +315,7 @@ export interface Notification {
   id: string;
   userId: number;
   type: 'warning' | 'info' | 'success' | 'error';
-  category: 'loan' | 'debt' | 'savings' | 'recurring' | 'account' | 'general';
+  category: 'loan' | 'debt' | 'savings' | 'recurring' | 'account' | 'general' | 'budget';
   title: string;
   message: string;
   actionUrl?: string;
@@ -314,6 +323,13 @@ export interface Notification {
   isRead: boolean;
   createdAt: string;
   expiresAt?: string;
+  metadata?: {
+    budgetId?: number;
+    categoryId?: number;
+    currentSpending?: number;
+    budgetAmount?: number;
+    percentageUsed?: number;
+  };
 }
 
 // Recurring Transaction types

@@ -8,6 +8,8 @@ export interface CreateLoanRequest {
   accountId: number;
   amount: number;
   borrower: string;
+  borrowerPhone?: string;
+  borrowerEmail?: string;
   interestRate?: number;
   dueDate?: string;
   description?: string;
@@ -24,7 +26,7 @@ export interface CancelLoanRequest {
 
 export class LoanService {
   static async createLoan(userId: number, data: CreateLoanRequest, organizationId?: number | null) {
-    const { accountId, amount, borrower, interestRate, dueDate, description } = data;
+    const { accountId, amount, borrower, borrowerPhone, borrowerEmail, interestRate, dueDate, description } = data;
 
     // Verificar se a conta existe e pertence ao usuário/organização
     const account = await AccountRepository.findById(accountId);
@@ -54,6 +56,8 @@ export class LoanService {
       amount: amount.toString(),
       paidAmount: '0',
       borrower,
+      borrowerPhone,
+      borrowerEmail,
       interestRate: interestRate?.toString(),
       dueDate: dueDate ? new Date(dueDate) : undefined,
       status: 'pendente',
@@ -72,7 +76,7 @@ export class LoanService {
       accountId,
       amount: amount.toString(),
       type: 'despesa',
-      category: 'Empréstimo Dado',
+      category: 'Dinheiro Emprestado',
       description: `Empréstimo para ${borrower}${description ? ` - ${description}` : ''}`,
       date: new Date(),
     };
