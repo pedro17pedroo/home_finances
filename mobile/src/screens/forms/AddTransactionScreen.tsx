@@ -52,6 +52,17 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const { showError, showSuccess } = useToast();
   
+  // Estado para transação recorrente
+  const [makeRecurring, setMakeRecurring] = useState(false);
+  const [recurringData, setRecurringData] = useState({
+    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+    interval: 1,
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: '',
+    maxOccurrences: '',
+    notifyBeforeDays: 1,
+  });
+  
   // Refs para scroll
   const scrollViewRef = useRef<ScrollView>(null);
   const amountRef = useRef<View>(null);
@@ -114,6 +125,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     console.log('Amount:', amount);
     console.log('Selected Account:', selectedAccount?.name);
     console.log('Selected Category:', selectedCategory);
+    console.log('Make Recurring:', makeRecurring);
     
     // Validar campos obrigatórios
     const validationErrors: string[] = [];
@@ -158,6 +170,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     try {
       const amountValue = parseFloat(amount.replace(',', '.'));
       
+      // Criar a transação
       await api.post('/transactions', {
         amount: amountValue,
         type,
@@ -167,7 +180,28 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
         date: new Date().toISOString(),
       });
       
-      showSuccess(`${type === 'receita' ? 'Receita' : 'Despesa'} registrada com sucesso`);
+      // Se marcou para tornar recorrente, criar a recorrência também
+      if (makeRecurring) {
+        const categoryObj = categories.find(c => c.name === selectedCategory);
+        await api.post('/recurring-transactions', {
+          type,
+          description: description || selectedCategory,
+          amount: amountValue,
+          categoryId: categoryObj?.id,
+          accountId: selectedAccount.id,
+          frequency: recurringData.frequency,
+          interval: recurringData.interval,
+          startDate: recurringData.startDate,
+          endDate: recurringData.endDate || undefined,
+          maxOccurrences: recurringData.maxOccurrences ? parseInt(recurringData.maxOccurrences) : undefined,
+          notifyBeforeDays: recurringData.notifyBeforeDays,
+          notificationChannels: ['app'],
+        });
+        showSuccess(`${type === 'receita' ? 'Receita' : 'Despesa'} e recorrência criadas com sucesso!`);
+      } else {
+        showSuccess(`${type === 'receita' ? 'Receita' : 'Despesa'} registrada com sucesso`);
+      }
+      
       navigation.goBack();
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Não foi possível registrar a transação';
@@ -203,6 +237,30 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
       'cash': 'cash',
     };
     return iconMap[iconName || ''] || 'ellipsis-horizontal';
+  };
+
+  const getFrequencyLabel = (freq: string) => {
+    const labels: Record<string, string> = {
+      daily: 'Diária',
+      weekly: 'Semanal',
+      monthly: 'Mensal',
+      yearly: 'Anual',
+    };
+    return labels[freq] || freq;
+  };
+
+  const getFrequencyPreview = () => {
+    const { frequency, interval } = recurringData;
+    if (interval === 1) {
+      return getFrequencyLabel(frequency);
+    }
+    const units: Record<string, string> = {
+      daily: 'dias',
+      weekly: 'semanas',
+      monthly: 'meses',
+      yearly: 'anos',
+    };
+    return `A cada ${interval} ${units[frequency]}`;
   };
 
   if (loadingData) {
@@ -397,6 +455,158 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             multiline
             numberOfLines={3}
           />
+        </View>
+
+        {/* Toggle Transação Recorrente */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.recurringToggle}
+            onPress={() => setMakeRecurring(!makeRecurring)}
+          >
+            <View style={[
+              styles.checkbox,
+              makeRecurring && styles.checkboxChecked,
+            ]}>
+              {makeRecurring && (
+                <Ionicons name="checkmark" size={16} color="white" />
+              )}
+            </View>
+            <Ionicons name="repeat" size={20} color={COLORS.primary} style={{ marginLeft: SPACING.sm }} />
+            <Text style={styles.recurringToggleText}>
+              Tornar esta transação recorrente
+            </Text>
+          </TouchableOpacity>
+
+          {/* Campos de Recorrência (expandem quando checkbox marcado) */}
+          {makeRecurring && (
+            <Card style={styles.recurringCard}>
+              <View style={styles.recurringHeader}>
+                <Ionicons name="information-circle" size={20} color={COLORS.primary} />
+                <Text style={styles.recurringInfo}>
+                  A transação será criada agora e repetida automaticamente
+                </Text>
+              </View>
+
+              {/* Frequência */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Frequência</Text>
+                <View style={styles.frequencyButtons}>
+                  {[
+                    { value: 'daily', label: 'Diária', icon: 'today' },
+                    { value: 'weekly', label: 'Semanal', icon: 'calendar' },
+                    { value: 'monthly', label: 'Mensal', icon: 'calendar-outline' },
+                    { value: 'yearly', label: 'Anual', icon: 'calendar-number' },
+                  ].map((freq) => (
+                    <TouchableOpacity
+                      key={freq.value}
+                      style={[
+                        styles.frequencyButton,
+                        recurringData.frequency === freq.value && styles.frequencyButtonActive,
+                      ]}
+                      onPress={() => setRecurringData({ ...recurringData, frequency: freq.value as any })}
+                    >
+                      <Ionicons
+                        name={freq.icon as any}
+                        size={16}
+                        color={recurringData.frequency === freq.value ? 'white' : COLORS.primary}
+                      />
+                      <Text style={[
+                        styles.frequencyButtonText,
+                        recurringData.frequency === freq.value && styles.frequencyButtonTextActive,
+                      ]}>
+                        {freq.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Intervalo */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Repetir a cada</Text>
+                <View style={styles.intervalRow}>
+                  <Input
+                    placeholder="1"
+                    value={String(recurringData.interval)}
+                    onChangeText={(value) => {
+                      const num = parseInt(value) || 1;
+                      setRecurringData({ ...recurringData, interval: Math.max(1, num) });
+                    }}
+                    keyboardType="numeric"
+                    style={styles.intervalInput}
+                  />
+                  <Text style={styles.intervalLabel}>{getFrequencyPreview()}</Text>
+                </View>
+              </View>
+
+              {/* Data de Início */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Data de Início</Text>
+                <Input
+                  placeholder="YYYY-MM-DD"
+                  value={recurringData.startDate}
+                  onChangeText={(value) => setRecurringData({ ...recurringData, startDate: value })}
+                />
+              </View>
+
+              {/* Data de Fim (Opcional) */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Data de Fim (Opcional)</Text>
+                <Input
+                  placeholder="YYYY-MM-DD"
+                  value={recurringData.endDate}
+                  onChangeText={(value) => setRecurringData({ ...recurringData, endDate: value })}
+                />
+                <Text style={styles.inputHint}>Deixe em branco para repetir indefinidamente</Text>
+              </View>
+
+              {/* Máximo de Ocorrências (Opcional) */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Máximo de Ocorrências (Opcional)</Text>
+                <Input
+                  placeholder="Ex: 12"
+                  value={recurringData.maxOccurrences}
+                  onChangeText={(value) => setRecurringData({ ...recurringData, maxOccurrences: value })}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.inputHint}>Quantas vezes deve repetir</Text>
+              </View>
+
+              {/* Notificar Antes */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Notificar com antecedência</Text>
+                <View style={styles.notifyButtons}>
+                  {[1, 2, 3, 7].map((days) => (
+                    <TouchableOpacity
+                      key={days}
+                      style={[
+                        styles.notifyButton,
+                        recurringData.notifyBeforeDays === days && styles.notifyButtonActive,
+                      ]}
+                      onPress={() => setRecurringData({ ...recurringData, notifyBeforeDays: days })}
+                    >
+                      <Text style={[
+                        styles.notifyButtonText,
+                        recurringData.notifyBeforeDays === days && styles.notifyButtonTextActive,
+                      ]}>
+                        {days} {days === 1 ? 'dia' : 'dias'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Preview */}
+              <View style={styles.recurringPreview}>
+                <Ionicons name="information-circle-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.recurringPreviewText}>
+                  Esta transação será repetida {getFrequencyPreview().toLowerCase()}
+                  {recurringData.maxOccurrences && ` por ${recurringData.maxOccurrences} vezes`}
+                  {recurringData.endDate && ` até ${recurringData.endDate}`}
+                </Text>
+              </View>
+            </Card>
+          )}
         </View>
 
         {/* Botão de Salvar */}
@@ -610,5 +820,148 @@ const styles = StyleSheet.create({
   },
   saveContainer: {
     padding: SPACING.lg,
+  },
+  recurringToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.surface,
+    marginHorizontal: SPACING.lg,
+    borderRadius: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  recurringToggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text,
+    marginLeft: SPACING.sm,
+    flex: 1,
+  },
+  recurringCard: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    padding: SPACING.md,
+  },
+  recurringHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    padding: SPACING.sm,
+    backgroundColor: `${COLORS.primary}10`,
+    borderRadius: 8,
+  },
+  recurringInfo: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginLeft: SPACING.sm,
+    flex: 1,
+  },
+  inputGroup: {
+    marginBottom: SPACING.md,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
+  },
+  inputHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+  },
+  frequencyButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  frequencyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    gap: SPACING.xs,
+  },
+  frequencyButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  frequencyButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.text,
+  },
+  frequencyButtonTextActive: {
+    color: 'white',
+  },
+  intervalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  intervalInput: {
+    width: 80,
+  },
+  intervalLabel: {
+    fontSize: 14,
+    color: COLORS.text,
+    flex: 1,
+  },
+  notifyButtons: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  notifyButton: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+  },
+  notifyButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  notifyButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.text,
+  },
+  notifyButtonTextActive: {
+    color: 'white',
+  },
+  recurringPreview: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: SPACING.sm,
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    marginTop: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  recurringPreviewText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    flex: 1,
+    lineHeight: 16,
   },
 });

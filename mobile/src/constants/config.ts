@@ -12,7 +12,7 @@ const USE_PRODUCTION_API = false;
 // Para encontrar seu IP: 
 // - Mac/Linux: ifconfig | grep "inet " | grep -v 127.0.0.1
 // - Windows: ipconfig | findstr IPv4
-const DEV_MACHINE_IP = '192.168.1.91';
+const DEV_MACHINE_IP = '10.229.207.60';
 const DEV_PORT = '4005';
 
 // URLs
