@@ -434,16 +434,31 @@ export const banks = pgTable("banks", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Tipos de conta disponíveis
+export const accountTypes = pgTable("account_types", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  icon: varchar("icon", { length: 50 }),
+  color: varchar("color", { length: 20 }),
+  isActive: boolean("is_active").default(true),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Contas bancárias
 export const accounts = pgTable("accounts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   organizationId: integer("organization_id").references(() => organizations.id),
   name: varchar("name", { length: 255 }).notNull(),
-  type: accountTypeEnum("type").notNull(),
+  type: varchar("type", { length: 50 }).notNull().default('corrente'),
   bank: varchar("bank", { length: 255 }),
   bankId: integer("bank_id").references(() => banks.id),
   balance: decimal("balance", { precision: 10, scale: 2 }).notNull().default('0'),
+  color: varchar("color", { length: 20 }),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
@@ -526,6 +541,8 @@ export const loans = pgTable("loans", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
   borrower: varchar("borrower", { length: 255 }).notNull(),
+  borrowerPhone: varchar("borrower_phone", { length: 20 }),
+  borrowerEmail: varchar("borrower_email", { length: 255 }),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
   dueDate: timestamp("due_date"),
   status: statusEnum("status").notNull().default('pendente'),
@@ -544,6 +561,8 @@ export const debts = pgTable("debts", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
   creditor: varchar("creditor", { length: 255 }).notNull(),
+  creditorPhone: varchar("creditor_phone", { length: 20 }),
+  creditorEmail: varchar("creditor_email", { length: 255 }),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
   dueDate: timestamp("due_date"),
   status: statusEnum("status").notNull().default('pendente'),
@@ -1002,3 +1021,149 @@ export const adminPasswordResetTokens = pgTable("admin_password_reset_tokens", {
 
 export type AdminPasswordResetToken = typeof adminPasswordResetTokens.$inferSelect;
 export type InsertAdminPasswordResetToken = typeof adminPasswordResetTokens.$inferInsert;
+
+// Budget Management System
+
+// Budget time period enum
+export const timePeriodEnum = pgEnum('time_period', ['daily', 'weekly', 'monthly', 'annual', 'custom']);
+
+// Budget status enum
+export const budgetStatusEnum = pgEnum('budget_status', ['active', 'inactive', 'archived']);
+
+// Alert threshold type enum
+export const thresholdTypeEnum = pgEnum('threshold_type', ['fixed_amount', 'percentage']);
+
+// Alert position enum
+export const alertPositionEnum = pgEnum('alert_position', ['before_limit', 'after_limit']);
+
+// Budgets table
+export const budgets = pgTable("budgets", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  categoryId: integer("category_id").references(() => categories.id, { onDelete: 'cascade' }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).notNull(),
+  timePeriod: varchar("time_period", { length: 20 }).notNull(),
+  customStartDate: timestamp("custom_start_date", { withTimezone: true }),
+  customEndDate: timestamp("custom_end_date", { withTimezone: true }),
+  status: varchar("status", { length: 20 }).notNull().default('active'),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  orgCategoryIdx: index("idx_budgets_org_category").on(table.organizationId, table.categoryId),
+  statusIdx: index("idx_budgets_status").on(table.status),
+  timePeriodIdx: index("idx_budgets_time_period").on(table.timePeriod),
+}));
+
+// Budget alerts table
+export const budgetAlerts = pgTable("budget_alerts", {
+  id: serial("id").primaryKey(),
+  budgetId: integer("budget_id").references(() => budgets.id, { onDelete: 'cascade' }).notNull(),
+  thresholdType: varchar("threshold_type", { length: 20 }).notNull(),
+  thresholdValue: decimal("threshold_value", { precision: 15, scale: 2 }).notNull(),
+  position: varchar("position", { length: 20 }).notNull(),
+  channels: jsonb("channels").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  budgetIdx: index("idx_budget_alerts_budget").on(table.budgetId),
+}));
+
+// Alert triggers table (for deduplication)
+export const alertTriggers = pgTable("alert_triggers", {
+  id: serial("id").primaryKey(),
+  alertId: integer("alert_id").references(() => budgetAlerts.id, { onDelete: 'cascade' }).notNull(),
+  budgetPeriodId: varchar("budget_period_id", { length: 100 }).notNull(),
+  triggeredAt: timestamp("triggered_at", { withTimezone: true }).defaultNow(),
+  spendingAmount: decimal("spending_amount", { precision: 15, scale: 2 }).notNull(),
+}, (table) => ({
+  alertPeriodIdx: index("idx_alert_triggers_alert_period").on(table.alertId, table.budgetPeriodId),
+  uniqueAlertPeriod: unique().on(table.alertId, table.budgetPeriodId),
+}));
+
+// Budget history table
+export const budgetHistory = pgTable("budget_history", {
+  id: serial("id").primaryKey(),
+  budgetId: integer("budget_id").references(() => budgets.id, { onDelete: 'cascade' }).notNull(),
+  periodStartDate: timestamp("period_start_date", { withTimezone: true }).notNull(),
+  periodEndDate: timestamp("period_end_date", { withTimezone: true }).notNull(),
+  finalSpendingAmount: decimal("final_spending_amount", { precision: 15, scale: 2 }).notNull(),
+  percentageUsed: decimal("percentage_used", { precision: 5, scale: 2 }).notNull(),
+  alertsTriggered: jsonb("alerts_triggered").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  budgetIdx: index("idx_budget_history_budget").on(table.budgetId),
+  datesIdx: index("idx_budget_history_dates").on(table.periodStartDate, table.periodEndDate),
+}));
+
+// Budget relations
+export const budgetsRelations = relations(budgets, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [budgets.organizationId],
+    references: [organizations.id],
+  }),
+  category: one(categories, {
+    fields: [budgets.categoryId],
+    references: [categories.id],
+  }),
+  alerts: many(budgetAlerts),
+  history: many(budgetHistory),
+}));
+
+export const budgetAlertsRelations = relations(budgetAlerts, ({ one, many }) => ({
+  budget: one(budgets, {
+    fields: [budgetAlerts.budgetId],
+    references: [budgets.id],
+  }),
+  triggers: many(alertTriggers),
+}));
+
+export const alertTriggersRelations = relations(alertTriggers, ({ one }) => ({
+  alert: one(budgetAlerts, {
+    fields: [alertTriggers.alertId],
+    references: [budgetAlerts.id],
+  }),
+}));
+
+export const budgetHistoryRelations = relations(budgetHistory, ({ one }) => ({
+  budget: one(budgets, {
+    fields: [budgetHistory.budgetId],
+    references: [budgets.id],
+  }),
+}));
+
+// Budget insert schemas
+export const insertBudgetSchema = createInsertSchema(budgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBudgetAlertSchema = createInsertSchema(budgetAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAlertTriggerSchema = createInsertSchema(alertTriggers).omit({
+  id: true,
+  triggeredAt: true,
+});
+
+export const insertBudgetHistorySchema = createInsertSchema(budgetHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Budget types
+export type Budget = typeof budgets.$inferSelect;
+export type InsertBudget = typeof budgets.$inferInsert;
+
+export type BudgetAlert = typeof budgetAlerts.$inferSelect;
+export type InsertBudgetAlert = typeof budgetAlerts.$inferInsert;
+
+export type AlertTrigger = typeof alertTriggers.$inferSelect;
+export type InsertAlertTrigger = typeof alertTriggers.$inferInsert;
+
+export type BudgetHistory = typeof budgetHistory.$inferSelect;
+export type InsertBudgetHistory = typeof budgetHistory.$inferInsert;
