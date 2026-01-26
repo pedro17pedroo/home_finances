@@ -19,6 +19,8 @@ import subscriptionRoutes from "./subscription.routes.js";
 import organizationRoutes from "./organization.routes.js";
 import passwordResetRoutes from "./password-reset.routes.js";
 import landingContentRoutes from "./landing-content.routes.js";
+import accountTypesRoutes from "./account-types.js";
+import budgetRoutes from "./budget.routes.js";
 
 const router = Router();
 
@@ -33,10 +35,11 @@ router.get("/health", (req, res) => {
 });
 
 // API routes
-router.use("/auth", authRoutes);
 router.use("/auth/forgot-password", passwordResetRoutes);
+router.use("/auth", authRoutes);
 router.use("/transactions", transactionRoutes);
 router.use("/accounts", accountRoutes);
+router.use("/account-types", accountTypesRoutes);
 router.use("/savings-goals", savingsGoalRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/transfers", transferRoutes);
@@ -53,5 +56,6 @@ router.use("/receipts", receiptsRoutes);
 router.use("/subscriptions", subscriptionRoutes);
 router.use("/organizations", organizationRoutes);
 router.use("/landing-content", landingContentRoutes);
+router.use("/budgets", budgetRoutes);
 
 export default router;
