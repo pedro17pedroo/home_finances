@@ -54,6 +54,7 @@ import { NotificationsScreen } from '../screens/notifications/NotificationsScree
 import { NotificationSettingsScreen } from '../screens/notifications/NotificationSettingsScreen';
 import { RecurringTransactionsScreen } from '../screens/recurring/RecurringTransactionsScreen';
 import { RecurringTransactionFormScreen } from '../screens/recurring/RecurringTransactionFormScreen';
+import { RecurringTransactionHistoryScreen } from '../screens/recurring/RecurringTransactionHistoryScreen';
 import { CategoriesScreen } from '../screens/categories/CategoriesScreen';
 import { AddCategoryScreen } from '../screens/categories/AddCategoryScreen';
 import { ExportScreen } from '../screens/export/ExportScreen';
@@ -102,6 +103,7 @@ const DashboardStackNavigator = () => {
       <DashboardStack.Screen name="AddDebt" component={AddDebtScreen} />
       <DashboardStack.Screen name="RecurringTransactions" component={RecurringTransactionsScreen} />
       <DashboardStack.Screen name="RecurringTransactionForm" component={RecurringTransactionFormScreen} />
+      <DashboardStack.Screen name="RecurringTransactionHistory" component={RecurringTransactionHistoryScreen} />
       <DashboardStack.Screen name="Categories" component={CategoriesScreen} />
       <DashboardStack.Screen name="AddCategory" component={AddCategoryScreen} />
       <DashboardStack.Screen name="AddAccount" component={AddAccountScreen} />
