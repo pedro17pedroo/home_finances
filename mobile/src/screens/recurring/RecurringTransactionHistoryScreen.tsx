@@ -162,25 +162,36 @@ export function RecurringTransactionHistoryScreen() {
           <>
             {/* Resumo */}
             <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
-              <Text style={[styles.summaryTitle, { color: colors.text }]}>Resumo</Text>
+              <View style={styles.summaryHeader}>
+                <Ionicons name="stats-chart" size={20} color={colors.primary} />
+                <Text style={[styles.summaryTitle, { color: colors.text }]}>Resumo Geral</Text>
+              </View>
               <View style={styles.summaryRow}>
-                <View style={styles.summaryItem}>
+                <View style={[styles.summaryItem, { borderRightWidth: 1, borderRightColor: colors.border }]}>
+                  <Text style={[styles.summaryValue, { color: colors.primary }]}>
+                    {history.length}
+                  </Text>
                   <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
                     Total de Execuções
                   </Text>
-                  <Text style={[styles.summaryValue, { color: colors.text }]}>
-                    {history.length}
-                  </Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                    Bem-sucedidas
-                  </Text>
                   <Text style={[styles.summaryValue, { color: colors.success }]}>
                     {history.filter(h => h.status === 'success').length}
                   </Text>
+                  <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+                    Bem-sucedidas
+                  </Text>
                 </View>
               </View>
+              {history.filter(h => h.status === 'failed').length > 0 && (
+                <View style={[styles.summaryAlert, { backgroundColor: colors.error + '10', borderColor: colors.error }]}>
+                  <Ionicons name="alert-circle" size={16} color={colors.error} />
+                  <Text style={[styles.summaryAlertText, { color: colors.error }]}>
+                    {history.filter(h => h.status === 'failed').length} execução(ões) falharam
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Lista de Execuções */}
@@ -188,44 +199,76 @@ export function RecurringTransactionHistoryScreen() {
               Execuções ({history.length})
             </Text>
 
-            {history.map((item) => (
-              <View
-                key={item.id}
-                style={[styles.historyCard, { backgroundColor: colors.card }]}
-              >
-                <View style={styles.historyHeader}>
-                  <View style={styles.historyIcon}>
-                    <Ionicons
-                      name={getStatusIcon(item.status)}
-                      size={24}
-                      color={getStatusColor(item.status)}
-                    />
-                  </View>
-                  <View style={styles.historyInfo}>
-                    <Text style={[styles.historyDate, { color: colors.text }]}>
-                      {formatDate(item.executedAt)}
-                    </Text>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-                      <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-                        {getStatusLabel(item.status)}
-                      </Text>
+            {history.map((item) => {
+              const statusColor = getStatusColor(item.status);
+              const statusIcon = getStatusIcon(item.status);
+              const statusLabel = getStatusLabel(item.status);
+
+              return (
+                <View
+                  key={item.id}
+                  style={[styles.historyCard, { backgroundColor: colors.card }]}
+                >
+                  <View style={styles.historyHeader}>
+                    <View style={[styles.historyIconContainer, { backgroundColor: statusColor + '20' }]}>
+                      <Ionicons
+                        name={statusIcon}
+                        size={24}
+                        color={statusColor}
+                      />
+                    </View>
+                    <View style={styles.historyContent}>
+                      <View style={styles.historyTopRow}>
+                        <View style={styles.historyMainInfo}>
+                          <Text style={[styles.historyDate, { color: colors.text }]}>
+                            {formatDate(item.executedAt)}
+                          </Text>
+                          <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                            <Text style={[styles.statusText, { color: statusColor }]}>
+                              {statusLabel}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.historyAmount, { color: colors.text }]}>
+                          {formatCurrency(item.amount)}
+                        </Text>
+                      </View>
+
+                      {/* Detalhes adicionais */}
+                      <View style={styles.historyDetails}>
+                        <View style={styles.detailRow}>
+                          <Ionicons name="receipt-outline" size={14} color={colors.textSecondary} />
+                          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
+                            ID da Transação: #{item.transactionId}
+                          </Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
+                            Executada em {new Date(item.executedAt).toLocaleDateString('pt-AO')}
+                          </Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+                          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
+                            às {new Date(item.executedAt).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
-                  <Text style={[styles.historyAmount, { color: colors.text }]}>
-                    {formatCurrency(item.amount)}
-                  </Text>
-                </View>
 
-                {item.errorMessage && (
-                  <View style={[styles.errorBox, { backgroundColor: colors.error + '10' }]}>
-                    <Ionicons name="alert-circle" size={16} color={colors.error} />
-                    <Text style={[styles.errorText, { color: colors.error }]}>
-                      {item.errorMessage}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ))}
+                  {item.errorMessage && (
+                    <View style={[styles.errorBox, { backgroundColor: colors.error + '10', borderColor: colors.error }]}>
+                      <Ionicons name="alert-circle" size={16} color={colors.error} />
+                      <Text style={[styles.errorText, { color: colors.error }]}>
+                        {item.errorMessage}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </>
         )}
 
@@ -278,7 +321,7 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     borderRadius: 12,
-    padding: SPACING.md,
+    padding: SPACING.lg,
     marginBottom: SPACING.lg,
     elevation: 2,
     shadowColor: '#000',
@@ -286,25 +329,46 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    gap: 8,
+  },
   summaryTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: SPACING.md,
   },
   summaryRow: {
     flexDirection: 'row',
-    gap: SPACING.lg,
   },
   summaryItem: {
     flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    marginBottom: 4,
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
   },
   summaryValue: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  summaryAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  summaryAlertText: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 16,
@@ -314,7 +378,7 @@ const styles = StyleSheet.create({
   historyCard: {
     borderRadius: 12,
     padding: SPACING.md,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -323,49 +387,73 @@ const styles = StyleSheet.create({
   },
   historyHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  historyIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+  historyIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
   },
-  historyInfo: {
+  historyContent: {
     flex: 1,
   },
+  historyTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
+  },
+  historyMainInfo: {
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
   historyDate: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 6,
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   historyAmount: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
+  },
+  historyDetails: {
+    gap: 6,
+    marginTop: SPACING.xs,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailText: {
+    fontSize: 13,
+    flex: 1,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: SPACING.sm,
+    marginTop: SPACING.md,
     padding: SPACING.sm,
     borderRadius: 8,
+    borderWidth: 1,
     gap: 8,
   },
   errorText: {
     fontSize: 12,
     flex: 1,
+    lineHeight: 16,
   },
 });
