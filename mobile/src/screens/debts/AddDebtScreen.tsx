@@ -40,7 +40,12 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation, route 
     interestRate: editingDebt?.interestRate ? String(editingDebt.interestRate) : '',
     dueDate: editingDebt?.dueDate ? formatDateForDisplay(editingDebt.dueDate) : '',
     description: editingDebt?.description || editingDebt?.notes || '',
+    creditorPhone: (editingDebt as any)?.creditorPhone || '',
+    creditorEmail: (editingDebt as any)?.creditorEmail || '',
   });
+  const [notificationChannels, setNotificationChannels] = useState<('app' | 'email' | 'sms')[]>(
+    (editingDebt as any)?.notificationChannels || ['app']
+  );
   const [loading, setLoading] = useState(false);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
 
@@ -120,6 +125,16 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation, route 
     return true;
   };
 
+  const toggleNotificationChannel = (channel: 'app' | 'email' | 'sms') => {
+    setNotificationChannels(prev => {
+      if (prev.includes(channel)) {
+        return prev.filter(c => c !== channel);
+      } else {
+        return [...prev, channel];
+      }
+    });
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
     setLoading(true);
@@ -135,6 +150,9 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation, route 
         interestRate,
         dueDate: formData.dueDate.trim() ? formatDateForAPI(formData.dueDate) : undefined,
         description: formData.description.trim() || undefined,
+        creditorPhone: formData.creditorPhone.trim() || undefined,
+        creditorEmail: formData.creditorEmail.trim() || undefined,
+        notificationChannels: notificationChannels.length > 0 ? notificationChannels : undefined,
       };
       if (isEditing) {
         await api.put(`/debts/${editingDebt.id}`, payload);
@@ -311,6 +329,102 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({ navigation, route 
               numberOfLines={3}
             />
           </View>
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Informações de Contato (Opcional)</Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+            📧 Adicione contato para receber lembretes de pagamento
+          </Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Telefone do Credor</Text>
+            <Input
+              placeholder="Ex: +244 923 456 789"
+              value={formData.creditorPhone}
+              onChangeText={(value) => handleInputChange('creditorPhone', value)}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Email do Credor</Text>
+            <Input
+              placeholder="Ex: banco@email.com"
+              value={formData.creditorEmail}
+              onChangeText={(value) => handleInputChange('creditorEmail', value)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Canais de Notificação</Text>
+            <Text style={[styles.inputHint, { color: colors.textSecondary }]}>
+              Selecione como deseja receber lembretes
+            </Text>
+            
+            <View style={styles.checkboxGroup}>
+              <TouchableOpacity
+                style={styles.checkboxRow}
+                onPress={() => toggleNotificationChannel('app')}
+              >
+                <View style={[
+                  styles.checkbox,
+                  { borderColor: colors.border },
+                  notificationChannels.includes('app') && { backgroundColor: colors.primary, borderColor: colors.primary }
+                ]}>
+                  {notificationChannels.includes('app') && (
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                  )}
+                </View>
+                <Ionicons name="notifications" size={20} color={colors.text} style={styles.checkboxIcon} />
+                <Text style={[styles.checkboxLabel, { color: colors.text }]}>Notificações no App</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.checkboxRow}
+                onPress={() => toggleNotificationChannel('email')}
+                disabled={!formData.creditorEmail.trim()}
+              >
+                <View style={[
+                  styles.checkbox,
+                  { borderColor: colors.border },
+                  notificationChannels.includes('email') && { backgroundColor: colors.primary, borderColor: colors.primary },
+                  !formData.creditorEmail.trim() && { opacity: 0.5 }
+                ]}>
+                  {notificationChannels.includes('email') && (
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                  )}
+                </View>
+                <Ionicons name="mail" size={20} color={colors.text} style={styles.checkboxIcon} />
+                <Text style={[styles.checkboxLabel, { color: colors.text }, !formData.creditorEmail.trim() && { opacity: 0.5 }]}>
+                  Email {!formData.creditorEmail.trim() && '(adicione email acima)'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.checkboxRow}
+                onPress={() => toggleNotificationChannel('sms')}
+                disabled={!formData.creditorPhone.trim()}
+              >
+                <View style={[
+                  styles.checkbox,
+                  { borderColor: colors.border },
+                  notificationChannels.includes('sms') && { backgroundColor: colors.primary, borderColor: colors.primary },
+                  !formData.creditorPhone.trim() && { opacity: 0.5 }
+                ]}>
+                  {notificationChannels.includes('sms') && (
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                  )}
+                </View>
+                <Ionicons name="chatbubble" size={20} color={colors.text} style={styles.checkboxIcon} />
+                <Text style={[styles.checkboxLabel, { color: colors.text }, !formData.creditorPhone.trim() && { opacity: 0.5 }]}>
+                  SMS {!formData.creditorPhone.trim() && '(adicione telefone acima)'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Card>
 
         {preview && (
@@ -385,6 +499,21 @@ const styles = StyleSheet.create({
   previewRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
   previewLabel: { fontSize: 14 },
   previewValue: { fontSize: 14, fontWeight: '500' },
+  divider: { height: 1, marginVertical: SPACING.lg },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: SPACING.xs },
+  sectionSubtitle: { fontSize: 12, marginBottom: SPACING.lg },
+  checkboxGroup: { marginTop: SPACING.sm, gap: SPACING.md },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center' },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxIcon: { marginLeft: SPACING.sm, marginRight: SPACING.xs },
+  checkboxLabel: { fontSize: 14, flex: 1 },
   warningCard: { marginBottom: SPACING.lg },
   warningHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm, gap: SPACING.sm },
   warningTitle: { fontSize: 14, fontWeight: '600' },

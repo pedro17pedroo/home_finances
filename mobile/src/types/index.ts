@@ -118,6 +118,9 @@ export interface Loan {
   remainingAmount?: string;
   borrower: string;
   personName?: string; // alias for borrower
+  borrowerPhone?: string;
+  borrowerEmail?: string;
+  notificationChannels?: ('app' | 'email' | 'sms')[];
   interestRate?: string;
   startDate?: string;
   dueDate?: string;
@@ -141,6 +144,9 @@ export interface Debt {
   remainingAmount?: string;
   interestRate?: string;
   creditor: string;
+  creditorPhone?: string;
+  creditorEmail?: string;
+  notificationChannels?: ('app' | 'email' | 'sms')[];
   startDate?: string;
   dueDate?: string;
   minimumPayment?: string;
