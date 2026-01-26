@@ -7,14 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
   Switch,
-  Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from '../../contexts/ToastContext';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { LoadingSpinner } from '../../components/LoadingSpinner';
 import {
   createBudget,
   updateBudget,
@@ -56,14 +54,10 @@ export default function BudgetFormScreen() {
   const [categoryId, setCategoryId] = useState('');
   const [amount, setAmount] = useState('');
   const [timePeriod, setTimePeriod] = useState<TimePeriodType>(TimePeriodType.MONTHLY);
-  const [customStartDate, setCustomStartDate] = useState<Date | undefined>();
-  const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [status, setStatus] = useState<BudgetStatus>(BudgetStatus.ACTIVE);
   const [alerts, setAlerts] = useState<AlertConfig[]>([]);
-
-  // Date picker state
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   useEffect(() => {
     if (mode === 'edit' && budgetId) {
@@ -84,14 +78,14 @@ export default function BudgetFormScreen() {
       setAlerts(budget.alerts);
 
       if (budget.customStartDate) {
-        setCustomStartDate(new Date(budget.customStartDate));
+        setCustomStartDate(budget.customStartDate.split('T')[0]);
       }
       if (budget.customEndDate) {
-        setCustomEndDate(new Date(budget.customEndDate));
+        setCustomEndDate(budget.customEndDate.split('T')[0]);
       }
     } catch (error) {
       console.error('Error loading budget:', error);
-      showToast('Erro ao carregar orçamento', 'error');
+      showToast({ message: 'Erro ao carregar orçamento', type: 'error' });
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -100,23 +94,25 @@ export default function BudgetFormScreen() {
 
   const validateForm = (): boolean => {
     if (!categoryId.trim()) {
-      showToast('Selecione uma categoria', 'error');
+      showToast({ message: 'Selecione uma categoria', type: 'error' });
       return false;
     }
 
     const amountNum = parseFloat(amount);
     if (!amount || isNaN(amountNum) || amountNum <= 0) {
-      showToast('Informe um valor válido', 'error');
+      showToast({ message: 'Informe um valor válido', type: 'error' });
       return false;
     }
 
     if (timePeriod === TimePeriodType.CUSTOM) {
       if (!customStartDate || !customEndDate) {
-        showToast('Informe as datas de início e fim', 'error');
+        showToast({ message: 'Informe as datas de início e fim', type: 'error' });
         return false;
       }
-      if (customEndDate <= customStartDate) {
-        showToast('A data de fim deve ser posterior à data de início', 'error');
+      const startDate = new Date(customStartDate);
+      const endDate = new Date(customEndDate);
+      if (endDate <= startDate) {
+        showToast({ message: 'A data de fim deve ser posterior à data de início', type: 'error' });
         return false;
       }
     }
@@ -138,23 +134,23 @@ export default function BudgetFormScreen() {
       };
 
       if (timePeriod === TimePeriodType.CUSTOM) {
-        data.customStartDate = customStartDate?.toISOString();
-        data.customEndDate = customEndDate?.toISOString();
+        data.customStartDate = customStartDate;
+        data.customEndDate = customEndDate;
       }
 
       if (mode === 'create') {
         await createBudget(data as CreateBudgetRequest);
-        showToast('Orçamento criado com sucesso', 'success');
+        showToast({ message: 'Orçamento criado com sucesso', type: 'success' });
       } else if (budgetId) {
         await updateBudget(budgetId, data);
-        showToast('Orçamento atualizado com sucesso', 'success');
+        showToast({ message: 'Orçamento atualizado com sucesso', type: 'success' });
       }
 
       navigation.goBack();
     } catch (error: any) {
       console.error('Error saving budget:', error);
       const message = error?.response?.data?.error?.message || 'Erro ao salvar orçamento';
-      showToast(message, 'error');
+      showToast({ message, type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -278,65 +274,41 @@ export default function BudgetFormScreen() {
               Período Personalizado *
             </Text>
 
-            <TouchableOpacity
-              style={[
-                styles.dateButton,
-                {
-                  backgroundColor: theme.colors.card,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => setShowStartDatePicker(true)}
-            >
+            <View style={styles.dateInputContainer}>
               <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-              <Text style={[styles.dateButtonText, { color: theme.colors.text }]}>
-                {customStartDate
-                  ? customStartDate.toLocaleDateString('pt-BR')
-                  : 'Data de início'}
-              </Text>
-            </TouchableOpacity>
+              <TextInput
+                style={[
+                  styles.dateInput,
+                  {
+                    backgroundColor: theme.colors.card,
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+                value={customStartDate}
+                onChangeText={setCustomStartDate}
+                placeholder="Data de início (YYYY-MM-DD)"
+                placeholderTextColor={theme.colors.textSecondary}
+              />
+            </View>
 
-            <TouchableOpacity
-              style={[
-                styles.dateButton,
-                {
-                  backgroundColor: theme.colors.card,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => setShowEndDatePicker(true)}
-            >
+            <View style={styles.dateInputContainer}>
               <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-              <Text style={[styles.dateButtonText, { color: theme.colors.text }]}>
-                {customEndDate
-                  ? customEndDate.toLocaleDateString('pt-BR')
-                  : 'Data de fim'}
-              </Text>
-            </TouchableOpacity>
-
-            {showStartDatePicker && (
-              <DateTimePicker
-                value={customStartDate || new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, date) => {
-                  setShowStartDatePicker(Platform.OS === 'ios');
-                  if (date) setCustomStartDate(date);
-                }}
+              <TextInput
+                style={[
+                  styles.dateInput,
+                  {
+                    backgroundColor: theme.colors.card,
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+                value={customEndDate}
+                onChangeText={setCustomEndDate}
+                placeholder="Data de fim (YYYY-MM-DD)"
+                placeholderTextColor={theme.colors.textSecondary}
               />
-            )}
-
-            {showEndDatePicker && (
-              <DateTimePicker
-                value={customEndDate || new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, date) => {
-                  setShowEndDatePicker(Platform.OS === 'ios');
-                  if (date) setCustomEndDate(date);
-                }}
-              />
-            )}
+            </View>
           </View>
         )}
 
@@ -431,17 +403,19 @@ const styles = StyleSheet.create({
   radioLabel: {
     fontSize: 16,
   },
-  dateButton: {
+  dateInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
     marginBottom: 8,
+    paddingLeft: 12,
+    borderWidth: 1,
+    borderRadius: 8,
   },
-  dateButtonText: {
+  dateInput: {
+    flex: 1,
+    padding: 12,
     fontSize: 16,
-    marginLeft: 8,
+    borderWidth: 0,
   },
   switchRow: {
     flexDirection: 'row',
