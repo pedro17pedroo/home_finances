@@ -1,379 +1,792 @@
 import { TransactionRepository } from "../repositories/transaction.repository.js";
 import { AccountRepository } from "../repositories/account.repository.js";
 import { logger } from "../../core/utils/logger.js";
+import { NotificationService } from "./notification.service.js";
+import { db } from "../../core/database/db.js";
+import { sql } from "drizzle-orm";
 import type { InsertTransaction } from "../../core/database/schema.js";
 
 export interface RecurringTransactionConfig {
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  dayOfMonth?: number; // Para monthly (1-31)
-  dayOfWeek?: number; // Para weekly (0-6, 0=domingo)
+  interval?: number;
+  dayOfMonth?: number;
+  dayOfWeek?: number;
+  monthOfYear?: number;
+  startDate: Date;
   endDate?: Date;
   maxOccurrences?: number;
+  notifyBeforeDays?: number;
+  notificationChannels?: ('app' | 'email' | 'sms')[];
+}
+
+export interface RecurringTransaction {
+  id: number;
+  userId: number;
+  organizationId: number | null;
+  accountId: number;
+  type: 'receita' | 'despesa';
+  description: string;
+  amount: string;
+  category: string;
+  frequency: string;
+  interval: number;
+  dayOfWeek: number | null;
+  dayOfMonth: number | null;
+  monthOfYear: number | null;
+  startDate: Date;
+  endDate: Date | null;
+  nextExecutionDate: Date;
+  lastExecutionDate: Date | null;
+  isActive: boolean;
+  maxOccurrences: number | null;
+  executionCount: number;
+  notifyBeforeDays: number;
+  notificationChannels: string[];
+  lastNotificationSent: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export class RecurringTransactionService {
-  /**
-   * Processa todas as transações recorrentes que devem ser executadas hoje
-   */
+  static async createRecurringTransaction(
+    userId: number,
+    organizationId: number | null,
+    accountId: number,
+    type: 'receita' | 'despesa',
+    description: string,
+    amount: string,
+    category: string,
+    config: RecurringTransactionConfig
+  ): Promise<RecurringTransaction> {
+    try {
+      const nextExecutionDate = this.calculateNextExecutionDate(config.startDate, config);
+
+      const result = await db.execute(sql`
+        INSERT INTO recurring_transactions (
+          user_id, organization_id, account_id, type, description, amount, category,
+          frequency, interval, day_of_week, day_of_month, month_of_year,
+          start_date, end_date, next_execution_date, max_occurrences,
+          notify_before_days, notification_channels, is_active
+        ) VALUES (
+          ${userId}, ${organizationId}, ${accountId}, ${type}, ${description}, ${amount}, ${category},
+          ${config.frequency}, ${config.interval || 1}, ${config.dayOfWeek || null}, 
+          ${config.dayOfMonth || null}, ${config.monthOfYear || null},
+          ${config.startDate}, ${config.endDate || null}, ${nextExecutionDate}, ${config.maxOccurrences || null},
+          ${config.notifyBeforeDays || 1}, ${JSON.stringify(config.notificationChannels || ['app'])}, true
+        )
+        RETURNING *
+      `);
+
+      const row: any = result.rows[0];
+      
+      logger.info(`Transação recorrente criada: ${row.id}`);
+      
+      // Map snake_case to camelCase
+      return {
+        id: row.id,
+        userId: row.user_id,
+        organizationId: row.organization_id,
+        accountId: row.account_id,
+        type: row.type,
+        description: row.description,
+        amount: row.amount,
+        category: row.category,
+        frequency: row.frequency,
+        interval: row.interval,
+        dayOfWeek: row.day_of_week,
+        dayOfMonth: row.day_of_month,
+        monthOfYear: row.month_of_year,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        nextExecutionDate: row.next_execution_date,
+        lastExecutionDate: row.last_execution_date,
+        isActive: row.is_active,
+        maxOccurrences: row.max_occurrences,
+        executionCount: row.execution_count,
+        notifyBeforeDays: row.notify_before_days,
+        notificationChannels: typeof row.notification_channels === 'string' 
+          ? JSON.parse(row.notification_channels) 
+          : row.notification_channels,
+        lastNotificationSent: row.last_notification_sent,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      } as RecurringTransaction;
+    } catch (error) {
+      logger.error("Erro ao criar transação recorrente:", error);
+      throw error;
+    }
+  }
+
+  static async updateRecurringTransaction(
+    id: number,
+    userId: number,
+    updates: Partial<RecurringTransactionConfig> & { description?: string; amount?: string; category?: string }
+  ): Promise<RecurringTransaction> {
+    try {
+      const existing = await this.getRecurringTransactionById(id, userId);
+      if (!existing) {
+        throw new Error("Transação recorrente não encontrada");
+      }
+
+      const updateFields: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (updates.description !== undefined) {
+        updateFields.push(`description = $${paramIndex++}`);
+        values.push(updates.description);
+      }
+      if (updates.amount !== undefined) {
+        updateFields.push(`amount = $${paramIndex++}`);
+        values.push(updates.amount);
+      }
+      if (updates.category !== undefined) {
+        updateFields.push(`category = $${paramIndex++}`);
+        values.push(updates.category);
+      }
+      if (updates.frequency !== undefined) {
+        updateFields.push(`frequency = $${paramIndex++}`);
+        values.push(updates.frequency);
+      }
+      if (updates.interval !== undefined) {
+        updateFields.push(`interval = $${paramIndex++}`);
+        values.push(updates.interval);
+      }
+      if (updates.dayOfWeek !== undefined) {
+        updateFields.push(`day_of_week = $${paramIndex++}`);
+        values.push(updates.dayOfWeek);
+      }
+      if (updates.dayOfMonth !== undefined) {
+        updateFields.push(`day_of_month = $${paramIndex++}`);
+        values.push(updates.dayOfMonth);
+      }
+      if (updates.monthOfYear !== undefined) {
+        updateFields.push(`month_of_year = $${paramIndex++}`);
+        values.push(updates.monthOfYear);
+      }
+      if (updates.endDate !== undefined) {
+        updateFields.push(`end_date = $${paramIndex++}`);
+        values.push(updates.endDate);
+      }
+      if (updates.maxOccurrences !== undefined) {
+        updateFields.push(`max_occurrences = $${paramIndex++}`);
+        values.push(updates.maxOccurrences);
+      }
+      if (updates.notifyBeforeDays !== undefined) {
+        updateFields.push(`notify_before_days = $${paramIndex++}`);
+        values.push(updates.notifyBeforeDays);
+      }
+      if (updates.notificationChannels !== undefined) {
+        updateFields.push(`notification_channels = $${paramIndex++}`);
+        values.push(JSON.stringify(updates.notificationChannels));
+      }
+
+      updateFields.push(`updated_at = NOW()`);
+
+      if (updates.frequency || updates.interval || updates.dayOfWeek || updates.dayOfMonth || updates.monthOfYear) {
+        const config: RecurringTransactionConfig = {
+          frequency: updates.frequency || existing.frequency as any,
+          interval: updates.interval || existing.interval,
+          dayOfWeek: updates.dayOfWeek !== undefined ? updates.dayOfWeek : existing.dayOfWeek || undefined,
+          dayOfMonth: updates.dayOfMonth !== undefined ? updates.dayOfMonth : existing.dayOfMonth || undefined,
+          monthOfYear: updates.monthOfYear !== undefined ? updates.monthOfYear : existing.monthOfYear || undefined,
+          startDate: existing.startDate,
+        };
+        const nextExecutionDate = this.calculateNextExecutionDate(new Date(), config);
+        updateFields.push(`next_execution_date = $${paramIndex++}`);
+        values.push(nextExecutionDate);
+      }
+
+      values.push(id);
+      values.push(userId);
+
+      const queryText = `
+        UPDATE recurring_transactions
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
+        RETURNING *
+      `;
+
+      const result = await db.execute(sql.raw(queryText));
+
+      logger.info(`Transação recorrente atualizada: ${id}`);
+      return result.rows[0] as any as RecurringTransaction;
+    } catch (error) {
+      logger.error(`Erro ao atualizar transação recorrente ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async getRecurringTransactionById(id: number, userId: number): Promise<RecurringTransaction | null> {
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM recurring_transactions
+        WHERE id = ${id} AND user_id = ${userId}
+      `);
+
+      if (!result.rows[0]) return null;
+
+      const row: any = result.rows[0];
+      
+      // Map snake_case to camelCase
+      return {
+        id: row.id,
+        userId: row.user_id,
+        organizationId: row.organization_id,
+        accountId: row.account_id,
+        type: row.type,
+        description: row.description,
+        amount: row.amount,
+        category: row.category,
+        frequency: row.frequency,
+        interval: row.interval,
+        dayOfWeek: row.day_of_week,
+        dayOfMonth: row.day_of_month,
+        monthOfYear: row.month_of_year,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        nextExecutionDate: row.next_execution_date,
+        lastExecutionDate: row.last_execution_date,
+        isActive: row.is_active,
+        maxOccurrences: row.max_occurrences,
+        executionCount: row.execution_count,
+        notifyBeforeDays: row.notify_before_days,
+        notificationChannels: typeof row.notification_channels === 'string' 
+          ? JSON.parse(row.notification_channels) 
+          : row.notification_channels,
+        lastNotificationSent: row.last_notification_sent,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      } as RecurringTransaction;
+    } catch (error) {
+      logger.error(`Erro ao buscar transação recorrente ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async getRecurringTransactionsByUser(userId: number, organizationId?: number | null): Promise<RecurringTransaction[]> {
+    try {
+      let query = sql`
+        SELECT * FROM recurring_transactions
+        WHERE user_id = ${userId}
+      `;
+
+      if (organizationId !== undefined) {
+        query = sql`${query} AND organization_id = ${organizationId}`;
+      }
+
+      query = sql`${query} ORDER BY next_execution_date ASC`;
+
+      const result = await db.execute(query);
+      
+      // Map snake_case to camelCase
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        organizationId: row.organization_id,
+        accountId: row.account_id,
+        type: row.type,
+        description: row.description,
+        amount: row.amount,
+        category: row.category,
+        frequency: row.frequency,
+        interval: row.interval,
+        dayOfWeek: row.day_of_week,
+        dayOfMonth: row.day_of_month,
+        monthOfYear: row.month_of_year,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        nextExecutionDate: row.next_execution_date,
+        lastExecutionDate: row.last_execution_date,
+        isActive: row.is_active,
+        maxOccurrences: row.max_occurrences,
+        executionCount: row.execution_count,
+        notifyBeforeDays: row.notify_before_days,
+        notificationChannels: typeof row.notification_channels === 'string' 
+          ? JSON.parse(row.notification_channels) 
+          : row.notification_channels,
+        lastNotificationSent: row.last_notification_sent,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })) as RecurringTransaction[];
+    } catch (error) {
+      logger.error("Erro ao listar transações recorrentes:", error);
+      throw error;
+    }
+  }
+
+  static async activateRecurringTransaction(id: number, userId: number): Promise<void> {
+    try {
+      await db.execute(sql`
+        UPDATE recurring_transactions
+        SET is_active = true, updated_at = NOW()
+        WHERE id = ${id} AND user_id = ${userId}
+      `);
+
+      logger.info(`Transação recorrente ativada: ${id}`);
+    } catch (error) {
+      logger.error(`Erro ao ativar transação recorrente ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async deactivateRecurringTransaction(id: number, userId: number): Promise<void> {
+    try {
+      await db.execute(sql`
+        UPDATE recurring_transactions
+        SET is_active = false, updated_at = NOW()
+        WHERE id = ${id} AND user_id = ${userId}
+      `);
+
+      logger.info(`Transação recorrente desativada: ${id}`);
+    } catch (error) {
+      logger.error(`Erro ao desativar transação recorrente ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async deleteRecurringTransaction(id: number, userId: number): Promise<void> {
+    try {
+      await db.execute(sql`
+        DELETE FROM recurring_transactions
+        WHERE id = ${id} AND user_id = ${userId}
+      `);
+
+      logger.info(`Transação recorrente excluída: ${id}`);
+    } catch (error) {
+      logger.error(`Erro ao excluir transação recorrente ${id}:`, error);
+      throw error;
+    }
+  }
+
   static async processRecurringTransactions(): Promise<void> {
     try {
       logger.info("Iniciando processamento de transações recorrentes");
-      
-      const recurringTransactions = await TransactionRepository.findRecurring();
+
       const today = new Date();
+      const result = await db.execute(sql`
+        SELECT * FROM recurring_transactions
+        WHERE is_active = true
+        AND next_execution_date <= ${today}
+        AND (end_date IS NULL OR end_date >= ${today})
+        AND (max_occurrences IS NULL OR execution_count < max_occurrences)
+      `);
+
+      const transactions = result.rows.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        organizationId: row.organization_id,
+        accountId: row.account_id,
+        type: row.type,
+        description: row.description,
+        amount: row.amount,
+        category: row.category,
+        frequency: row.frequency,
+        interval: row.interval,
+        dayOfWeek: row.day_of_week,
+        dayOfMonth: row.day_of_month,
+        monthOfYear: row.month_of_year,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        nextExecutionDate: row.next_execution_date,
+        lastExecutionDate: row.last_execution_date,
+        isActive: row.is_active,
+        maxOccurrences: row.max_occurrences,
+        executionCount: row.execution_count,
+        notifyBeforeDays: row.notify_before_days,
+        notificationChannels: typeof row.notification_channels === 'string' 
+          ? JSON.parse(row.notification_channels) 
+          : row.notification_channels,
+        lastNotificationSent: row.last_notification_sent,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })) as RecurringTransaction[];
+      
       let processedCount = 0;
 
-      for (const transaction of recurringTransactions) {
+      for (const recurringTx of transactions) {
         try {
-          const shouldProcess = await this.shouldProcessTransaction(transaction, today);
-          
-          if (shouldProcess) {
-            await this.createRecurringTransaction(transaction);
-            processedCount++;
-            logger.info(`Transação recorrente processada: ${transaction.id}`);
-          }
+          await this.executeRecurringTransaction(recurringTx);
+          processedCount++;
         } catch (error) {
-          logger.error(`Erro ao processar transação recorrente ${transaction.id}:`, error);
+          logger.error(`Erro ao processar transação recorrente ${recurringTx.id}:`, error);
         }
       }
 
-      logger.info(`Processamento concluído: ${processedCount} transações criadas`);
+      logger.info(`Processamento concluído: ${processedCount} transações executadas`);
     } catch (error) {
       logger.error("Erro no processamento de transações recorrentes:", error);
+      throw error;
     }
   }
 
-  /**
-   * Verifica se uma transação recorrente deve ser processada hoje
-   */
-  static async shouldProcessTransaction(transaction: any, today: Date): Promise<boolean> {
-    if (!transaction.isRecurring || !transaction.recurringFrequency) {
-      return false;
-    }
-
-    // Verificar se já foi processada hoje
-    const lastProcessed = await TransactionRepository.getLastRecurringExecution(transaction.id);
-    if (lastProcessed && this.isSameDay(new Date(lastProcessed), today)) {
-      return false;
-    }
-
-    const frequency = transaction.recurringFrequency;
-    const transactionDate = new Date(transaction.date);
-
-    switch (frequency) {
-      case 'daily':
-        return this.shouldProcessDaily(transactionDate, today);
-      
-      case 'weekly':
-        return this.shouldProcessWeekly(transactionDate, today);
-      
-      case 'monthly':
-        return this.shouldProcessMonthly(transactionDate, today);
-      
-      case 'yearly':
-        return this.shouldProcessYearly(transactionDate, today);
-      
-      default:
-        return false;
-    }
-  }
-
-  private static shouldProcessDaily(originalDate: Date, today: Date): boolean {
-    return today >= originalDate;
-  }
-
-  private static shouldProcessWeekly(originalDate: Date, today: Date): boolean {
-    if (today < originalDate) return false;
-    
-    const daysDiff = Math.floor((today.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
-    return daysDiff % 7 === 0;
-  }
-
-  private static shouldProcessMonthly(originalDate: Date, today: Date): boolean {
-    if (today < originalDate) return false;
-    
-    const originalDay = originalDate.getDate();
-    const todayDay = today.getDate();
-    
-    // Processar no mesmo dia do mês
-    return todayDay === originalDay || 
-           (originalDay > 28 && todayDay === this.getLastDayOfMonth(today));
-  }
-
-  private static shouldProcessYearly(originalDate: Date, today: Date): boolean {
-    if (today < originalDate) return false;
-    
-    return originalDate.getMonth() === today.getMonth() && 
-           originalDate.getDate() === today.getDate();
-  }
-
-  private static getLastDayOfMonth(date: Date): number {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  }
-
-  private static isSameDay(date1: Date, date2: Date): boolean {
-    return date1.getFullYear() === date2.getFullYear() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getDate() === date2.getDate();
-  }
-
-  /**
-   * Cria uma nova transação baseada na recorrente
-   */
-  private static async createRecurringTransaction(originalTransaction: any): Promise<any> {
-    const account = await AccountRepository.findById(originalTransaction.accountId);
-    if (!account) {
-      throw new Error(`Conta não encontrada: ${originalTransaction.accountId}`);
-    }
-
-    // Verificar saldo para despesas
-    if (originalTransaction.type === 'despesa') {
-      const currentBalance = parseFloat(account.balance);
-      const amount = parseFloat(originalTransaction.amount);
-      
-      if (currentBalance < amount) {
-        logger.warn(`Saldo insuficiente para transação recorrente ${originalTransaction.id}`);
-        return null;
+  static async executeRecurringTransaction(recurringTx: RecurringTransaction): Promise<any> {
+    try {
+      const account = await AccountRepository.findById(recurringTx.accountId);
+      if (!account) {
+        throw new Error(`Conta não encontrada: ${recurringTx.accountId}`);
       }
-    }
 
-    // Criar nova transação
-    const newTransaction: InsertTransaction = {
-      userId: originalTransaction.userId,
-      organizationId: originalTransaction.organizationId,
-      accountId: originalTransaction.accountId,
-      amount: originalTransaction.amount,
-      description: `${originalTransaction.description} (Recorrente)`,
-      category: originalTransaction.category,
-      type: originalTransaction.type,
-      date: new Date(),
-      isRecurring: false, // A nova transação não é recorrente
-      recurringFrequency: null,
-      recurringParentId: originalTransaction.id
-    };
+      if (recurringTx.type === 'despesa') {
+        const currentBalance = parseFloat(account.balance);
+        const amount = parseFloat(recurringTx.amount);
 
-    const createdTransaction = await TransactionRepository.create(newTransaction);
+        if (currentBalance < amount) {
+          logger.warn(`Saldo insuficiente para transação recorrente ${recurringTx.id}`);
+          
+          await db.execute(sql`
+            INSERT INTO recurring_transaction_executions (
+              recurring_transaction_id, scheduled_date, status, error_message, amount
+            ) VALUES (
+              ${recurringTx.id}, ${recurringTx.nextExecutionDate}, 'failed', 
+              'Saldo insuficiente', ${recurringTx.amount}
+            )
+          `);
 
-    // Atualizar saldo da conta
-    const currentBalance = parseFloat(account.balance);
-    const amount = parseFloat(originalTransaction.amount);
-    const newBalance = originalTransaction.type === 'receita' 
-      ? currentBalance + amount 
-      : currentBalance - amount;
-
-    await AccountRepository.updateBalance(originalTransaction.accountId, newBalance);
-
-    logger.info(`Transação recorrente criada: ${createdTransaction.id} para transação pai: ${originalTransaction.id}`);
-    
-    return createdTransaction;
-  }
-
-  /**
-   * Obtém próximas execuções de transações recorrentes
-   */
-  static async getUpcomingRecurringTransactions(userId: number, days: number = 30) {
-    const recurringTransactions = await TransactionRepository.findRecurringByUserId(userId);
-    const upcoming = [];
-    const today = new Date();
-
-    for (const transaction of recurringTransactions) {
-      const nextExecutions = this.getNextExecutions(transaction, today, days);
-      upcoming.push(...nextExecutions);
-    }
-
-    return upcoming.sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
-  }
-
-  private static getNextExecutions(transaction: any, fromDate: Date, days: number) {
-    const executions = [];
-    const frequency = transaction.recurringFrequency;
-    let currentDate = new Date(fromDate);
-    const endDate = new Date(fromDate.getTime() + (days * 24 * 60 * 60 * 1000));
-    const transactionDate = new Date(transaction.date);
-
-    while (currentDate <= endDate) {
-      // Simple check without async - just check if the date matches the frequency pattern
-      let shouldAdd = false;
-      
-      if (transaction.isRecurring && frequency) {
-        switch (frequency) {
-          case 'daily':
-            shouldAdd = currentDate >= transactionDate;
-            break;
-          case 'weekly':
-            if (currentDate >= transactionDate) {
-              const daysDiff = Math.floor((currentDate.getTime() - transactionDate.getTime()) / (1000 * 60 * 60 * 24));
-              shouldAdd = daysDiff % 7 === 0;
-            }
-            break;
-          case 'monthly':
-            if (currentDate >= transactionDate) {
-              shouldAdd = currentDate.getDate() === transactionDate.getDate();
-            }
-            break;
-          case 'yearly':
-            if (currentDate >= transactionDate) {
-              shouldAdd = currentDate.getMonth() === transactionDate.getMonth() && 
-                         currentDate.getDate() === transactionDate.getDate();
-            }
-            break;
+          return null;
         }
       }
 
-      if (shouldAdd) {
-        executions.push({
-          transactionId: transaction.id,
-          description: transaction.description,
-          amount: transaction.amount,
-          type: transaction.type,
-          category: transaction.category,
-          frequency,
-          nextDate: new Date(currentDate)
-        });
-      }
+      const balanceBefore = parseFloat(account.balance);
+      const amount = parseFloat(recurringTx.amount);
+      const balanceAfter = recurringTx.type === 'receita' 
+        ? balanceBefore + amount 
+        : balanceBefore - amount;
 
-      // Avançar para próxima verificação
-      switch (frequency) {
-        case 'daily':
-          currentDate.setDate(currentDate.getDate() + 1);
-          break;
-        case 'weekly':
-          currentDate.setDate(currentDate.getDate() + 7);
-          break;
-        case 'monthly':
-          currentDate.setMonth(currentDate.getMonth() + 1);
-          break;
-        case 'yearly':
-          currentDate.setFullYear(currentDate.getFullYear() + 1);
-          break;
-      }
+      const newTransaction: InsertTransaction = {
+        userId: recurringTx.userId,
+        organizationId: recurringTx.organizationId,
+        accountId: recurringTx.accountId,
+        amount: recurringTx.amount,
+        description: `${recurringTx.description} (Recorrente)`,
+        category: recurringTx.category,
+        type: recurringTx.type,
+        date: new Date(),
+        balanceBefore: balanceBefore.toString(),
+        balanceAfter: balanceAfter.toString(),
+        isRecurring: false,
+        recurringFrequency: null,
+        recurringParentId: null,
+      };
+
+      const createdTransaction = await TransactionRepository.create(newTransaction);
+      await AccountRepository.updateBalance(recurringTx.accountId, balanceAfter);
+
+      await db.execute(sql`
+        INSERT INTO recurring_transaction_executions (
+          recurring_transaction_id, transaction_id, scheduled_date, executed_date,
+          status, amount, account_balance_before, account_balance_after
+        ) VALUES (
+          ${recurringTx.id}, ${createdTransaction.id}, ${recurringTx.nextExecutionDate}, NOW(),
+          'completed', ${recurringTx.amount}, ${balanceBefore}, ${balanceAfter}
+        )
+      `);
+
+      const config: RecurringTransactionConfig = {
+        frequency: recurringTx.frequency as any,
+        interval: recurringTx.interval,
+        dayOfWeek: recurringTx.dayOfWeek || undefined,
+        dayOfMonth: recurringTx.dayOfMonth || undefined,
+        monthOfYear: recurringTx.monthOfYear || undefined,
+        startDate: recurringTx.nextExecutionDate,
+      };
+      const nextExecutionDate = this.calculateNextExecutionDate(recurringTx.nextExecutionDate, config);
+
+      await db.execute(sql`
+        UPDATE recurring_transactions
+        SET 
+          last_execution_date = NOW(),
+          next_execution_date = ${nextExecutionDate},
+          execution_count = execution_count + 1,
+          updated_at = NOW()
+        WHERE id = ${recurringTx.id}
+      `);
+
+      await this.sendExecutionNotification(recurringTx, createdTransaction);
+
+      logger.info(`Transação recorrente executada: ${recurringTx.id} -> ${createdTransaction.id}`);
+      return createdTransaction;
+    } catch (error) {
+      logger.error(`Erro ao executar transação recorrente ${recurringTx.id}:`, error);
+      
+      await db.execute(sql`
+        INSERT INTO recurring_transaction_executions (
+          recurring_transaction_id, scheduled_date, status, error_message, amount
+        ) VALUES (
+          ${recurringTx.id}, ${recurringTx.nextExecutionDate}, 'failed', 
+          ${error instanceof Error ? error.message : 'Erro desconhecido'}, ${recurringTx.amount}
+        )
+      `);
+
+      throw error;
     }
-
-    return executions;
   }
 
-  /**
-   * Calcula a próxima execução de uma transação recorrente
-   */
-  static calculateNextExecution(transaction: any): string {
-    if (!transaction.isRecurring || !transaction.recurringFrequency) {
-      return new Date().toISOString();
-    }
+  static async sendUpcomingNotifications(): Promise<void> {
+    try {
+      logger.info("Enviando notificações de transações recorrentes próximas");
 
-    const frequency = transaction.recurringFrequency;
-    const transactionDate = new Date(transaction.date);
-    const today = new Date();
-    let nextDate = new Date(transactionDate);
+      const result = await db.execute(sql`
+        SELECT * FROM recurring_transactions
+        WHERE is_active = true
+        AND next_execution_date <= NOW() + (notify_before_days || ' days')::interval
+        AND next_execution_date > NOW()
+        AND (last_notification_sent IS NULL OR last_notification_sent < NOW() - interval '12 hours')
+      `);
 
-    // Avançar até encontrar a próxima data futura
-    while (nextDate <= today) {
-      switch (frequency) {
-        case 'daily':
-          nextDate.setDate(nextDate.getDate() + 1);
-          break;
-        case 'weekly':
-          nextDate.setDate(nextDate.getDate() + 7);
-          break;
-        case 'monthly':
-          nextDate.setMonth(nextDate.getMonth() + 1);
-          break;
-        case 'yearly':
-          nextDate.setFullYear(nextDate.getFullYear() + 1);
-          break;
+      const transactions = result.rows.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        organizationId: row.organization_id,
+        accountId: row.account_id,
+        type: row.type,
+        description: row.description,
+        amount: row.amount,
+        category: row.category,
+        frequency: row.frequency,
+        interval: row.interval,
+        dayOfWeek: row.day_of_week,
+        dayOfMonth: row.day_of_month,
+        monthOfYear: row.month_of_year,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        nextExecutionDate: row.next_execution_date,
+        lastExecutionDate: row.last_execution_date,
+        isActive: row.is_active,
+        maxOccurrences: row.max_occurrences,
+        executionCount: row.execution_count,
+        notifyBeforeDays: row.notify_before_days,
+        notificationChannels: typeof row.notification_channels === 'string' 
+          ? JSON.parse(row.notification_channels) 
+          : row.notification_channels,
+        lastNotificationSent: row.last_notification_sent,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })) as RecurringTransaction[];
+
+      for (const tx of transactions) {
+        try {
+          await this.sendUpcomingNotification(tx);
+        } catch (error) {
+          logger.error(`Erro ao enviar notificação para transação ${tx.id}:`, error);
+        }
       }
-    }
 
-    return nextDate.toISOString();
+      logger.info(`Notificações enviadas para ${transactions.length} transações`);
+    } catch (error) {
+      logger.error("Erro ao enviar notificações:", error);
+    }
   }
 
-  /**
-   * Conta quantas vezes uma transação recorrente foi executada
-   */
-  static async getExecutionCount(transactionId: number): Promise<number> {
-    const lastExecution = await TransactionRepository.getLastRecurringExecution(transactionId);
-    if (!lastExecution) return 0;
-    
-    // Contar transações filhas
-    const transaction = await TransactionRepository.findById(transactionId);
-    if (!transaction) return 0;
-    
-    const startDate = new Date(transaction.date);
-    const today = new Date();
-    const frequency = transaction.recurringFrequency;
-    
-    if (!frequency) return 0;
-    
-    const diffTime = today.getTime() - startDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    switch (frequency) {
+  private static async sendUpcomingNotification(tx: RecurringTransaction): Promise<void> {
+    try {
+      const channels = Array.isArray(tx.notificationChannels) 
+        ? tx.notificationChannels 
+        : JSON.parse(tx.notificationChannels as any);
+
+      const daysUntil = Math.ceil(
+        (tx.nextExecutionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      const message = `A transação recorrente "${tx.description}" será processada em ${daysUntil} dia(s). Valor: ${this.formatCurrency(tx.amount)}`;
+
+      for (const channel of channels) {
+        if (channel === 'app') {
+          await NotificationService.sendInAppNotification(tx.userId, {
+            title: '📅 Transação Recorrente Próxima',
+            message,
+            data: {
+              type: tx.type,
+              amount: parseFloat(tx.amount),
+              nextExecutionDate: tx.nextExecutionDate.toISOString(),
+            },
+          } as any);
+        } else if (channel === 'email') {
+          await NotificationService.sendEmailNotification(tx.userId, {
+            title: '📅 Transação Recorrente Próxima',
+            message,
+            data: {
+              type: tx.type,
+              amount: parseFloat(tx.amount),
+              nextExecutionDate: tx.nextExecutionDate.toISOString(),
+            },
+          } as any);
+        } else if (channel === 'sms') {
+          await NotificationService.sendSMSNotification(tx.userId, {
+            title: '📅 Transação Recorrente Próxima',
+            message,
+            data: {
+              type: tx.type,
+              amount: parseFloat(tx.amount),
+              nextExecutionDate: tx.nextExecutionDate.toISOString(),
+            },
+          } as any);
+        }
+
+        await db.execute(sql`
+          INSERT INTO recurring_transaction_notifications (
+            recurring_transaction_id, user_id, scheduled_execution_date,
+            notification_type, channel, status, sent_at
+          ) VALUES (
+            ${tx.id}, ${tx.userId}, ${tx.nextExecutionDate},
+            'upcoming', ${channel}, 'sent', NOW()
+          )
+        `);
+      }
+
+      await db.execute(sql`
+        UPDATE recurring_transactions
+        SET last_notification_sent = NOW()
+        WHERE id = ${tx.id}
+      `);
+
+      logger.info(`Notificação enviada para transação recorrente ${tx.id}`);
+    } catch (error) {
+      logger.error(`Erro ao enviar notificação para transação ${tx.id}:`, error);
+      throw error;
+    }
+  }
+
+  private static async sendExecutionNotification(tx: RecurringTransaction, transaction: any): Promise<void> {
+    try {
+      const channels = Array.isArray(tx.notificationChannels) 
+        ? tx.notificationChannels 
+        : JSON.parse(tx.notificationChannels as any);
+
+      const message = `A transação recorrente "${tx.description}" foi processada com sucesso. Valor: ${this.formatCurrency(tx.amount)}`;
+
+      for (const channel of channels) {
+        if (channel === 'app') {
+          await NotificationService.sendInAppNotification(tx.userId, {
+            title: '✅ Transação Recorrente Executada',
+            message,
+            data: {
+              type: tx.type,
+              amount: parseFloat(tx.amount),
+            },
+          } as any);
+        }
+
+        await db.execute(sql`
+          INSERT INTO recurring_transaction_notifications (
+            recurring_transaction_id, user_id, scheduled_execution_date,
+            notification_type, channel, status, sent_at
+          ) VALUES (
+            ${tx.id}, ${tx.userId}, ${tx.nextExecutionDate},
+            'executed', ${channel}, 'sent', NOW()
+          )
+        `);
+      }
+    } catch (error) {
+      logger.error(`Erro ao enviar notificação de execução para transação ${tx.id}:`, error);
+    }
+  }
+
+  static async getUpcomingRecurringTransactions(userId: number, days: number = 30): Promise<any[]> {
+    try {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + days);
+
+      const result = await db.execute(sql`
+        SELECT * FROM recurring_transactions
+        WHERE user_id = ${userId}
+        AND is_active = true
+        AND next_execution_date <= ${futureDate}
+        AND (end_date IS NULL OR end_date >= NOW())
+        ORDER BY next_execution_date ASC
+      `);
+
+      return result.rows;
+    } catch (error) {
+      logger.error("Erro ao buscar próximas execuções:", error);
+      throw error;
+    }
+  }
+
+  private static calculateNextExecutionDate(fromDate: Date, config: RecurringTransactionConfig): Date {
+    const nextDate = new Date(fromDate);
+    const interval = config.interval || 1;
+
+    switch (config.frequency) {
       case 'daily':
-        return Math.max(0, diffDays);
+        nextDate.setDate(nextDate.getDate() + interval);
+        break;
+
       case 'weekly':
-        return Math.max(0, Math.floor(diffDays / 7));
+        if (config.dayOfWeek !== undefined) {
+          const currentDay = nextDate.getDay();
+          const daysToAdd = (config.dayOfWeek - currentDay + 7) % 7 || 7;
+          nextDate.setDate(nextDate.getDate() + daysToAdd);
+        } else {
+          nextDate.setDate(nextDate.getDate() + (7 * interval));
+        }
+        break;
+
       case 'monthly':
-        return Math.max(0, Math.floor(diffDays / 30));
+        if (config.dayOfMonth !== undefined) {
+          nextDate.setMonth(nextDate.getMonth() + interval);
+          const lastDayOfMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+          nextDate.setDate(Math.min(config.dayOfMonth, lastDayOfMonth));
+        } else {
+          nextDate.setMonth(nextDate.getMonth() + interval);
+        }
+        break;
+
       case 'yearly':
-        return Math.max(0, Math.floor(diffDays / 365));
-      default:
-        return 0;
+        if (config.monthOfYear !== undefined && config.dayOfMonth !== undefined) {
+          nextDate.setFullYear(nextDate.getFullYear() + interval);
+          nextDate.setMonth(config.monthOfYear - 1);
+          const lastDayOfMonth = new Date(nextDate.getFullYear(), config.monthOfYear, 0).getDate();
+          nextDate.setDate(Math.min(config.dayOfMonth, lastDayOfMonth));
+        } else {
+          nextDate.setFullYear(nextDate.getFullYear() + interval);
+        }
+        break;
     }
+
+    return nextDate;
   }
 
-  /**
-   * Ativa uma transação recorrente
-   */
-  static async activateRecurringTransaction(userId: number, transactionId: number): Promise<void> {
-    const transaction = await TransactionRepository.findById(transactionId);
-    
-    if (!transaction || transaction.userId !== userId) {
-      throw new Error("Transação não encontrada");
-    }
-
-    await TransactionRepository.update(transactionId, {
-      isRecurring: true,
-    });
-
-    logger.info(`Transação recorrente ativada: ${transactionId}`);
+  private static formatCurrency(amount: string | number): string {
+    const value = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('pt-AO', {
+      style: 'currency',
+      currency: 'AOA'
+    }).format(value);
   }
 
-  /**
-   * Desativa uma transação recorrente
-   */
-  static async deactivateRecurringTransaction(userId: number, transactionId: number): Promise<void> {
-    const transaction = await TransactionRepository.findById(transactionId);
-    
-    if (!transaction || transaction.userId !== userId) {
-      throw new Error("Transação não encontrada");
+  static async getExecutionHistory(recurringTransactionId: number, userId: number): Promise<any[]> {
+    try {
+      const result = await db.execute(sql`
+        SELECT e.*, t.description as transaction_description
+        FROM recurring_transaction_executions e
+        LEFT JOIN transactions t ON e.transaction_id = t.id
+        WHERE e.recurring_transaction_id = ${recurringTransactionId}
+        AND EXISTS (
+          SELECT 1 FROM recurring_transactions rt
+          WHERE rt.id = e.recurring_transaction_id AND rt.user_id = ${userId}
+        )
+        ORDER BY e.scheduled_date DESC
+      `);
+
+      // Map snake_case to camelCase
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        recurringTransactionId: row.recurring_transaction_id,
+        transactionId: row.transaction_id,
+        scheduledDate: row.scheduled_date,
+        executedDate: row.executed_date,
+        status: row.status,
+        amount: row.amount,
+        accountBalanceBefore: row.account_balance_before,
+        accountBalanceAfter: row.account_balance_after,
+        errorMessage: row.error_message,
+        transactionDescription: row.transaction_description,
+        createdAt: row.created_at,
+      }));
+    } catch (error) {
+      logger.error("Erro ao buscar histórico de execuções:", error);
+      throw error;
     }
-
-    await TransactionRepository.update(transactionId, {
-      isRecurring: false,
-    });
-
-    logger.info(`Transação recorrente desativada: ${transactionId}`);
-  }
-
-  /**
-   * Executa uma transação recorrente imediatamente
-   */
-  static async executeRecurringTransactionNow(userId: number, transactionId: number): Promise<any> {
-    const transaction = await TransactionRepository.findById(transactionId);
-    
-    if (!transaction || transaction.userId !== userId) {
-      throw new Error("Transação não encontrada");
-    }
-
-    if (!transaction.isRecurring) {
-      throw new Error("Transação não é recorrente");
-    }
-
-    const newTransaction = await this.createRecurringTransaction(transaction);
-    
-    if (!newTransaction) {
-      throw new Error("Saldo insuficiente para executar a transação");
-    }
-
-    return newTransaction;
   }
 }

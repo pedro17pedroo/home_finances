@@ -16,6 +16,9 @@ import { SavingsGoalsPage } from './features/savings/pages/savings-goals-page';
 import { ReportsPage } from './features/reports/pages/reports-page';
 import { TransfersPage } from './features/transfers/pages/transfers-page';
 import { TransactionsPage } from './features/transactions/pages/transactions-page';
+import { RecurringTransactionsPage } from './features/transactions/pages/RecurringTransactionsPage';
+import { RecurringTransactionFormPage } from './features/transactions/pages/RecurringTransactionFormPage';
+import { RecurringTransactionHistoryPage } from './features/transactions/pages/RecurringTransactionHistoryPage';
 import { LoansPage } from './features/loans/pages/loans-page';
 import { ExportPage } from './features/export/pages/export-page';
 import { LandingPage } from './features/landing/pages/landing-page';
@@ -30,6 +33,17 @@ import { ReceivedInvitationsPage } from './features/team/pages/received-invitati
 import { TermsPage } from './features/legal/pages/terms-page';
 import { PrivacyPage } from './features/legal/pages/privacy-page';
 import { CookiesPage } from './features/legal/pages/cookies-page';
+
+// Budget Pages
+import BudgetListPage from './features/budgets/pages/BudgetListPage';
+import BudgetFormPage from './features/budgets/pages/BudgetFormPage';
+import BudgetDetailPage from './features/budgets/pages/BudgetDetailPage';
+
+// Notifications Pages
+import NotificationsPage from './features/notifications/pages/NotificationsPage';
+
+// Notification Components
+import { BudgetNotificationContainer } from './shared/components/BudgetNotificationToast';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -114,6 +128,30 @@ function AppRoutes() {
         </ProtectedRoute>
       </Route>
       
+      <Route path="/transactions/recurring">
+        <ProtectedRoute>
+          <RecurringTransactionsPage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/transactions/recurring/new">
+        <ProtectedRoute>
+          <RecurringTransactionFormPage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/transactions/recurring/:id/history">
+        <ProtectedRoute>
+          <RecurringTransactionHistoryPage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/transactions/recurring/:id/edit">
+        <ProtectedRoute>
+          <RecurringTransactionFormPage />
+        </ProtectedRoute>
+      </Route>
+      
       <Route path="/loans">
         <ProtectedRoute>
           <LoansPage />
@@ -166,6 +204,36 @@ function AppRoutes() {
         </ProtectedRoute>
       </Route>
       
+      <Route path="/budgets">
+        <ProtectedRoute>
+          <BudgetListPage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/budgets/new">
+        <ProtectedRoute>
+          <BudgetFormPage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/budgets/:id/edit">
+        <ProtectedRoute>
+          <BudgetFormPage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/budgets/:id">
+        <ProtectedRoute>
+          <BudgetDetailPage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/notifications">
+        <ProtectedRoute>
+          <NotificationsPage />
+        </ProtectedRoute>
+      </Route>
+      
       <Route path="/landing">
         <LandingPage />
       </Route>
@@ -202,6 +270,7 @@ function App() {
         <AuthProvider>
           <OrganizationProvider>
             <AppRoutes />
+            <BudgetNotificationContainer />
           </OrganizationProvider>
         </AuthProvider>
       </ThemeProvider>

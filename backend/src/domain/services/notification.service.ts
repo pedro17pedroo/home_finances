@@ -2,7 +2,19 @@ import { LoanService } from "./loan.service.js";
 import { DebtService } from "./debt.service.js";
 import { SavingsGoalService } from "./savings-goal.service.js";
 import { RecurringTransactionService } from "./recurring-transaction.service.js";
+import { CategoryService } from "./category.service.js";
 import { logger } from "../../core/utils/logger.js";
+import { emailService } from "../../infrastructure/email/email.service.js";
+import { db } from "../../core/database/db.js";
+import { users } from "../../core/database/schema.js";
+import { eq } from "drizzle-orm";
+import type {
+  Alert,
+  Budget,
+  SpendingCalculation,
+  NotificationPayload,
+  ChannelType
+} from "../entities/budget.types.js";
 
 export interface Notification {
   id: string;
@@ -147,8 +159,9 @@ export class NotificationService {
         });
       }
 
-      // Armazenar notificações na memória (em produção, usar banco de dados)
-      this.notifications.set(userId, notifications);
+      // Don't overwrite stored notifications (which may include budget alerts)
+      // Just return the generated system notifications
+      // this.notifications.set(userId, notifications);
 
       logger.info(`Geradas ${notifications.length} notificações para usuário ${userId}`);
       return notifications;
@@ -163,8 +176,26 @@ export class NotificationService {
    * Obtém todas as notificações de um usuário
    */
   static async getNotificationsForUser(userId: number): Promise<Notification[]> {
-    // Gerar notificações atualizadas
-    return await this.generateNotificationsForUser(userId);
+    // Get existing stored notifications (including budget alerts)
+    const storedNotifications = this.notifications.get(userId) || [];
+    
+    // Generate system notifications (loans, debts, etc.)
+    const systemNotifications = await this.generateNotificationsForUser(userId);
+    
+    // Merge stored and system notifications, removing duplicates by ID
+    const allNotifications = [...storedNotifications];
+    const storedIds = new Set(storedNotifications.map(n => n.id));
+    
+    for (const notification of systemNotifications) {
+      if (!storedIds.has(notification.id)) {
+        allNotifications.push(notification);
+      }
+    }
+    
+    // Sort by creation date (newest first)
+    allNotifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    return allNotifications;
   }
 
   /**
@@ -195,6 +226,16 @@ export class NotificationService {
   static async getUnreadCount(userId: number): Promise<number> {
     const notifications = await this.getNotificationsForUser(userId);
     return notifications.filter(n => !n.isRead).length;
+  }
+
+  /**
+   * Exclui uma notificação
+   */
+  static async deleteNotification(userId: number, notificationId: string): Promise<void> {
+    const userNotifications = this.notifications.get(userId) || [];
+    const filteredNotifications = userNotifications.filter(n => n.id !== notificationId);
+    this.notifications.set(userId, filteredNotifications);
+    logger.info(`Notificação ${notificationId} excluída para usuário ${userId}`);
   }
 
   // Métodos auxiliares privados
@@ -266,5 +307,328 @@ export class NotificationService {
     const today = new Date();
     const diffTime = targetDate.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  // ============================================================================
+  // Budget Alert Notification Methods
+  // ============================================================================
+
+  /**
+   * Send budget alert notifications through all enabled channels
+   * 
+   * @param userId - User ID to send notifications to
+   * @param alert - Alert configuration with enabled channels
+   * @param budget - Budget that triggered the alert
+   * @param spending - Current spending calculation
+   */
+  static async sendBudgetAlert(
+    userId: number,
+    alert: Alert,
+    budget: Budget,
+    spending: SpendingCalculation
+  ): Promise<void> {
+    try {
+      // Get category name for the notification
+      const category = await CategoryService.getCategoryById(
+        budget.categoryId,
+        userId,
+        budget.organizationId
+      );
+
+      // Build notification payload
+      const payload = this.buildNotificationPayload(
+        category.name,
+        spending,
+        typeof budget.amount === 'string' ? Number(budget.amount) : budget.amount
+      );
+
+      // Send notifications through all enabled channels
+      const sendPromises: Promise<void>[] = [];
+
+      for (const channel of alert.channels) {
+        if (channel.enabled) {
+          switch (channel.type) {
+            case 'in_app':
+              sendPromises.push(this.sendInAppNotification(userId, payload));
+              break;
+            case 'email':
+              sendPromises.push(this.sendEmailNotification(userId, payload));
+              break;
+            case 'sms':
+              sendPromises.push(this.sendSMSNotification(userId, payload));
+              break;
+          }
+        }
+      }
+
+      // Send all notifications in parallel, but don't block on failures
+      await Promise.allSettled(sendPromises);
+
+      logger.info(`Budget alert sent for user ${userId}, budget ${budget.id}, alert ${alert.id}`);
+    } catch (error) {
+      // Log error but don't throw - notification failures should not block transaction processing
+      logger.error(`Failed to send budget alert for user ${userId}:`, error);
+    }
+  }
+
+  /**
+   * Send in-app notification for budget alert
+   * Delivers to both mobile and web platforms
+   * 
+   * @param userId - User ID
+   * @param notification - Notification payload
+   */
+  static async sendInAppNotification(
+    userId: number,
+    notification: NotificationPayload
+  ): Promise<void> {
+    try {
+      // Determine if budget is exceeded based on exceeded amount
+      const isExceeded = notification.data.exceededAmount !== undefined && notification.data.exceededAmount > 0;
+
+      // Create in-app notification record
+      const inAppNotification: Notification = {
+        id: `budget-alert-${Date.now()}-${userId}`,
+        userId,
+        type: isExceeded ? 'error' : 'warning',
+        category: 'general',
+        title: notification.title,
+        message: notification.message,
+        actionUrl: '/budgets',
+        actionText: 'Ver Orçamentos',
+        isRead: false,
+        createdAt: new Date(),
+      };
+
+      // Store notification in memory (in production, use database)
+      const userNotifications = this.notifications.get(userId) || [];
+      userNotifications.push(inAppNotification);
+      this.notifications.set(userId, userNotifications);
+
+      logger.info(`In-app notification sent to user ${userId} (mobile and web)`);
+    } catch (error) {
+      logger.error(`Failed to send in-app notification to user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send email notification for budget alert
+   * 
+   * @param userId - User ID
+   * @param notification - Notification payload
+   */
+  static async sendEmailNotification(
+    userId: number,
+    notification: NotificationPayload
+  ): Promise<void> {
+    try {
+      // Get user email
+      const user = await this.getUserById(userId);
+      if (!user || !user.email) {
+        logger.warn(`Cannot send email notification: user ${userId} has no email`);
+        return;
+      }
+
+      // Build email HTML
+      const html = this.buildBudgetAlertEmailHtml(notification);
+
+      // Send email
+      await emailService.sendEmail({
+        to: user.email,
+        subject: notification.title,
+        html,
+      });
+
+      logger.info(`Email notification sent to user ${userId} at ${user.email}`);
+    } catch (error) {
+      logger.error(`Failed to send email notification to user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send SMS notification for budget alert
+   * 
+   * @param userId - User ID
+   * @param notification - Notification payload
+   */
+  static async sendSMSNotification(
+    userId: number,
+    notification: NotificationPayload
+  ): Promise<void> {
+    try {
+      // Get user phone
+      const user = await this.getUserById(userId);
+      if (!user || !user.phone) {
+        logger.warn(`Cannot send SMS notification: user ${userId} has no phone`);
+        return;
+      }
+
+      // Build SMS message (keep it short)
+      const smsMessage = `${notification.title}\n${notification.message}`;
+
+      // TODO: Integrate with SMS provider (e.g., Twilio, Africa's Talking)
+      // For now, just log the SMS
+      logger.info(`SMS notification for user ${userId} to ${user.phone}: ${smsMessage}`);
+
+      // In production, call SMS API here:
+      // await smsService.sendSMS(user.phone, smsMessage);
+    } catch (error) {
+      logger.error(`Failed to send SMS notification to user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // Private Helper Methods for Budget Alerts
+  // ============================================================================
+
+  /**
+   * Build notification payload with all required fields
+   * 
+   * @param categoryName - Category name
+   * @param spending - Spending calculation
+   * @param budgetLimit - Budget limit amount
+   * @returns Notification payload
+   */
+  private static buildNotificationPayload(
+    categoryName: string,
+    spending: SpendingCalculation,
+    budgetLimit: number
+  ): NotificationPayload {
+    const isExceeded = spending.isExceeded;
+    const percentageUsed = spending.percentageUsed;
+
+    // Build title
+    let title: string;
+    if (isExceeded) {
+      title = `⚠️ Orçamento Excedido: ${categoryName}`;
+    } else if (percentageUsed >= 90) {
+      title = `🚨 Alerta de Orçamento: ${categoryName}`;
+    } else {
+      title = `⚡ Alerta de Orçamento: ${categoryName}`;
+    }
+
+    // Build message
+    let message: string;
+    if (isExceeded) {
+      message = `Você excedeu o orçamento de ${categoryName} em ${this.formatCurrency(spending.exceededAmount)}. ` +
+                `Gasto atual: ${this.formatCurrency(spending.totalSpent)} (${percentageUsed.toFixed(1)}% do limite).`;
+    } else {
+      message = `Você atingiu ${percentageUsed.toFixed(1)}% do seu orçamento de ${categoryName}. ` +
+                `Gasto atual: ${this.formatCurrency(spending.totalSpent)} de ${this.formatCurrency(budgetLimit)}. ` +
+                `Restante: ${this.formatCurrency(spending.remainingAmount)}.`;
+    }
+
+    return {
+      title,
+      message,
+      data: {
+        categoryName,
+        currentSpending: spending.totalSpent,
+        budgetLimit,
+        percentageUsed: spending.percentageUsed,
+        remainingAmount: isExceeded ? undefined : spending.remainingAmount,
+        exceededAmount: isExceeded ? spending.exceededAmount : undefined,
+      },
+    };
+  }
+
+  /**
+   * Build HTML email for budget alert
+   * 
+   * @param notification - Notification payload
+   * @returns HTML string
+   */
+  private static buildBudgetAlertEmailHtml(notification: NotificationPayload): string {
+    const { data } = notification;
+    const isExceeded = data.exceededAmount !== undefined;
+
+    const statusColor = isExceeded ? '#DC2626' : '#F59E0B';
+    const statusIcon = isExceeded ? '⚠️' : '⚡';
+
+    return emailService['getEmailTemplate'](notification.title, `
+      <div style="text-align: center; margin-bottom: 30px;">
+        <div style="font-size: 48px; margin-bottom: 10px;">${statusIcon}</div>
+        <h2 style="color: ${statusColor}; margin: 0;">${notification.title}</h2>
+      </div>
+      
+      <p style="font-size: 16px; line-height: 1.6;">
+        ${notification.message}
+      </p>
+
+      <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 30px 0;">
+        <table style="width: 100%;">
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Categoria:</td>
+            <td style="padding: 8px 0; text-align: right; font-weight: bold;">${data.categoryName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Gasto Atual:</td>
+            <td style="padding: 8px 0; text-align: right; font-weight: bold;">${this.formatCurrency(data.currentSpending)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Limite do Orçamento:</td>
+            <td style="padding: 8px 0; text-align: right; font-weight: bold;">${this.formatCurrency(data.budgetLimit)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Percentual Usado:</td>
+            <td style="padding: 8px 0; text-align: right; font-weight: bold; color: ${statusColor};">${data.percentageUsed.toFixed(1)}%</td>
+          </tr>
+          ${isExceeded ? `
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Valor Excedido:</td>
+            <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #DC2626;">${this.formatCurrency(data.exceededAmount!)}</td>
+          </tr>
+          ` : `
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Valor Restante:</td>
+            <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #10B981;">${this.formatCurrency(data.remainingAmount!)}</td>
+          </tr>
+          `}
+        </table>
+      </div>
+
+      <p style="margin-top: 30px;">
+        <a href="${process.env.FRONTEND_URL}/budgets" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+          Ver Orçamentos
+        </a>
+      </p>
+
+      <p style="margin-top: 30px; color: #666; font-size: 14px;">
+        ${isExceeded 
+          ? 'Considere revisar seus gastos ou ajustar o limite do orçamento.' 
+          : 'Fique atento aos seus gastos para não exceder o orçamento.'}
+      </p>
+    `);
+  }
+
+  /**
+   * Get user by ID
+   * 
+   * @param userId - User ID
+   * @returns User or null
+   */
+  private static async getUserById(userId: number): Promise<{ email: string | null; phone: string | null } | null> {
+    try {
+      const result = await db
+        .select({
+          email: users.email,
+          phone: users.phone,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (result.length === 0) {
+        return null;
+      }
+
+      return result[0];
+    } catch (error) {
+      logger.error(`Failed to get user ${userId}:`, error);
+      return null;
+    }
   }
 }

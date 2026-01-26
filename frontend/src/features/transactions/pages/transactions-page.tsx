@@ -1,14 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, TrendingUp, TrendingDown, Filter, Search, ArrowUpDown, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Filter, Search, ArrowUpDown, X, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useTransactions, useTransactionSummary, useCreateTransaction } from '../hooks/use-transactions';
 import { useAccounts, useCreateAccount } from '../../accounts/hooks/use-accounts';
 import { useBanks } from '../../accounts/hooks/use-banks';
+import { useAccountTypes } from '../../accounts/hooks/use-account-types';
 import { useCategories, useCreateCategory } from '../../categories/hooks/use-categories';
+import { recurringTransactionsApi } from '../../../shared/api/recurring-transactions';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
-import { Select } from '../../../shared/components/ui/select';
+import { SelectNative as Select } from '../../../shared/components/ui/select-native';
+import { Checkbox } from '../../../shared/components/ui/checkbox';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
 import { showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
 import type { CreateTransactionRequest, CreateAccountRequest } from '../../../shared/types';
@@ -20,6 +23,7 @@ export function TransactionsPage() {
   const { data: summary, isLoading: summaryLoading } = useTransactionSummary();
   const { data: accounts } = useAccounts();
   const { data: banks } = useBanks();
+  const { data: accountTypes } = useAccountTypes();
   const { data: categoriesData } = useCategories();
   const createTransactionMutation = useCreateTransaction();
   const createAccountMutation = useCreateAccount();
@@ -47,6 +51,21 @@ export function TransactionsPage() {
     category: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
+  });
+
+  // Recurring transaction state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringData, setRecurringData] = useState({
+    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+    interval: 1,
+    dayOfWeek: undefined as number | undefined,
+    dayOfMonth: undefined as number | undefined,
+    monthOfYear: undefined as number | undefined,
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: '' as string,
+    maxOccurrences: '' as string | number,
+    notifyBeforeDays: 1,
+    notificationChannels: ['app'] as ('app' | 'email' | 'sms')[],
   });
 
   // Abrir modal automaticamente se vier com parâmetro ?type=receita ou ?type=despesa
@@ -85,10 +104,42 @@ export function TransactionsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Criar a transação normal
       await createTransactionMutation.mutateAsync(formData);
+      
+      // Se for recorrente, criar também a recorrência
+      if (isRecurring) {
+        const category = categoriesData?.find(c => c.name === formData.category);
+        
+        await recurringTransactionsApi.create({
+          type: formData.type,
+          description: formData.description || `${formData.type === 'receita' ? 'Receita' : 'Despesa'} recorrente`,
+          amount: formData.amount,
+          categoryId: category?.id || 0,
+          accountId: formData.accountId,
+          frequency: recurringData.frequency,
+          interval: recurringData.interval,
+          dayOfWeek: recurringData.dayOfWeek,
+          dayOfMonth: recurringData.dayOfMonth,
+          monthOfYear: recurringData.monthOfYear,
+          startDate: recurringData.startDate,
+          endDate: recurringData.endDate || undefined,
+          maxOccurrences: recurringData.maxOccurrences 
+            ? (typeof recurringData.maxOccurrences === 'string' 
+                ? (recurringData.maxOccurrences.trim() === '' ? undefined : parseInt(recurringData.maxOccurrences))
+                : recurringData.maxOccurrences)
+            : undefined,
+          notifyBeforeDays: recurringData.notifyBeforeDays,
+          notificationChannels: recurringData.notificationChannels,
+        });
+        
+        showSuccessToast('Transação e recorrência criadas com sucesso!');
+      } else {
+        showSuccessToast('Transação criada com sucesso!');
+      }
+      
       setShowForm(false);
       resetForm();
-      showSuccessToast('Transação criada com sucesso!');
     } catch (error) {
       console.error('Error creating transaction:', error);
       showErrorToast('Erro ao criar transação');
@@ -103,6 +154,19 @@ export function TransactionsPage() {
       category: '',
       description: '',
       date: new Date().toISOString().split('T')[0],
+    });
+    setIsRecurring(false);
+    setRecurringData({
+      frequency: 'monthly',
+      interval: 1,
+      dayOfWeek: undefined,
+      dayOfMonth: undefined,
+      monthOfYear: undefined,
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: '',
+      maxOccurrences: '',
+      notifyBeforeDays: 1,
+      notificationChannels: ['app'],
     });
   };
 
@@ -772,6 +836,162 @@ export function TransactionsPage() {
                     className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                   />
                 </div>
+
+                {/* Toggle Recorrência */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="isRecurring"
+                      checked={isRecurring}
+                      onCheckedChange={(checked) => setIsRecurring(checked as boolean)}
+                    />
+                    <label
+                      htmlFor="isRecurring"
+                      className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer flex items-center"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Tornar esta transação recorrente
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                    A transação será criada agora e repetida automaticamente
+                  </p>
+                </div>
+
+                {/* Campos de Recorrência */}
+                {isRecurring && (
+                  <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                      <p className="text-xs text-blue-800 dark:text-blue-200">
+                        Configure quando e como esta transação deve se repetir automaticamente
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Frequência
+                        </label>
+                        <Select
+                          value={recurringData.frequency}
+                          onChange={(e) => setRecurringData({ ...recurringData, frequency: e.target.value as any })}
+                          className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                        >
+                          <option value="daily">Diária</option>
+                          <option value="weekly">Semanal</option>
+                          <option value="monthly">Mensal</option>
+                          <option value="yearly">Anual</option>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Intervalo
+                        </label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={recurringData.interval}
+                          onChange={(e) => setRecurringData({ ...recurringData, interval: parseInt(e.target.value) })}
+                          className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {recurringData.interval === 1 
+                            ? `A cada ${recurringData.frequency === 'daily' ? 'dia' : recurringData.frequency === 'weekly' ? 'semana' : recurringData.frequency === 'monthly' ? 'mês' : 'ano'}`
+                            : `A cada ${recurringData.interval} ${recurringData.frequency === 'daily' ? 'dias' : recurringData.frequency === 'weekly' ? 'semanas' : recurringData.frequency === 'monthly' ? 'meses' : 'anos'}`
+                          }
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Data de Início
+                        </label>
+                        <Input
+                          type="date"
+                          value={recurringData.startDate}
+                          onChange={(e) => setRecurringData({ ...recurringData, startDate: e.target.value })}
+                          required
+                          className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Data de Fim (Opcional)
+                        </label>
+                        <Input
+                          type="date"
+                          value={recurringData.endDate}
+                          onChange={(e) => setRecurringData({ ...recurringData, endDate: e.target.value })}
+                          className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Limite de Execuções (Opcional)
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={recurringData.maxOccurrences}
+                        onChange={(e) => setRecurringData({ ...recurringData, maxOccurrences: e.target.value })}
+                        placeholder="Deixe vazio para ilimitado"
+                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Ex: 12 = executar apenas 12 vezes
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Canais de Notificação
+                      </label>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="notify-app"
+                            checked={recurringData.notificationChannels.includes('app')}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setRecurringData({ ...recurringData, notificationChannels: [...recurringData.notificationChannels, 'app'] });
+                              } else {
+                                setRecurringData({ ...recurringData, notificationChannels: recurringData.notificationChannels.filter(c => c !== 'app') });
+                              }
+                            }}
+                          />
+                          <label htmlFor="notify-app" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                            App (Notificação no sistema)
+                          </label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="notify-email"
+                            checked={recurringData.notificationChannels.includes('email')}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setRecurringData({ ...recurringData, notificationChannels: [...recurringData.notificationChannels, 'email'] });
+                              } else {
+                                setRecurringData({ ...recurringData, notificationChannels: recurringData.notificationChannels.filter(c => c !== 'email') });
+                              }
+                            }}
+                          />
+                          <label htmlFor="notify-email" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                            Email (Enviado para seu e-mail)
+                          </label>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Selecionados: {recurringData.notificationChannels.join(', ') || 'nenhum'}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="flex space-x-3 pt-4">
                   <Button
@@ -832,10 +1052,11 @@ export function TransactionsPage() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
                   <Select
                     value={accountFormData.type}
-                    onChange={(e) => setAccountFormData({ ...accountFormData, type: e.target.value as 'corrente' | 'poupanca' })}
+                    onChange={(e) => setAccountFormData({ ...accountFormData, type: e.target.value })}
                   >
-                    <option value="corrente">Conta Corrente</option>
-                    <option value="poupanca">Poupança</option>
+                    {accountTypes?.map((type) => (
+                      <option key={type.id} value={type.code}>{type.name}</option>
+                    ))}
                   </Select>
                 </div>
                 <div>

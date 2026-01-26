@@ -44,7 +44,13 @@ export class RecurringTransactionsJob {
   private static async executeJob(): Promise<void> {
     try {
       logger.info("Executando job de transações recorrentes");
+      
+      // Processar transações que devem ser executadas
       await RecurringTransactionService.processRecurringTransactions();
+      
+      // Enviar notificações para transações próximas
+      await RecurringTransactionService.sendUpcomingNotifications();
+      
       logger.info("Job de transações recorrentes concluído com sucesso");
     } catch (error) {
       logger.error("Erro no job de transações recorrentes:", error);
