@@ -1,346 +1,381 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
+  FlatList,
   TouchableOpacity,
+  RefreshControl,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { StatCard } from '../../components/ui/StatCard';
-import { useCurrency } from '../../hooks/useCurrency';
-import { useDate } from '../../hooks/useDate';
-import { COLORS, SPACING } from '../../constants/config';
-import api from '../../services/api';
+import recurringTransactionsService, { RecurringTransaction } from '../../services/recurring-transactions.service';
+import { useTheme } from '../../contexts/ThemeContext';
+import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { EmptyState } from '../../components/EmptyState';
 
-interface RecurringTransaction {
-  id: number;
-  type: 'receita' | 'despesa';
-  description: string;
-  amount: string;
-  categoryId: number | null;
-  categoryName: string;
-  accountId: number;
-  accountName: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  isActive: boolean;
-  nextExecution: string;
-  lastExecution?: string;
-  createdAt: string;
-  executionCount: number;
-  userId: number;
-}
-
-interface Props {
-  navigation: any;
-}
-
-export const RecurringTransactionsScreen: React.FC<Props> = ({ navigation }) => {
+export function RecurringTransactionsScreen() {
+  const navigation = useNavigation();
+  const { theme } = useTheme();
   const [transactions, setTransactions] = useState<RecurringTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [filter, setFilter] = useState<'all' | 'active' | 'paused'>('all');
-  const { formatCurrency } = useCurrency();
-  const { formatDate, formatRelativeDate } = useDate();
 
-  const fetchRecurringTransactions = useCallback(async () => {
+  const loadTransactions = async () => {
     try {
-      console.log('Fetching recurring transactions from API...');
-      const response = await api.get('/recurring-transactions');
-      const data = response.data;
-      console.log('API Response:', JSON.stringify(data, null, 2));
-      
-      if (data.status === 'success' && data.data?.recurringTransactions) {
-        setTransactions(data.data.recurringTransactions);
-      } else {
-        setTransactions([]);
-      }
-    } catch (error: any) {
-      console.error('Erro ao carregar:', error.message);
-      setTransactions([]);
+      const data = await recurringTransactionsService.getAll();
+      setTransactions(data);
+    } catch (error) {
+      console.error('Erro ao carregar transações recorrentes:', error);
+      Alert.alert('Erro', 'Não foi possível carregar as transações recorrentes');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    fetchRecurringTransactions();
-  }, [fetchRecurringTransactions]);
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions();
+    }, [])
+  );
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', fetchRecurringTransactions);
-    return unsubscribe;
-  }, [navigation, fetchRecurringTransactions]);
-
-  const onRefresh = () => {
+  const handleRefresh = () => {
     setRefreshing(true);
-    fetchRecurringTransactions();
+    loadTransactions();
   };
 
-  const getFilteredTransactions = () => {
-    if (filter === 'active') return transactions.filter(t => t.isActive);
-    if (filter === 'paused') return transactions.filter(t => !t.isActive);
-    return transactions;
-  };
-
-  const getActiveCount = () => transactions.filter(t => t.isActive).length;
-  const getPausedCount = () => transactions.filter(t => !t.isActive).length;
-
-  const getTotalMonthlyIncome = () => {
-    return transactions.filter(t => t.isActive && t.type === 'receita').reduce((total, t) => {
-      const amount = parseFloat(t.amount);
-      if (t.frequency === 'daily') return total + amount * 30;
-      if (t.frequency === 'weekly') return total + amount * 4;
-      if (t.frequency === 'yearly') return total + amount / 12;
-      return total + amount;
-    }, 0);
-  };
-
-  const getTotalMonthlyExpenses = () => {
-    return transactions.filter(t => t.isActive && t.type === 'despesa').reduce((total, t) => {
-      const amount = parseFloat(t.amount);
-      if (t.frequency === 'daily') return total + amount * 30;
-      if (t.frequency === 'weekly') return total + amount * 4;
-      if (t.frequency === 'yearly') return total + amount / 12;
-      return total + amount;
-    }, 0);
-  };
-
-  const toggleStatus = async (id: number, isActive: boolean) => {
-    setActionLoading(id);
+  const handleToggleActive = async (id: number, isActive: boolean) => {
     try {
-      await api.post(`/recurring-transactions/${id}/${isActive ? 'deactivate' : 'activate'}`);
-      setTransactions(prev => prev.map(t => t.id === id ? { ...t, isActive: !isActive } : t));
-    } catch (error: any) {
-      Alert.alert('Erro', error.response?.data?.message || 'Erro ao alterar status');
-    } finally {
-      setActionLoading(null);
+      if (isActive) {
+        await recurringTransactionsService.deactivate(id);
+        Alert.alert('Sucesso', 'Transação recorrente desativada');
+      } else {
+        await recurringTransactionsService.activate(id);
+        Alert.alert('Sucesso', 'Transação recorrente ativada');
+      }
+      loadTransactions();
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível alterar o status');
     }
   };
 
-  const executeNow = (id: number) => {
-    Alert.alert('Executar Agora', 'Deseja executar esta transação agora?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Executar',
-        onPress: async () => {
-          setActionLoading(id);
-          try {
-            await api.post(`/recurring-transactions/${id}/execute`);
-            Alert.alert('Sucesso', 'Transação executada!');
-            fetchRecurringTransactions();
-          } catch (error: any) {
-            Alert.alert('Erro', error.response?.data?.message || 'Erro ao executar');
-          } finally {
-            setActionLoading(null);
-          }
+  const handleExecuteNow = async (id: number) => {
+    Alert.alert(
+      'Confirmar Execução',
+      'Deseja executar esta transação agora?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Executar',
+          onPress: async () => {
+            try {
+              await recurringTransactionsService.executeNow(id);
+              Alert.alert('Sucesso', 'Transação executada com sucesso');
+              loadTransactions();
+            } catch (error: any) {
+              Alert.alert('Erro', error.response?.data?.message || 'Erro ao executar transação');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
-  const deleteTransaction = (id: number) => {
-    Alert.alert('Excluir', 'Tem certeza?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          setActionLoading(id);
-          try {
-            await api.delete(`/recurring-transactions/${id}`);
-            setTransactions(prev => prev.filter(t => t.id !== id));
-          } catch (error: any) {
-            Alert.alert('Erro', error.response?.data?.message || 'Erro ao excluir');
-          } finally {
-            setActionLoading(null);
-          }
+  const handleDelete = async (id: number) => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Deseja excluir esta transação recorrente?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await recurringTransactionsService.delete(id);
+              Alert.alert('Sucesso', 'Transação recorrente excluída');
+              loadTransactions();
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível excluir a transação');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
-  const getFrequencyText = (f: string) => {
-    if (f === 'daily') return 'Diário';
-    if (f === 'weekly') return 'Semanal';
-    if (f === 'monthly') return 'Mensal';
-    if (f === 'yearly') return 'Anual';
-    return f;
+  const getFrequencyLabel = (frequency: string, interval: number) => {
+    const labels: Record<string, string> = {
+      daily: interval === 1 ? 'Diária' : `A cada ${interval} dias`,
+      weekly: interval === 1 ? 'Semanal' : `A cada ${interval} semanas`,
+      monthly: interval === 1 ? 'Mensal' : `A cada ${interval} meses`,
+      yearly: interval === 1 ? 'Anual' : `A cada ${interval} anos`,
+    };
+    return labels[frequency] || frequency;
   };
 
-  const getDaysUntilNext = (date: string) => {
-    return Math.ceil((new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('pt-AO', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
-  const filtered = getFilteredTransactions();
+  const formatCurrency = (amount: string) => {
+    return new Intl.NumberFormat('pt-AO', {
+      style: 'currency',
+      currency: 'AOA',
+    }).format(parseFloat(amount));
+  };
+
+  const renderTransaction = ({ item }: { item: RecurringTransaction }) => (
+    <TouchableOpacity
+      style={[
+        styles.transactionCard,
+        { backgroundColor: theme.colors.card },
+        !item.isActive && styles.inactiveCard,
+      ]}
+      onPress={() => navigation.navigate('RecurringTransactionDetail' as never, { id: item.id } as never)}
+    >
+      <View style={styles.transactionHeader}>
+        <View style={styles.transactionIcon}>
+          <Ionicons
+            name={item.type === 'receita' ? 'trending-up' : 'trending-down'}
+            size={24}
+            color={item.type === 'receita' ? theme.colors.success : theme.colors.error}
+          />
+        </View>
+        <View style={styles.transactionInfo}>
+          <Text style={[styles.transactionDescription, { color: theme.colors.text }]}>
+            {item.description}
+          </Text>
+          <View style={styles.badges}>
+            <View style={[styles.badge, { backgroundColor: theme.colors.primary + '20' }]}>
+              <Text style={[styles.badgeText, { color: theme.colors.primary }]}>
+                {item.categoryName}
+              </Text>
+            </View>
+            <View style={[styles.badge, { backgroundColor: theme.colors.secondary + '20' }]}>
+              <Text style={[styles.badgeText, { color: theme.colors.secondary }]}>
+                {getFrequencyLabel(item.frequency, item.interval)}
+              </Text>
+            </View>
+            {!item.isActive && (
+              <View style={[styles.badge, { backgroundColor: theme.colors.error + '20' }]}>
+                <Text style={[styles.badgeText, { color: theme.colors.error }]}>
+                  Inativa
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <Text
+          style={[
+            styles.transactionAmount,
+            { color: item.type === 'receita' ? theme.colors.success : theme.colors.error },
+          ]}
+        >
+          {formatCurrency(item.amount)}
+        </Text>
+      </View>
+
+      <View style={styles.transactionDetails}>
+        <View style={styles.detailRow}>
+          <Ionicons name="calendar-outline" size={16} color={theme.colors.textSecondary} />
+          <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+            Próxima: {formatDate(item.nextExecutionDate)}
+          </Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Ionicons name="repeat-outline" size={16} color={theme.colors.textSecondary} />
+          <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+            Execuções: {item.executionCount}
+            {item.maxOccurrences && ` / ${item.maxOccurrences}`}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.colors.primary + '20' }]}
+          onPress={() => handleToggleActive(item.id, item.isActive)}
+        >
+          <Ionicons
+            name={item.isActive ? 'pause' : 'play'}
+            size={16}
+            color={theme.colors.primary}
+          />
+          <Text style={[styles.actionText, { color: theme.colors.primary }]}>
+            {item.isActive ? 'Pausar' : 'Ativar'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.colors.secondary + '20' }]}
+          onPress={() => handleExecuteNow(item.id)}
+          disabled={!item.isActive}
+        >
+          <Ionicons name="play-circle-outline" size={16} color={theme.colors.secondary} />
+          <Text style={[styles.actionText, { color: theme.colors.secondary }]}>
+            Executar
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.colors.error + '20' }]}
+          onPress={() => handleDelete(item.id)}
+        >
+          <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+          <Text style={[styles.actionText, { color: theme.colors.error }]}>
+            Excluir
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Carregando...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Transações Recorrentes</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddRecurringTransaction')}>
-          <Ionicons name="add" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
-      </View>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <FlatList
+        data={transactions}
+        renderItem={renderTransaction}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+        ListEmptyComponent={
+          <EmptyState
+            icon="calendar-outline"
+            title="Nenhuma transação recorrente"
+            message="Configure transações automáticas para receitas e despesas fixas"
+            actionLabel="Criar Transação"
+            onAction={() => navigation.navigate('RecurringTransactionForm' as never)}
+          />
+        }
+      />
 
-      <ScrollView style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <View style={styles.statsContainer}>
-          <StatCard title="Receitas Mensais" value={formatCurrency(getTotalMonthlyIncome())} icon="trending-up" iconColor={COLORS.success} />
-          <StatCard title="Despesas Mensais" value={formatCurrency(getTotalMonthlyExpenses())} icon="trending-down" iconColor={COLORS.error} />
-        </View>
-
-        <View style={styles.summaryContainer}>
-          <Card style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Resumo</Text>
-            <View style={styles.summaryStats}>
-              <View style={styles.summaryItem}>
-                <Ionicons name="play-circle" size={16} color={COLORS.success} />
-                <Text style={styles.summaryLabel}>Ativas: {getActiveCount()}</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Ionicons name="pause-circle" size={16} color={COLORS.warning} />
-                <Text style={styles.summaryLabel}>Pausadas: {getPausedCount()}</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Ionicons name="list" size={16} color={COLORS.primary} />
-                <Text style={styles.summaryLabel}>Total: {transactions.length}</Text>
-              </View>
-            </View>
-          </Card>
-        </View>
-
-        <View style={styles.filtersContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {(['all', 'active', 'paused'] as const).map((f) => (
-              <TouchableOpacity key={f} style={[styles.filterButton, filter === f && styles.filterButtonActive]} onPress={() => setFilter(f)}>
-                <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-                  {f === 'all' ? `Todas (${transactions.length})` : f === 'active' ? `Ativas (${getActiveCount()})` : `Pausadas (${getPausedCount()})`}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        <View style={styles.quickActionContainer}>
-          <Button title="Nova Transação Recorrente" onPress={() => navigation.navigate('AddRecurringTransaction')} variant="primary" fullWidth size="lg" />
-        </View>
-
-        <View style={styles.transactionsList}>
-          {filtered.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Ionicons name="repeat" size={48} color={COLORS.textSecondary} />
-              <Text style={styles.emptyTitle}>Nenhuma transação recorrente</Text>
-              <Text style={styles.emptySubtitle}>Crie transações recorrentes para automatizar suas finanças</Text>
-              <Button title="Criar Primeira Transação" onPress={() => navigation.navigate('AddRecurringTransaction')} variant="outline" />
-            </Card>
-          ) : (
-            filtered.map((t) => {
-              const days = getDaysUntilNext(t.nextExecution);
-              const isOverdue = days < 0;
-              const isUpcoming = days <= 3 && days >= 0;
-              const isLoading = actionLoading === t.id;
-              
-              return (
-                <Card key={t.id} style={[styles.transactionCard, !t.isActive && styles.pausedCard, isOverdue && t.isActive && styles.overdueCard, isUpcoming && t.isActive && styles.upcomingCard]}>
-                  <View style={styles.transactionHeader}>
-                    <View style={styles.transactionIcon}>
-                      <Ionicons name={t.type === 'receita' ? 'trending-up' : 'trending-down'} size={20} color={t.type === 'receita' ? COLORS.success : COLORS.error} />
-                    </View>
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionDescription}>{t.description}</Text>
-                      <Text style={styles.transactionCategory}>{t.categoryName || 'Sem categoria'} • {t.accountName}</Text>
-                    </View>
-                    <Text style={[styles.amountText, { color: t.type === 'receita' ? COLORS.success : COLORS.error }]}>
-                      {t.type === 'receita' ? '+' : '-'}{formatCurrency(parseFloat(t.amount))}
-                    </Text>
-                  </View>
-
-                  <View style={styles.transactionDetails}>
-                    <View style={styles.frequencyContainer}>
-                      <Ionicons name="calendar-outline" size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.frequencyText}>{getFrequencyText(t.frequency)}</Text>
-                      {!t.isActive && <View style={styles.pausedBadge}><Text style={styles.pausedBadgeText}>Pausada</Text></View>}
-                    </View>
-                    <Text style={styles.executionText}>📅 Próxima: {formatDate(t.nextExecution)}{t.isActive && isOverdue && <Text style={styles.overdueText}> (atrasada)</Text>}</Text>
-                    {t.lastExecution && <Text style={styles.executionText}>✅ Última: {formatRelativeDate(t.lastExecution)}</Text>}
-                    <Text style={styles.executionText}>🔄 Executada {t.executionCount} vezes</Text>
-                  </View>
-
-                  <View style={styles.transactionActions}>
-                    <Button title={t.isActive ? "Pausar" : "Ativar"} onPress={() => toggleStatus(t.id, t.isActive)} variant={t.isActive ? "outline" : "primary"} size="sm" loading={isLoading} disabled={isLoading} />
-                    <Button title="Excluir" onPress={() => deleteTransaction(t.id)} variant="outline" size="sm" disabled={isLoading} />
-                    <Button title="Executar Agora" onPress={() => executeNow(t.id)} variant="primary" size="sm" disabled={!t.isActive || isLoading} />
-                  </View>
-                </Card>
-              );
-            })
-          )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        onPress={() => navigation.navigate('RecurringTransactionForm' as never)}
+      >
+        <Ionicons name="add" size={24} color="#fff" />
+      </TouchableOpacity>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: SPACING.md, color: COLORS.textSecondary },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
-  title: { fontSize: 24, fontWeight: 'bold', color: COLORS.text },
-  addButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.surface, justifyContent: 'center', alignItems: 'center', elevation: 5 },
-  scrollView: { flex: 1 },
-  statsContainer: { flexDirection: 'row', paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg, gap: SPACING.sm },
-  summaryContainer: { paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg },
-  summaryCard: { padding: SPACING.md },
-  summaryTitle: { fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: SPACING.sm },
-  summaryStats: { flexDirection: 'row', justifyContent: 'space-around' },
-  summaryItem: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  summaryLabel: { fontSize: 12, color: COLORS.textSecondary },
-  filtersContainer: { paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg },
-  filterButton: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: 20, backgroundColor: COLORS.surface, marginRight: SPACING.sm, borderWidth: 1, borderColor: COLORS.border },
-  filterButtonActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
-  filterTextActive: { color: 'white' },
-  quickActionContainer: { paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg },
-  transactionsList: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xl },
-  emptyCard: { alignItems: 'center', paddingVertical: SPACING.xxl },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: COLORS.text, marginTop: SPACING.md, marginBottom: SPACING.sm },
-  emptySubtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
-  transactionCard: { marginBottom: SPACING.md },
-  pausedCard: { opacity: 0.6 },
-  overdueCard: { borderColor: COLORS.error, borderWidth: 1 },
-  upcomingCard: { borderColor: COLORS.warning, borderWidth: 1 },
-  transactionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
-  transactionIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center', marginRight: SPACING.sm },
-  transactionInfo: { flex: 1 },
-  transactionDescription: { fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: SPACING.xs },
-  transactionCategory: { fontSize: 12, color: COLORS.textSecondary },
-  amountText: { fontSize: 16, fontWeight: 'bold' },
-  transactionDetails: { marginBottom: SPACING.md, gap: SPACING.xs },
-  frequencyContainer: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  frequencyText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
-  pausedBadge: { backgroundColor: COLORS.warning, paddingHorizontal: SPACING.sm, paddingVertical: 2, borderRadius: 10, marginLeft: SPACING.sm },
-  pausedBadgeText: { fontSize: 10, color: 'white', fontWeight: '600' },
-  executionText: { fontSize: 12, color: COLORS.textSecondary },
-  overdueText: { color: COLORS.error, fontWeight: '500' },
-  transactionActions: { flexDirection: 'row', gap: SPACING.sm },
+  container: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 80,
+  },
+  transactionCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  inactiveCard: {
+    opacity: 0.6,
+  },
+  transactionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  transactionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  transactionInfo: {
+    flex: 1,
+  },
+  transactionDescription: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  badges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  transactionAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  transactionDetails: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailText: {
+    fontSize: 14,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 4,
+  },
+  actionText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
 });

@@ -13,6 +13,10 @@ import {
   RefreshCw,
   Copy,
   CheckCircle,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Calendar,
+  AlertTriangle,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
@@ -27,12 +31,20 @@ import {
   checkPaymentStatus,
   getPaymentHistory,
   cancelSubscription,
+  previewPlanChange,
+  upgradePlan,
+  downgradePlan,
+  cancelScheduledDowngrade,
+  getPendingPlanChanges,
+  getPlanChangeHistory,
   Plan,
   Subscription,
   SubscriptionPayment,
   PaymentMethod,
   PaymentMethodConfig,
   PaymentType,
+  PlanChangePreview,
+  PlanChange,
   paymentMethodNames,
   paymentMethodDescriptions,
 } from '../../../shared/api/subscriptions';
@@ -70,6 +82,23 @@ export function SubscriptionPage() {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Plan change (upgrade/downgrade) state
+  const [showPlanChangeModal, setShowPlanChangeModal] = useState(false);
+  const [planChangePreview, setPlanChangePreview] = useState<PlanChangePreview | null>(null);
+  const [processingPlanChange, setProcessingPlanChange] = useState(false);
+  const [pendingPlanChanges, setPendingPlanChanges] = useState<PlanChange[]>([]);
+  const [planChangeHistory, setPlanChangeHistory] = useState<PlanChange[]>([]);
+  const [useTrialWhilePending, setUseTrialWhilePending] = useState(false);
+
+  // Payment error/retry state
+  const [showPaymentErrorModal, setShowPaymentErrorModal] = useState(false);
+  const [paymentErrorMessage, setPaymentErrorMessage] = useState('');
+  const [lastPaymentAttempt, setLastPaymentAttempt] = useState<{
+    plan: Plan;
+    paymentType: PaymentType;
+    paymentMethod: PaymentMethod;
+  } | null>(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -88,6 +117,21 @@ export function SubscriptionPage() {
       setCurrentSubscription(subscriptionData.subscription);
       setCurrentPlan(subscriptionData.plan);
       setPayments(paymentsData);
+      
+      // Load pending plan changes and history if user has subscription
+      if (subscriptionData.subscription) {
+        try {
+          const [pendingChanges, changeHistory] = await Promise.all([
+            getPendingPlanChanges(),
+            getPlanChangeHistory(),
+          ]);
+          setPendingPlanChanges(pendingChanges);
+          setPlanChangeHistory(changeHistory);
+        } catch (err) {
+          // Ignore errors for plan changes - may not be available
+          console.log('Plan changes not available:', err);
+        }
+      }
     } catch (error) {
       console.error('Error loading subscription data:', error);
     } finally {
@@ -95,28 +139,66 @@ export function SubscriptionPage() {
     }
   };
 
-  const handleSelectPlan = (plan: Plan) => {
-    if (plan.price === 0) {
-      handleSubscribe(plan, 'one_time', 'gpo', '', '', '');
+  const handleSelectPlan = async (plan: Plan) => {
+    // If no current plan or free plan, use normal subscribe flow
+    if (!currentPlan || currentPlan.price === 0) {
+      if (plan.price === 0) {
+        handleSubscribe(plan, 'one_time', 'gpo', '', '', '');
+        return;
+      }
+      setSelectedPlan(plan);
+      setPaymentStep(1);
+      // Get user data from localStorage if available
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          setPayerPhone(user.phone || '');
+          setPayerName(`${user.firstName || ''} ${user.lastName || ''}`.trim());
+          setPayerEmail(user.email || '');
+        } catch {
+          setPayerPhone('');
+          setPayerName('');
+          setPayerEmail('');
+        }
+      }
+      setShowPaymentModal(true);
       return;
     }
+
+    // User has active plan - show upgrade/downgrade preview
     setSelectedPlan(plan);
-    setPaymentStep(1);
-    // Get user data from localStorage if available
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setPayerPhone(user.phone || '');
-        setPayerName(`${user.firstName || ''} ${user.lastName || ''}`.trim());
-        setPayerEmail(user.email || '');
-      } catch {
-        setPayerPhone('');
-        setPayerName('');
-        setPayerEmail('');
+    try {
+      const preview = await previewPlanChange(plan.id);
+      setPlanChangePreview(preview);
+      setShowPlanChangeModal(true);
+      
+      // Pre-fill payer info
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          setPayerPhone(user.phone || '');
+          setPayerName(`${user.firstName || ''} ${user.lastName || ''}`.trim());
+          setPayerEmail(user.email || '');
+        } catch {
+          setPayerPhone('');
+          setPayerName('');
+          setPayerEmail('');
+        }
       }
+    } catch (error: any) {
+      console.error('Preview error:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Erro',
+        text: error.response?.data?.message || 'Não foi possível carregar a pré-visualização',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626',
+      });
+    } finally {
+      // Preview loaded
     }
-    setShowPaymentModal(true);
   };
 
   const closePaymentModal = () => {
@@ -169,11 +251,64 @@ export function SubscriptionPage() {
       }
     } catch (error: any) {
       console.error('Subscribe error:', error);
+      const errorMessage = error.response?.data?.message || 'Erro ao processar pagamento';
+      
+      // Save last payment attempt for retry
+      setLastPaymentAttempt({
+        plan,
+        paymentType,
+        paymentMethod,
+      });
+      setPaymentErrorMessage(errorMessage);
+      setShowPaymentModal(false);
+      setShowPaymentErrorModal(true);
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
+  const handleRetryPayment = () => {
+    setShowPaymentErrorModal(false);
+    if (lastPaymentAttempt) {
+      setSelectedPlan(lastPaymentAttempt.plan);
+      setSelectedPaymentType(lastPaymentAttempt.paymentType);
+      setSelectedPaymentMethod(lastPaymentAttempt.paymentMethod);
+      setPaymentStep(2); // Go to payment method step
+      setShowPaymentModal(true);
+    }
+  };
+
+  const handleStartTrialAfterError = async () => {
+    if (!lastPaymentAttempt?.plan) return;
+    
+    setSubscribing(true);
+    try {
+      const result = await subscribe({
+        planId: lastPaymentAttempt.plan.id,
+        paymentType: 'one_time',
+        paymentMethod: 'gpo',
+        startTrial: true,
+      });
+
+      if (result.success) {
+        setShowPaymentErrorModal(false);
+        setLastPaymentAttempt(null);
+        await loadData();
+        await Swal.fire({
+          icon: 'success',
+          title: 'Período de Teste Iniciado!',
+          text: 'Você pode usar o plano durante o período de teste.',
+          confirmButtonText: 'Continuar',
+          confirmButtonColor: '#2563eb',
+        });
+      }
+    } catch (error: any) {
+      console.error('Start trial error:', error);
       await Swal.fire({
         icon: 'error',
         title: 'Erro',
-        text: error.response?.data?.message || 'Erro ao processar assinatura',
-        confirmButtonText: 'Tentar Novamente',
+        text: error.response?.data?.message || 'Erro ao iniciar período de teste',
+        confirmButtonText: 'OK',
         confirmButtonColor: '#dc2626',
       });
     } finally {
@@ -248,6 +383,168 @@ export function SubscriptionPage() {
         confirmButtonColor: '#dc2626',
       });
     }
+  };
+
+  const handleUpgrade = async () => {
+    if (!planChangePreview || !selectedPlan) return;
+    
+    setProcessingPlanChange(true);
+    try {
+      const result = await upgradePlan({
+        planId: selectedPlan.id,
+        paymentMethod: selectedPaymentMethod,
+        payerPhone,
+        payerName,
+        payerEmail,
+        useTrialWhilePending,
+      });
+
+      setShowPlanChangeModal(false);
+      setPlanChangePreview(null);
+
+      if (result.payment) {
+        if (result.payment.status === 'paid') {
+          await loadData();
+          await Swal.fire({
+            icon: 'success',
+            title: 'Upgrade Concluído!',
+            text: 'Seu plano foi atualizado com sucesso.',
+            confirmButtonText: 'Continuar',
+            confirmButtonColor: '#2563eb',
+          });
+        } else {
+          // Payment pending - show status modal
+          setPendingPayment(result.payment);
+          setShowStatusModal(true);
+          await Swal.fire({
+            icon: 'info',
+            title: 'Pagamento Pendente',
+            text: useTrialWhilePending 
+              ? 'Você pode usar o período de teste enquanto o pagamento é processado. Seu plano atual será mantido até a confirmação.'
+              : 'Seu plano atual será mantido até o pagamento ser confirmado.',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#2563eb',
+          });
+        }
+      } else {
+        await loadData();
+        await Swal.fire({
+          icon: 'success',
+          title: 'Upgrade Concluído!',
+          text: result.message,
+          confirmButtonText: 'Continuar',
+          confirmButtonColor: '#2563eb',
+        });
+      }
+    } catch (error: any) {
+      console.error('Upgrade error:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Erro no Upgrade',
+        text: error.response?.data?.message || 'Não foi possível processar o upgrade.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626',
+      });
+    } finally {
+      setProcessingPlanChange(false);
+    }
+  };
+
+  const handleDowngrade = async () => {
+    if (!planChangePreview || !selectedPlan) return;
+    
+    const confirmResult = await Swal.fire({
+      icon: 'warning',
+      title: 'Confirmar Downgrade',
+      html: `
+        <p>Ao fazer downgrade para <strong>${selectedPlan.name}</strong>:</p>
+        <ul style="text-align: left; margin-top: 10px;">
+          <li>• Você continuará com o plano atual até o fim do período</li>
+          <li>• O novo plano será ativado em ${planChangePreview.scheduledFor ? new Date(planChangePreview.scheduledFor).toLocaleDateString('pt-AO') : 'data futura'}</li>
+          <li>• Não há reembolso do valor já pago</li>
+        </ul>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Confirmar Downgrade',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#6b7280',
+    });
+
+    if (!confirmResult.isConfirmed) return;
+    
+    setProcessingPlanChange(true);
+    try {
+      const result = await downgradePlan({
+        planId: selectedPlan.id,
+      });
+
+      setShowPlanChangeModal(false);
+      setPlanChangePreview(null);
+      await loadData();
+      
+      await Swal.fire({
+        icon: 'success',
+        title: 'Downgrade Agendado',
+        text: `Seu plano será alterado para ${selectedPlan.name} em ${new Date(result.effectiveDate).toLocaleDateString('pt-AO')}.`,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#2563eb',
+      });
+    } catch (error: any) {
+      console.error('Downgrade error:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Erro no Downgrade',
+        text: error.response?.data?.message || 'Não foi possível agendar o downgrade.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626',
+      });
+    } finally {
+      setProcessingPlanChange(false);
+    }
+  };
+
+  const handleCancelScheduledDowngrade = async () => {
+    const confirmResult = await Swal.fire({
+      icon: 'question',
+      title: 'Cancelar Downgrade?',
+      text: 'Deseja cancelar o downgrade agendado e manter seu plano atual?',
+      showCancelButton: true,
+      confirmButtonText: 'Sim, Cancelar Downgrade',
+      cancelButtonText: 'Não',
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#6b7280',
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+      await cancelScheduledDowngrade();
+      await loadData();
+      await Swal.fire({
+        icon: 'success',
+        title: 'Downgrade Cancelado',
+        text: 'O downgrade foi cancelado. Você continuará com seu plano atual.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#2563eb',
+      });
+    } catch (error: any) {
+      console.error('Cancel downgrade error:', error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Erro',
+        text: error.response?.data?.message || 'Não foi possível cancelar o downgrade.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#dc2626',
+      });
+    }
+  };
+
+  const closePlanChangeModal = () => {
+    setShowPlanChangeModal(false);
+    setPlanChangePreview(null);
+    setSelectedPlan(null);
+    setUseTrialWhilePending(false);
   };
 
   const copyToClipboard = (text: string) => {
@@ -421,6 +718,68 @@ export function SubscriptionPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Scheduled Downgrades */}
+            {pendingPlanChanges.filter(pc => pc.changeType === 'downgrade' && pc.status === 'scheduled').length > 0 && (
+              <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Calendar className="w-5 h-5 text-yellow-600" />
+                    <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">
+                      Downgrade Agendado
+                    </h3>
+                  </div>
+                  {pendingPlanChanges
+                    .filter(pc => pc.changeType === 'downgrade' && pc.status === 'scheduled')
+                    .map((planChange) => (
+                      <div key={planChange.id} className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg">
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {planChange.fromPlan?.name} → {planChange.toPlan?.name}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Será ativado em {planChange.scheduledFor ? new Date(planChange.scheduledFor).toLocaleDateString('pt-AO') : 'data futura'}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCancelScheduledDowngrade()}
+                          className="text-yellow-600 border-yellow-300 hover:bg-yellow-100"
+                        >
+                          Cancelar Downgrade
+                        </Button>
+                      </div>
+                    ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pending Upgrades */}
+            {pendingPlanChanges.filter(pc => pc.changeType === 'upgrade' && pc.status === 'pending').length > 0 && (
+              <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <AlertTriangle className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">
+                      Upgrade Pendente
+                    </h3>
+                  </div>
+                  {pendingPlanChanges
+                    .filter(pc => pc.changeType === 'upgrade' && pc.status === 'pending')
+                    .map((planChange) => (
+                      <div key={planChange.id} className="p-4 bg-white dark:bg-gray-800 rounded-lg">
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          Aguardando pagamento para {planChange.toPlan?.name}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Seu plano atual ({planChange.fromPlan?.name}) será mantido até o pagamento ser confirmado.
+                        </p>
+                      </div>
+                    ))}
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
@@ -980,7 +1339,7 @@ export function SubscriptionPage() {
 
               <div className="flex flex-col space-y-3">
                 <Button
-                  onClick={handleCheckStatus}
+                  onClick={() => handleCheckStatus()}
                   disabled={checkingStatus}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
@@ -1004,6 +1363,353 @@ export function SubscriptionPage() {
                   }}
                 >
                   Fechar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Plan Change (Upgrade/Downgrade) Modal */}
+        {showPlanChangeModal && planChangePreview && selectedPlan && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center space-x-3">
+                    {planChangePreview.changeType === 'upgrade' ? (
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <ArrowUpCircle className="w-6 h-6 text-green-600" />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <ArrowDownCircle className="w-6 h-6 text-yellow-600" />
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {planChangePreview.changeType === 'upgrade' ? 'Upgrade de Plano' : 'Downgrade de Plano'}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {planChangePreview.fromPlan?.name || 'Sem plano'} → {planChangePreview.toPlan.name}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={closePlanChangeModal}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <XCircle className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 overflow-y-auto flex-1">
+                {/* Current Plan Info */}
+                {planChangePreview.fromPlan && (
+                  <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Plano Atual</h4>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{planChangePreview.fromPlan.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {planChangePreview.daysRemaining} dias restantes
+                        </p>
+                      </div>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {formatCurrency(planChangePreview.fromPlan.price)}/mês
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upgrade Flow */}
+                {planChangePreview.changeType === 'upgrade' && (
+                  <>
+                    {/* Proration Details */}
+                    <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <h4 className="text-sm font-medium text-green-800 dark:text-green-200 mb-3">Cálculo do Prorateio</h4>
+                      <div className="space-y-2 text-sm">
+                        {planChangePreview.creditAmount > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-green-700 dark:text-green-300">Crédito do plano atual</span>
+                            <span className="font-medium text-green-800 dark:text-green-200">
+                              -{formatCurrency(planChangePreview.creditAmount)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-green-700 dark:text-green-300">Preço do novo plano</span>
+                          <span className="font-medium text-green-800 dark:text-green-200">
+                            {formatCurrency(planChangePreview.toPlan.price)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t border-green-200 dark:border-green-700">
+                          <span className="font-medium text-green-800 dark:text-green-200">Total a pagar</span>
+                          <span className="font-bold text-green-800 dark:text-green-200">
+                            {formatCurrency(planChangePreview.amountToPay)}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-3">
+                        {planChangePreview.message}
+                      </p>
+                    </div>
+
+                    {/* Payment Method Selection */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Método de Pagamento</h4>
+                      <div className="space-y-2">
+                        {paymentMethodsConfig.map((method) => (
+                          <button
+                            key={method.code}
+                            onClick={() => setSelectedPaymentMethod(method.code as PaymentMethod)}
+                            className={`w-full p-3 rounded-lg border-2 text-left flex items-center space-x-3 ${
+                              selectedPaymentMethod === method.code
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              {method.logoUrl ? (
+                                <img 
+                                  src={resolveAssetUrl(method.logoUrl) || ''} 
+                                  alt={method.displayName}
+                                  className="w-6 h-6 object-contain"
+                                />
+                              ) : method.code === 'gpo' ? (
+                                <Zap className="w-4 h-4 text-blue-500" />
+                              ) : (
+                                <CreditCard className="w-4 h-4 text-gray-500" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900 dark:text-white text-sm">{method.displayName}</p>
+                            </div>
+                            {method.isInstant && (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                Instantâneo
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Payer Phone (if required) */}
+                    {paymentMethodsConfig.find(m => m.code === selectedPaymentMethod)?.requiresPhone && (
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Número de Telefone *
+                        </label>
+                        <input
+                          type="tel"
+                          value={payerPhone}
+                          onChange={(e) => setPayerPhone(e.target.value)}
+                          placeholder="Ex: 923456789"
+                          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        />
+                      </div>
+                    )}
+
+                    {/* Trial Option (if new plan has trial) */}
+                    {planChangePreview.toPlan.trialDays && planChangePreview.toPlan.trialDays > 0 && (
+                      <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <label className="flex items-start space-x-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={useTrialWhilePending}
+                            onChange={(e) => setUseTrialWhilePending(e.target.checked)}
+                            className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <div>
+                            <p className="font-medium text-blue-800 dark:text-blue-200">
+                              Usar período de teste enquanto o pagamento é processado
+                            </p>
+                            <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                              Se o pagamento ficar pendente, você pode usar {planChangePreview.toPlan.trialDays} dias de teste do novo plano enquanto aguarda a confirmação.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Downgrade Flow */}
+                {planChangePreview.changeType === 'downgrade' && (
+                  <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                    <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-3">Informações do Downgrade</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-start space-x-2">
+                        <Calendar className="w-5 h-5 text-yellow-600 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-yellow-800 dark:text-yellow-200">
+                            Data de Ativação: {planChangePreview.scheduledFor 
+                              ? new Date(planChangePreview.scheduledFor).toLocaleDateString('pt-AO')
+                              : new Date(planChangePreview.effectiveDate).toLocaleDateString('pt-AO')}
+                          </p>
+                          <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                            {planChangePreview.message}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-3 border-t border-yellow-200 dark:border-yellow-700">
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                          • Você continuará com o plano atual até a data acima
+                        </p>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                          • Não há reembolso do valor já pago
+                        </p>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                          • Pode cancelar o downgrade a qualquer momento antes da data
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* New Plan Summary */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Novo Plano</h4>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{planChangePreview.toPlan.name}</p>
+                    </div>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {formatCurrency(planChangePreview.toPlan.price)}/mês
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+                <Button variant="outline" onClick={closePlanChangeModal}>
+                  Cancelar
+                </Button>
+                
+                {planChangePreview.changeType === 'upgrade' ? (
+                  <Button
+                    onClick={handleUpgrade}
+                    disabled={processingPlanChange || (paymentMethodsConfig.find(m => m.code === selectedPaymentMethod)?.requiresPhone && !payerPhone)}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {processingPlanChange ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowUpCircle className="w-4 h-4 mr-2" />
+                        Confirmar Upgrade
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleDowngrade}
+                    disabled={processingPlanChange}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                  >
+                    {processingPlanChange ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowDownCircle className="w-4 h-4 mr-2" />
+                        Agendar Downgrade
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Error Modal */}
+        {showPaymentErrorModal && lastPaymentAttempt && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <XCircle className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Falha no Pagamento
+                </h3>
+                <p className="text-sm text-gray-500 mt-2">
+                  {paymentErrorMessage}
+                </p>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Plano</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {lastPaymentAttempt.plan.name}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Valor</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {formatCurrency(lastPaymentAttempt.plan.price)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Método</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {paymentMethodsConfig.find(m => m.code === lastPaymentAttempt.paymentMethod)?.displayName || paymentMethodNames[lastPaymentAttempt.paymentMethod]}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col space-y-3">
+                <Button
+                  onClick={handleRetryPayment}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Alterar Método ou Dados do Pagador
+                </Button>
+                
+                {lastPaymentAttempt.plan.trialDays && lastPaymentAttempt.plan.trialDays > 0 && (
+                  <Button
+                    onClick={handleStartTrialAfterError}
+                    disabled={subscribing}
+                    variant="outline"
+                    className="border-green-500 text-green-600 hover:bg-green-50"
+                  >
+                    {subscribing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Iniciando...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4 mr-2" />
+                        Iniciar Período de Teste ({lastPaymentAttempt.plan.trialDays} dias)
+                      </>
+                    )}
+                  </Button>
+                )}
+                
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowPaymentErrorModal(false);
+                    setLastPaymentAttempt(null);
+                    setPaymentErrorMessage('');
+                  }}
+                >
+                  Cancelar
                 </Button>
               </div>
             </div>

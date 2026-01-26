@@ -38,6 +38,10 @@ export function useCreateTransaction() {
       queryClient.invalidateQueries({ 
         queryKey: [TRANSACTIONS_QUERY_KEY] 
       });
+      // Invalidate accounts to update balances
+      queryClient.invalidateQueries({ 
+        queryKey: ['accounts'] 
+      });
     },
   });
 }
@@ -61,6 +65,10 @@ export function useUpdateTransaction() {
       queryClient.invalidateQueries({ 
         queryKey: [TRANSACTIONS_QUERY_KEY] 
       });
+      // Invalidate accounts to update balances
+      queryClient.invalidateQueries({ 
+        queryKey: ['accounts'] 
+      });
     },
   });
 }
@@ -76,6 +84,10 @@ export function useDeleteTransaction() {
       // Invalidate and refetch transactions
       queryClient.invalidateQueries({ 
         queryKey: [TRANSACTIONS_QUERY_KEY] 
+      });
+      // Invalidate accounts to update balances
+      queryClient.invalidateQueries({ 
+        queryKey: ['accounts'] 
       });
     },
   });

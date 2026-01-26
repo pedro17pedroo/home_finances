@@ -1,18 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -20,15 +16,7 @@ import { Loading } from '../../components/ui/Loading';
 import { Account } from '../../types';
 import { COLORS, SPACING } from '../../constants/config';
 import api from '../../services/api';
-
-const transactionSchema = z.object({
-  amount: z.string().min(1, 'Valor é obrigatório'),
-  description: z.string().optional(),
-  accountId: z.number().min(1, 'Conta é obrigatória'),
-  category: z.string().min(1, 'Categoria é obrigatória'),
-});
-
-type TransactionFormData = z.infer<typeof transactionSchema>;
+import { useToast } from '../../contexts/ToastContext';
 
 interface Category {
   id: number;
@@ -57,17 +45,18 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
-
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-  } = useForm<TransactionFormData>({
-    resolver: zodResolver(transactionSchema),
-  });
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const { showError, showSuccess } = useToast();
+  
+  // Refs para scroll
+  const scrollViewRef = useRef<ScrollView>(null);
+  const amountRef = useRef<View>(null);
+  const accountRef = useRef<View>(null);
+  const categoryRef = useRef<View>(null);
 
   const fetchData = async () => {
     try {
@@ -88,7 +77,6 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
       
       if (accountsList.length > 0) {
         setSelectedAccount(accountsList[0]);
-        setValue('accountId', accountsList[0].id);
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -103,38 +91,87 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     }, [type])
   );
 
-  const onSubmit = async (data: TransactionFormData) => {
-    if (!selectedAccount || !selectedCategory) {
-      Alert.alert('Erro', 'Por favor, selecione uma conta e categoria');
+  const scrollToField = (ref: React.RefObject<View>) => {
+    if (ref.current && scrollViewRef.current) {
+      ref.current.measureLayout(
+        scrollViewRef.current as any,
+        (x, y) => {
+          scrollViewRef.current?.scrollTo({
+            y: y - 100, // Offset para não ficar colado no topo
+            animated: true,
+          });
+        },
+        () => {
+          console.log('Failed to measure layout');
+        }
+      );
+    }
+  };
+
+  const onSubmit = async () => {
+    // Log para debug
+    console.log('=== BOTÃO CLICADO ===');
+    console.log('Amount:', amount);
+    console.log('Selected Account:', selectedAccount?.name);
+    console.log('Selected Category:', selectedCategory);
+    
+    // Validar campos obrigatórios
+    const validationErrors: string[] = [];
+    let firstErrorRef: React.RefObject<View> | null = null;
+    
+    if (!amount || parseFloat(amount.replace(',', '.')) <= 0) {
+      validationErrors.push('Valor deve ser maior que zero');
+      if (!firstErrorRef) firstErrorRef = amountRef;
+    }
+    
+    if (!selectedAccount) {
+      validationErrors.push('Selecione uma conta');
+      if (!firstErrorRef) firstErrorRef = accountRef;
+    }
+    
+    if (!selectedCategory) {
+      validationErrors.push('Selecione uma categoria');
+      if (!firstErrorRef) firstErrorRef = categoryRef;
+    }
+    
+    console.log('Validation Errors:', validationErrors);
+    
+    if (validationErrors.length > 0) {
+      // Ativar exibição de erros de validação
+      setShowValidationErrors(true);
+      
+      // Mostrar toast com o primeiro erro
+      showError(validationErrors[0]);
+      
+      // Aguardar re-render antes de fazer scroll
+      setTimeout(() => {
+        // Scroll para o primeiro campo com erro
+        if (firstErrorRef) {
+          scrollToField(firstErrorRef);
+        }
+      }, 100);
+      
       return;
     }
 
     setLoading(true);
     try {
-      const amount = parseFloat(data.amount.replace(',', '.'));
+      const amountValue = parseFloat(amount.replace(',', '.'));
       
       await api.post('/transactions', {
-        amount,
+        amount: amountValue,
         type,
         category: selectedCategory,
         accountId: selectedAccount.id,
-        description: data.description || '',
+        description: description || '',
         date: new Date().toISOString(),
       });
       
-      Alert.alert(
-        'Sucesso!',
-        `${type === 'receita' ? 'Receita' : 'Despesa'} registrada com sucesso`,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      showSuccess(`${type === 'receita' ? 'Receita' : 'Despesa'} registrada com sucesso`);
+      navigation.goBack();
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Não foi possível registrar a transação';
-      Alert.alert('Erro', errorMessage);
+      showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -187,35 +224,48 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+      >
         {/* Valor */}
-        <Card style={styles.amountCard}>
-          <Text style={styles.amountLabel}>Valor</Text>
-          <Controller
-            control={control}
-            name="amount"
-            render={({ field: { onChange, value } }) => (
-              <Input
-                placeholder="0,00"
-                value={value}
-                onChangeText={onChange}
-                keyboardType="numeric"
-                style={styles.amountInput}
-                error={errors.amount?.message}
-              />
-            )}
-          />
-        </Card>
+        <View ref={amountRef}>
+          <Card style={styles.amountCard}>
+            <Text style={styles.amountLabel}>Valor</Text>
+            <Input
+              placeholder="0,00"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              style={styles.amountInput}
+            />
+          </Card>
+        </View>
 
         {/* Conta */}
-        <View style={styles.section}>
+        <View ref={accountRef} style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Conta</Text>
+            <View style={styles.titleWithRequired}>
+              <Text style={[
+                styles.sectionTitle,
+                showValidationErrors && !selectedAccount && styles.sectionTitleError
+              ]}>
+                Conta
+              </Text>
+              <Text style={styles.requiredIndicator}>*</Text>
+            </View>
             <TouchableOpacity style={styles.addNewButton} onPress={() => navigation.navigate('AddAccount', {})}>
               <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
               <Text style={styles.addNewText}>Nova</Text>
             </TouchableOpacity>
           </View>
+          {showValidationErrors && !selectedAccount && (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={16} color={COLORS.error} />
+              <Text style={styles.errorText}>Selecione uma conta</Text>
+            </View>
+          )}
           {accounts.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>Nenhuma conta disponível</Text>
@@ -229,10 +279,10 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                   style={[
                     styles.accountItem,
                     selectedAccount?.id === account.id && styles.accountItemSelected,
+                    showValidationErrors && !selectedAccount && styles.accountItemError,
                   ]}
                   onPress={() => {
                     setSelectedAccount(account);
-                    setValue('accountId', account.id);
                   }}
                 >
                   <View style={styles.accountInfo}>
@@ -269,21 +319,38 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
         </View>
 
         {/* Categoria */}
-        <View style={styles.section}>
+        <View ref={categoryRef} style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Categoria</Text>
+            <View style={styles.titleWithRequired}>
+              <Text style={[
+                styles.sectionTitle,
+                showValidationErrors && !selectedCategory && styles.sectionTitleError
+              ]}>
+                Categoria
+              </Text>
+              <Text style={styles.requiredIndicator}>*</Text>
+            </View>
             <TouchableOpacity style={styles.addNewButton} onPress={() => navigation.navigate('AddCategory', { type })}>
               <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
               <Text style={styles.addNewText}>Nova</Text>
             </TouchableOpacity>
           </View>
+          {showValidationErrors && !selectedCategory && (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={16} color={COLORS.error} />
+              <Text style={styles.errorText}>Selecione uma categoria</Text>
+            </View>
+          )}
           {categories.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>Nenhuma categoria disponível</Text>
               <Button title="Criar Categoria" onPress={() => navigation.navigate('AddCategory', { type })} variant="outline" size="sm" />
             </View>
           ) : (
-            <View style={styles.categoriesGrid}>
+            <View style={[
+              styles.categoriesGrid,
+              showValidationErrors && !selectedCategory && styles.categoriesGridError,
+            ]}>
               {categories.map((category) => (
                 <TouchableOpacity
                   key={category.id}
@@ -294,7 +361,6 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                   ]}
                   onPress={() => {
                     setSelectedCategory(category.name);
-                    setValue('category', category.name);
                   }}
                 >
                   <Ionicons
@@ -324,18 +390,12 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
         {/* Descrição */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Descrição (Opcional)</Text>
-          <Controller
-            control={control}
-            name="description"
-            render={({ field: { onChange, value } }) => (
-              <Input
-                placeholder="Adicione uma descrição..."
-                value={value}
-                onChangeText={onChange}
-                multiline
-                numberOfLines={3}
-              />
-            )}
+          <Input
+            placeholder="Adicione uma descrição..."
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={3}
           />
         </View>
 
@@ -343,7 +403,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
         <View style={styles.saveContainer}>
           <Button
             title={`Registrar ${type === 'receita' ? 'Receita' : 'Despesa'}`}
-            onPress={handleSubmit(onSubmit)}
+            onPress={onSubmit}
             loading={loading}
             fullWidth
             size="lg"
@@ -411,10 +471,39 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
   },
+  titleWithRequired: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  sectionTitleError: {
+    color: COLORS.error,
+  },
+  requiredIndicator: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.error,
+    marginLeft: 4,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    backgroundColor: `${COLORS.error}10`,
+    borderRadius: 8,
+  },
+  errorText: {
+    fontSize: 12,
+    color: COLORS.error,
+    marginLeft: SPACING.xs,
+    fontWeight: '500',
   },
   addNewButton: {
     flexDirection: 'row',
@@ -455,6 +544,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     backgroundColor: `${COLORS.primary}05`,
   },
+  accountItemError: {
+    borderColor: COLORS.error,
+    borderWidth: 2,
+  },
   accountInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -482,6 +575,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: SPACING.lg,
     gap: SPACING.sm,
+  },
+  categoriesGridError: {
+    borderWidth: 2,
+    borderColor: COLORS.error,
+    borderRadius: 12,
+    padding: SPACING.sm,
+    marginHorizontal: SPACING.md,
   },
   categoryItem: {
     width: '30%',

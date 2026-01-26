@@ -30,6 +30,7 @@
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "@types/nodemailer": "^7.0.4",
+    "@types/pdfkit": "^0.17.4",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",
     "connect-pg-simple": "^10.0.0",
@@ -45,6 +46,7 @@
     "nodemailer": "^7.0.12",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
+    "pdfkit": "^0.17.2",
     "pg": "^8.16.3",
     "postgres": "^3.4.7",
     "stripe": "^18.3.0",

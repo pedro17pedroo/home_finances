@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, CreditCard, PiggyBank, X, Building2, Wallet, ArrowLeftRight, ArrowRight, Undo2 } from 'lucide-react';
 import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount, useAccountSummary } from '../hooks/use-accounts';
 import { useBanks } from '../hooks/use-banks';
+import { useAccountTypes } from '../hooks/use-account-types';
 import { useTransfers, useCreateTransfer, useReverseTransfer } from '../../transfers/hooks/use-transfers';
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
-import { Select } from '../../../shared/components/ui/select';
+import { SelectNative as Select } from '../../../shared/components/ui/select-native';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
 import { showDeleteConfirm, showSuccessToast, showErrorToast, showConfirm } from '../../../shared/lib/alerts';
 import type { CreateAccountRequest, Account, CreateTransferRequest } from '../../../shared/types';
@@ -20,6 +21,7 @@ export function AccountsPageImproved() {
   const { data: accounts, isLoading } = useAccounts();
   const { data: summary } = useAccountSummary();
   const { data: banks } = useBanks();
+  const { data: accountTypes } = useAccountTypes();
   const createAccountMutation = useCreateAccount();
   const updateAccountMutation = useUpdateAccount();
   const deleteAccountMutation = useDeleteAccount();
@@ -51,7 +53,7 @@ export function AccountsPageImproved() {
     setEditingAccount(account);
     setAccountFormData({
       name: account.name,
-      type: account.type as 'corrente' | 'poupanca',
+      type: account.type,
       bank: account.bank,
       balance: Number(account.balance),
       interestRate: account.interestRate ? Number(account.interestRate) : undefined,
@@ -244,9 +246,6 @@ export function AccountsPageImproved() {
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                   {accounts.map((account) => {
                     const isPoupanca = account.type === 'poupanca';
-                    const Icon = isPoupanca ? PiggyBank : CreditCard;
-                    const iconBg = isPoupanca ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-blue-50 dark:bg-blue-900/20';
-                    const iconColor = isPoupanca ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400';
                     const badgeClass = isPoupanca 
                       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' 
                       : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
@@ -255,9 +254,6 @@ export function AccountsPageImproved() {
                       <div key={account.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <div className={`p-3 rounded-xl ${iconBg}`}>
-                              <Icon className={`w-5 h-5 ${iconColor}`} />
-                            </div>
                             <div>
                               <h3 className="font-semibold text-gray-900 dark:text-white">{account.name}</h3>
                               <div className="flex items-center space-x-2 mt-0.5">
@@ -398,14 +394,15 @@ export function AccountsPageImproved() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Banco</label>
                   <Select value={accountFormData.bank} onChange={(e) => setAccountFormData({ ...accountFormData, bank: e.target.value })} required>
                     <option value="">Selecione</option>
-                    {banks?.map((bank) => <option key={bank.id} value={bank.shortName || bank.name}>{bank.shortName || bank.name}</option>)}
+                    {banks?.map((bank) => <option key={bank.id} value={bank.name}>{bank.name}</option>)}
                   </Select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
-                  <Select value={accountFormData.type} onChange={(e) => setAccountFormData({ ...accountFormData, type: e.target.value as 'corrente' | 'poupanca' })}>
-                    <option value="corrente">Corrente</option>
-                    <option value="poupanca">Poupança</option>
+                  <Select value={accountFormData.type} onChange={(e) => setAccountFormData({ ...accountFormData, type: e.target.value })}>
+                    {accountTypes?.map((type) => (
+                      <option key={type.id} value={type.code}>{type.name}</option>
+                    ))}
                   </Select>
                 </div>
                 {!editingAccount && (

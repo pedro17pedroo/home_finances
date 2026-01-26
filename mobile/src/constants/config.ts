@@ -1,18 +1,32 @@
 import { Platform } from 'react-native';
 
-// Detectar ambiente de build
-const isStaging = process.env.APP_ENV === 'staging' || process.env.APP_ENV === 'production';
+// ============================================
+// 🔧 CONFIGURAÇÃO DE AMBIENTE
+// ============================================
+// Para alternar entre desenvolvimento e produção, mude esta variável:
+// - true  = usa URL de produção (https://tfinance-backend.tatusolutions.com)
+// - false = usa URL local (seu IP de desenvolvimento)
+const USE_PRODUCTION_API = false;
+
+// IP da sua máquina de desenvolvimento (altere conforme necessário)
+// Para encontrar seu IP: 
+// - Mac/Linux: ifconfig | grep "inet " | grep -v 127.0.0.1
+// - Windows: ipconfig | findstr IPv4
+const DEV_MACHINE_IP = '192.168.1.91';
+const DEV_PORT = '4005';
+
+// URLs
+const PRODUCTION_URL = 'https://tfinance-backend.tatusolutions.com/api';
+const DEV_URL = Platform.select({
+  android: `http://${DEV_MACHINE_IP}:${DEV_PORT}/api`,
+  ios: `http://localhost:${DEV_PORT}/api`,
+  default: `http://localhost:${DEV_PORT}/api`,
+})!;
 
 // Configurações da aplicação
 export const APP_CONFIG = {
-  // API - Em staging/production usa URL de produção, em dev usa IP local
-  API_BASE_URL: (!__DEV__ || isStaging)
-    ? 'https://tfinance-backend.tatusolutions.com/api'
-    : Platform.select({
-        android: 'http://192.168.1.46:4005/api', // Your machine's IP
-        ios: 'http://localhost:4005/api',
-        default: 'http://localhost:4005/api',
-      })!,
+  // API - Usa produção se USE_PRODUCTION_API=true ou se não estiver em modo dev
+  API_BASE_URL: (USE_PRODUCTION_API || !__DEV__) ? PRODUCTION_URL : DEV_URL,
   
   // Cache
   CACHE_TTL_MINUTES: 30,

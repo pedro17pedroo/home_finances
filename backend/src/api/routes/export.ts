@@ -19,4 +19,7 @@ router.get("/transactions", ExportController.exportTransactions);
 // GET /api/export/summary - Gerar relatório de resumo
 router.get("/summary", ExportController.generateSummaryReport);
 
+// GET /api/export/pdf - Gerar relatório em PDF
+router.get("/pdf", ExportController.generatePDFReport);
+
 export default router;

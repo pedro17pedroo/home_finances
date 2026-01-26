@@ -17,6 +17,7 @@ import { Button, Input, Card, Select } from '../../components/ui';
 import { Account } from '../../types';
 import { SPACING, APP_CONFIG } from '../../constants/config';
 import api from '../../services/api';
+import { accountTypesService, AccountType } from '../../services/account-types.service';
 
 interface AddAccountScreenProps {
   navigation?: any;
@@ -34,14 +35,6 @@ interface Bank {
   shortName: string | null;
   logoUrl: string | null;
 }
-
-const ACCOUNT_TYPES = [
-  { value: 'corrente', label: 'Conta Corrente' },
-  { value: 'poupanca', label: 'Poupança' },
-  { value: 'investimento', label: 'Investimento' },
-  { value: 'carteira', label: 'Carteira' },
-  { value: 'outro', label: 'Outro' },
-];
 
 const ACCOUNT_COLORS = [
   '#2563EB', '#7C3AED', '#059669', '#DC2626', '#D97706',
@@ -63,21 +56,68 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loadingBanks, setLoadingBanks] = useState(true);
+  const [accountTypes, setAccountTypes] = useState<AccountType[]>([]);
+  const [loadingAccountTypes, setLoadingAccountTypes] = useState(true);
+
+  // Carregar tipos de conta
+  useEffect(() => {
+    const fetchAccountTypes = async () => {
+      try {
+        const types = await accountTypesService.getAll();
+        console.log('Account types loaded:', types);
+        setAccountTypes(types);
+      } catch (error) {
+        console.error('Erro ao carregar tipos de conta:', error);
+        showError('Erro ao carregar tipos de conta');
+        // Fallback para tipos padrão
+        setAccountTypes([
+          { id: 1, code: 'corrente', name: 'Conta Corrente', description: null, icon: null, color: null, isActive: true, displayOrder: 1, createdAt: '', updatedAt: '' },
+          { id: 2, code: 'poupanca', name: 'Poupança', description: null, icon: null, color: null, isActive: true, displayOrder: 2, createdAt: '', updatedAt: '' },
+          { id: 3, code: 'investimento', name: 'Investimento', description: null, icon: null, color: null, isActive: true, displayOrder: 3, createdAt: '', updatedAt: '' },
+          { id: 4, code: 'carteira', name: 'Carteira', description: null, icon: null, color: null, isActive: true, displayOrder: 4, createdAt: '', updatedAt: '' },
+          { id: 5, code: 'outro', name: 'Outro', description: null, icon: null, color: null, isActive: true, displayOrder: 5, createdAt: '', updatedAt: '' },
+        ]);
+      } finally {
+        setLoadingAccountTypes(false);
+      }
+    };
+    fetchAccountTypes();
+  }, []);
 
   // Carregar lista de bancos
   useEffect(() => {
     const fetchBanks = async () => {
       try {
-        // Usar endpoint público (sem autenticação)
-        // Remove /api do final pois já está incluído no APP_CONFIG.API_BASE_URL
-        const baseUrl = APP_CONFIG.API_BASE_URL.replace(/\/api$/, '');
-        const response = await fetch(`${baseUrl}/api/public/banks`);
-        const data = await response.json();
-        if (data.status === 'success') {
+        // Usar o cliente api configurado para o endpoint público
+        const response = await api.get('/public/banks');
+        const data = response.data;
+        
+        console.log('Banks response:', data);
+        
+        // Backend retorna { status: 'success', data: { banks: [...] } }
+        if (data.status === 'success' && data.data?.banks) {
           setBanks(data.data.banks);
+        } else if (data.banks) {
+          // Fallback para formato direto
+          setBanks(data.banks);
+        } else if (Array.isArray(data)) {
+          // Fallback para array direto
+          setBanks(data);
         }
       } catch (error) {
         console.error('Erro ao carregar bancos:', error);
+        showError('Erro ao carregar bancos');
+        // Tentar endpoint alternativo sem autenticação
+        try {
+          const baseUrl = APP_CONFIG.API_BASE_URL.replace(/\/api$/, '');
+          const response = await fetch(`${baseUrl}/api/public/banks`);
+          const data = await response.json();
+          if (data.status === 'success' && data.data?.banks) {
+            setBanks(data.data.banks);
+          }
+        } catch (fallbackError) {
+          console.error('Erro no fallback de bancos:', fallbackError);
+        }
       } finally {
         setLoadingBanks(false);
       }
@@ -168,17 +208,6 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
               error={errors.name}
             />
 
-            <Select
-              label="Tipo de Conta"
-              value={type}
-              onValueChange={(value) => {
-                setType(value as typeof type);
-                if (errors.type) setErrors({ ...errors, type: '' });
-              }}
-              options={ACCOUNT_TYPES}
-              error={errors.type}
-            />
-
             {loadingBanks ? (
               <View style={styles.loadingBanks}>
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -188,17 +217,37 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
               </View>
             ) : (
               <Select
-                label="Banco (opcional)"
+                label="Banco"
                 value={bankId}
-                onValueChange={setBankId}
+                onValueChange={(value) => setBankId(String(value))}
                 options={[
                   { value: '', label: 'Selecione um banco' },
                   ...banks.map(b => ({
                     value: b.id.toString(),
-                    label: b.shortName || b.name,
+                    label: b.name,
                   }))
                 ]}
                 placeholder="Selecione um banco"
+              />
+            )}
+
+            {loadingAccountTypes ? (
+              <View style={styles.loadingBanks}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                  A carregar tipos de conta...
+                </Text>
+              </View>
+            ) : (
+              <Select
+                label="Tipo de Conta"
+                value={type}
+                onValueChange={(value) => {
+                  setType(value as typeof type);
+                  if (errors.type) setErrors({ ...errors, type: '' });
+                }}
+                options={accountTypes.map(t => ({ value: t.code, label: t.name }))}
+                error={errors.type}
               />
             )}
 

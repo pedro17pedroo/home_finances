@@ -2,6 +2,7 @@ import { TransactionRepository } from "../repositories/transaction.repository.js
 import { AccountRepository } from "../repositories/account.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
 import { PlanAccessService } from "./plan-access.service.js";
+import { TransactionBudgetHook } from "./transaction-budget-hook.service.js";
 import { 
   NotFoundError, 
   BadRequestError, 
@@ -175,6 +176,9 @@ export class TransactionService {
     // Update account balance
     await AccountRepository.updateBalance(account.id, newBalance);
 
+    // Trigger budget tracking hook synchronously
+    await TransactionBudgetHook.onTransactionChange(transaction);
+
     return transaction;
   }
 
@@ -226,7 +230,12 @@ export class TransactionService {
     if (data.receiptOriginalName !== undefined) updateData.receiptOriginalName = data.receiptOriginalName;
     if (data.receiptFileSize !== undefined) updateData.receiptFileSize = data.receiptFileSize;
 
-    return TransactionRepository.update(id, updateData);
+    const updatedTransaction = await TransactionRepository.update(id, updateData);
+
+    // Trigger budget tracking hook synchronously
+    await TransactionBudgetHook.onTransactionChange(updatedTransaction);
+
+    return updatedTransaction;
   }
 
   static async deleteTransaction(

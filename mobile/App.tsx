@@ -13,6 +13,10 @@ import { NetworkStatus } from './src/components/NetworkStatus';
 import { storageService } from './src/services/storage.service';
 import { analytics } from './src/utils/analytics';
 import { COLORS } from './src/constants/config';
+import { setupZodLocale } from './src/lib/zod-pt';
+
+// Configurar mensagens do Zod em português
+setupZodLocale();
 
 const queryClient = new QueryClient({
   defaultOptions: {

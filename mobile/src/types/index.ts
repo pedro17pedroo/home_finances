@@ -18,7 +18,11 @@ export interface Account {
   id: number;
   name: string;
   type: 'corrente' | 'poupanca' | 'investimento' | 'carteira' | 'outro';
-  bank?: string;
+  bank?: string; // Legacy field - nome do banco como string
+  bankId?: number; // ID do banco na tabela banks
+  bankName?: string; // Nome do banco do join
+  bankCode?: string; // Código do banco do join
+  bankLogoUrl?: string; // URL do logo do banco do join
   balance: string;
   currency?: string;
   color?: string;

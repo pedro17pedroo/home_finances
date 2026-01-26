@@ -466,10 +466,8 @@ router.get('/plan-change/preview/:planId', authenticate, async (req, res) => {
 
     const preview = await subscriptionService.previewPlanChange(userId, planId);
 
-    res.json({
-      success: true,
-      preview,
-    });
+    // Return preview data directly (not nested)
+    res.json(preview);
   } catch (error: any) {
     console.error('Preview plan change error:', error);
     res.status(500).json({ success: false, message: error.message });

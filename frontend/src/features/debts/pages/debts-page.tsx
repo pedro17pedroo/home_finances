@@ -7,7 +7,7 @@ import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../sh
 import { Button } from '../../../shared/components/ui/button';
 import { Card } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
-import { Select } from '../../../shared/components/ui/select';
+import { SelectNative as Select } from '../../../shared/components/ui/select-native';
 import type { CreateDebtRequest, UpdateDebtRequest, Debt } from '../../../shared/types';
 
 export function DebtsPage() {

@@ -39,8 +39,17 @@ export class OrganizationController {
       const { organizationId } = req.params;
       const { name } = req.body;
 
+      // Validate organizationId
+      const orgId = parseInt(organizationId);
+      if (isNaN(orgId) || !organizationId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'ID da organização inválido',
+        });
+      }
+
       const organization = await OrganizationService.updateOrganization(
-        parseInt(organizationId),
+        orgId,
         userId,
         { name }
       );
@@ -64,7 +73,16 @@ export class OrganizationController {
       const userId = authReq.user!.id;
       const { organizationId } = req.params;
 
-      const members = await OrganizationService.getMembers(parseInt(organizationId), userId);
+      // Validate organizationId
+      const orgId = parseInt(organizationId);
+      if (isNaN(orgId) || !organizationId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'ID da organização inválido',
+        });
+      }
+
+      const members = await OrganizationService.getMembers(orgId, userId);
 
       res.json({
         status: 'success',
@@ -85,6 +103,15 @@ export class OrganizationController {
       const { organizationId } = req.params;
       const { email, role } = req.body;
 
+      // Validate organizationId
+      const orgId = parseInt(organizationId);
+      if (isNaN(orgId) || !organizationId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'ID da organização inválido',
+        });
+      }
+
       if (!email) {
         return res.status(400).json({
           status: 'error',
@@ -93,7 +120,7 @@ export class OrganizationController {
       }
 
       const invitation = await OrganizationService.inviteMember(
-        parseInt(organizationId),
+        orgId,
         userId,
         { email, role }
       );
@@ -117,8 +144,17 @@ export class OrganizationController {
       const userId = authReq.user!.id;
       const { organizationId } = req.params;
 
+      // Validate organizationId
+      const orgId = parseInt(organizationId);
+      if (isNaN(orgId) || !organizationId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'ID da organização inválido',
+        });
+      }
+
       const invitations = await OrganizationService.getPendingInvitations(
-        parseInt(organizationId),
+        orgId,
         userId
       );
 
@@ -253,9 +289,19 @@ export class OrganizationController {
       const userId = authReq.user!.id;
       const { organizationId, memberId } = req.params;
 
+      // Validate IDs
+      const orgId = parseInt(organizationId);
+      const memId = parseInt(memberId);
+      if (isNaN(orgId) || !organizationId || isNaN(memId) || !memberId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'IDs inválidos',
+        });
+      }
+
       await OrganizationService.removeMember(
-        parseInt(organizationId),
-        parseInt(memberId),
+        orgId,
+        memId,
         userId
       );
 
@@ -278,6 +324,16 @@ export class OrganizationController {
       const { organizationId, memberId } = req.params;
       const { role } = req.body;
 
+      // Validate IDs
+      const orgId = parseInt(organizationId);
+      const memId = parseInt(memberId);
+      if (isNaN(orgId) || !organizationId || isNaN(memId) || !memberId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'IDs inválidos',
+        });
+      }
+
       if (!role || !['admin', 'member'].includes(role)) {
         return res.status(400).json({
           status: 'error',
@@ -286,8 +342,8 @@ export class OrganizationController {
       }
 
       const member = await OrganizationService.updateMemberRole(
-        parseInt(organizationId),
-        parseInt(memberId),
+        orgId,
+        memId,
         role,
         userId
       );
@@ -488,19 +544,22 @@ export class OrganizationController {
 
       const memberships = await OrganizationMembershipService.getUserMemberships(userId);
 
-      // Get member count for each organization
+      // Get member count and full organization details for each organization
       const organizationsWithCounts = await Promise.all(
         memberships.map(async (membership) => {
           const memberCount = await OrganizationMembershipService.getMemberCount(membership.organizationId);
+          const org = await OrganizationService.getOrganization(membership.organizationId);
           return {
             id: membership.organizationId,
             name: membership.organizationName,
-            role: membership.role,
+            ownerId: org.ownerId,
+            role: membership.role, // User's role in this organization
             subscription: {
               planType: membership.planType || 'basic',
               status: membership.subscriptionStatus || 'trialing',
             },
             memberCount,
+            maxUsers: org.maxUsers,
             isActive: membership.isActive,
           };
         })

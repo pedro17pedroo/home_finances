@@ -3,7 +3,8 @@ import { QueryClient } from '@tanstack/react-query';
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 30 * 1000, // 30 seconds - dados financeiros precisam ser mais atualizados
+      refetchOnWindowFocus: true, // Refetch quando a janela ganha foco
       retry: (failureCount, error: any) => {
         // Don't retry on 401 (unauthorized) or 403 (forbidden)
         if (error?.response?.status === 401 || error?.response?.status === 403) {

@@ -197,10 +197,10 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Empréstimos Dados */}
+          {/* Dinheiro Emprestado */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Empréstimos Dados</h3>
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Dinheiro Emprestado</h3>
               <Coins className="w-5 h-5 text-yellow-500" />
             </div>
             <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
@@ -707,18 +707,9 @@ export function DashboardPage() {
             
             {/* Existing accounts */}
             {accounts && accounts.map((account) => (
-              <Link key={account.id} href={`/accounts/${account.id}`}>
+              <Link key={account.id} href="/accounts">
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-green-500 dark:hover:border-green-500 transition-colors cursor-pointer">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      account.type === 'poupanca' ? 'bg-blue-100 dark:bg-blue-900' : 'bg-green-100 dark:bg-green-900'
-                    }`}>
-                      {account.type === 'poupanca' ? (
-                        <PiggyBank className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      ) : (
-                        <Building2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-                      )}
-                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {account.name}

@@ -107,8 +107,10 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
     fetchOrganization();
   }, [isAuthenticated, user?.organizationId, user?.activeOrganization?.id]);
 
-  const isOwner = user?.role === 'owner' || (organization?.ownerId === user?.id);
-  const isAdmin = isOwner || user?.role === 'admin';
+  // Use role from organization if available, otherwise fallback to user role
+  const userRoleInOrg = organization?.role || user?.role;
+  const isOwner = userRoleInOrg === 'owner' || (organization?.ownerId === user?.id);
+  const isAdmin = isOwner || userRoleInOrg === 'admin';
   const canManageMembers = isAdmin && (organization?.maxUsers || 1) > 1;
 
   const value: OrganizationContextType = {

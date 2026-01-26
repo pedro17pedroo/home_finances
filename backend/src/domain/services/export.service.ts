@@ -5,6 +5,7 @@ import { DebtRepository } from "../repositories/debt.repository.js";
 import { SavingsGoalRepository } from "../repositories/savings-goal.repository.js";
 import { TransferRepository } from "../repositories/transfer.repository.js";
 import { logger } from "../../core/utils/logger.js";
+import PDFDocument from 'pdfkit';
 
 export interface ExportOptions {
   format: 'json' | 'csv' | 'xlsx';
@@ -379,5 +380,161 @@ Patrimônio Líquido: ${formatCurrency(totalBalance + totalLoanAmount - totalDeb
       mimeType: 'text/plain',
       size: Buffer.byteLength(textReport, 'utf8')
     };
+  }
+
+  /**
+   * Gera relatório financeiro em PDF
+   */
+  static async generateFinancialPDFReport(userId: number): Promise<ExportResult> {
+    const [accounts, transactions, loans, debts, savingsGoals] = await Promise.all([
+      AccountRepository.findByUserId(userId),
+      TransactionRepository.findByUserId(userId),
+      LoanRepository.findByUserId(userId),
+      DebtRepository.findByUserId(userId),
+      SavingsGoalRepository.findByUserId(userId)
+    ]);
+
+    const totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance), 0);
+    const totalIncome = transactions
+      .filter(t => t.type === 'receita')
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalExpenses = transactions
+      .filter(t => t.type === 'despesa')
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalLoanAmount = loans
+      .filter(l => l.status === 'pendente')
+      .reduce((sum, l) => sum + parseFloat(l.amount), 0);
+    const totalDebtAmount = debts
+      .filter(d => d.status === 'pendente')
+      .reduce((sum, d) => sum + parseFloat(d.amount), 0);
+    const totalSavingsTarget = savingsGoals.reduce((sum, g) => sum + parseFloat(g.targetAmount), 0);
+    const totalSavingsCurrent = savingsGoals.reduce((sum, g) => sum + parseFloat(g.currentAmount), 0);
+
+    const formatCurrency = (value: number) => `${value.toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kz`;
+
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        const chunks: Buffer[] = [];
+
+        doc.on('data', (chunk) => chunks.push(chunk));
+        doc.on('end', () => {
+          const pdfBuffer = Buffer.concat(chunks);
+          resolve({
+            filename: `relatorio_financeiro_${new Date().toISOString().split('T')[0]}.pdf`,
+            data: pdfBuffer,
+            mimeType: 'application/pdf',
+            size: pdfBuffer.length
+          });
+        });
+        doc.on('error', reject);
+
+        // Header - mais compacto
+        doc.fontSize(20).fillColor('#2563EB').text('RELATÓRIO FINANCEIRO', { align: 'center' });
+        doc.fontSize(10).fillColor('#6B7280').text('Finance Control', { align: 'center' });
+        doc.moveDown(0.3);
+        doc.fontSize(9).fillColor('#6B7280').text(
+          `Data: ${new Date().toLocaleDateString('pt-AO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,
+          { align: 'center' }
+        );
+        doc.moveDown(1);
+
+        // Summary Cards - mais compactos
+        const cardY = doc.y;
+        const cardWidth = 120;
+        const cardHeight = 60;
+        const cardSpacing = 12;
+
+        // Card 1: Saldo Total
+        doc.rect(40, cardY, cardWidth, cardHeight).fillAndStroke('#10B981', '#059669');
+        doc.fillColor('#FFFFFF').fontSize(9).text('Saldo Total', 45, cardY + 8, { width: cardWidth - 10 });
+        doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(totalBalance), 45, cardY + 24, { width: cardWidth - 10 });
+        doc.font('Helvetica').fontSize(7).text(`${accounts.length} conta${accounts.length !== 1 ? 's' : ''}`, 45, cardY + 44, { width: cardWidth - 10 });
+
+        // Card 2: Receitas
+        doc.rect(40 + cardWidth + cardSpacing, cardY, cardWidth, cardHeight).fillAndStroke('#10B981', '#059669');
+        doc.fillColor('#FFFFFF').fontSize(9).text('Receitas', 45 + cardWidth + cardSpacing, cardY + 8, { width: cardWidth - 10 });
+        doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(totalIncome), 45 + cardWidth + cardSpacing, cardY + 24, { width: cardWidth - 10 });
+        doc.font('Helvetica').fontSize(7).text(`${transactions.filter(t => t.type === 'receita').length} transações`, 45 + cardWidth + cardSpacing, cardY + 44, { width: cardWidth - 10 });
+
+        // Card 3: Despesas
+        doc.rect(40 + (cardWidth + cardSpacing) * 2, cardY, cardWidth, cardHeight).fillAndStroke('#EF4444', '#DC2626');
+        doc.fillColor('#FFFFFF').fontSize(9).text('Despesas', 45 + (cardWidth + cardSpacing) * 2, cardY + 8, { width: cardWidth - 10 });
+        doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(totalExpenses), 45 + (cardWidth + cardSpacing) * 2, cardY + 24, { width: cardWidth - 10 });
+        doc.font('Helvetica').fontSize(7).text(`${transactions.filter(t => t.type === 'despesa').length} transações`, 45 + (cardWidth + cardSpacing) * 2, cardY + 44, { width: cardWidth - 10 });
+
+        // Card 4: Balanço
+        const balance = totalIncome - totalExpenses;
+        doc.rect(40 + (cardWidth + cardSpacing) * 3, cardY, cardWidth, cardHeight).fillAndStroke(balance >= 0 ? '#10B981' : '#EF4444', balance >= 0 ? '#059669' : '#DC2626');
+        doc.fillColor('#FFFFFF').fontSize(9).text('Balanço', 45 + (cardWidth + cardSpacing) * 3, cardY + 8, { width: cardWidth - 10 });
+        doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(balance), 45 + (cardWidth + cardSpacing) * 3, cardY + 24, { width: cardWidth - 10 });
+        doc.font('Helvetica').fontSize(7).text(balance >= 0 ? 'Positivo' : 'Negativo', 45 + (cardWidth + cardSpacing) * 3, cardY + 44, { width: cardWidth - 10 });
+
+        doc.y = cardY + cardHeight + 20;
+
+        // Contas Section - mais compacto
+        doc.fontSize(12).fillColor('#1F2937').font('Helvetica-Bold').text('CONTAS BANCÁRIAS');
+        doc.moveDown(0.3);
+        doc.fontSize(9).fillColor('#6B7280').font('Helvetica').text(`Total de ${accounts.length} conta${accounts.length !== 1 ? 's' : ''}`);
+        doc.moveDown(0.5);
+
+        if (accounts.length > 0) {
+          accounts.forEach((acc, index) => {
+            const accBalance = parseFloat(acc.balance);
+            doc.fontSize(9).fillColor('#374151').text(`• ${acc.name} (${acc.bank || 'Banco'}):`, { continued: true });
+            doc.fillColor(accBalance >= 0 ? '#059669' : '#DC2626').text(` ${formatCurrency(accBalance)}`);
+          });
+        } else {
+          doc.fontSize(9).fillColor('#9CA3AF').text('Nenhuma conta registrada');
+        }
+        doc.moveDown(1.2);
+
+        // Empréstimos e Dívidas - mais compacto
+        doc.fontSize(12).fillColor('#1F2937').font('Helvetica-Bold').text('EMPRÉSTIMOS E DÍVIDAS');
+        doc.moveDown(0.3);
+
+        doc.fontSize(10).fillColor('#F59E0B').font('Helvetica-Bold').text('Dinheiro Emprestado (A Receber)');
+        doc.fontSize(9).fillColor('#374151').font('Helvetica').text(`Total: ${formatCurrency(totalLoanAmount)} • ${loans.filter(l => l.status === 'pendente').length} empréstimo${loans.filter(l => l.status === 'pendente').length !== 1 ? 's' : ''} pendente${loans.filter(l => l.status === 'pendente').length !== 1 ? 's' : ''}`);
+        doc.moveDown(0.5);
+
+        doc.fontSize(10).fillColor('#EF4444').font('Helvetica-Bold').text('Dívidas (A Pagar)');
+        doc.fontSize(9).fillColor('#374151').font('Helvetica').text(`Total: ${formatCurrency(totalDebtAmount)} • ${debts.filter(d => d.status === 'pendente').length} dívida${debts.filter(d => d.status === 'pendente').length !== 1 ? 's' : ''} pendente${debts.filter(d => d.status === 'pendente').length !== 1 ? 's' : ''}`);
+        doc.moveDown(1.2);
+
+        // Metas de Poupança - mais compacto
+        doc.fontSize(12).fillColor('#1F2937').font('Helvetica-Bold').text('METAS DE POUPANÇA');
+        doc.moveDown(0.3);
+
+        if (savingsGoals.length > 0) {
+          const progress = totalSavingsTarget > 0 ? ((totalSavingsCurrent / totalSavingsTarget) * 100) : 0;
+          doc.fontSize(9).fillColor('#374151').font('Helvetica').text(`Total de ${savingsGoals.length} meta${savingsGoals.length !== 1 ? 's' : ''}`);
+          doc.text(`Meta Total: ${formatCurrency(totalSavingsTarget)}`);
+          doc.text(`Poupado: ${formatCurrency(totalSavingsCurrent)}`);
+          doc.fillColor('#8B5CF6').font('Helvetica-Bold').text(`Progresso: ${progress.toFixed(1)}%`);
+        } else {
+          doc.fontSize(9).fillColor('#9CA3AF').font('Helvetica').text('Nenhuma meta registrada');
+        }
+        doc.moveDown(1.2);
+
+        // Patrimônio Líquido - mais compacto
+        const netWorth = totalBalance + totalLoanAmount - totalDebtAmount;
+        doc.fontSize(12).fillColor('#1F2937').font('Helvetica-Bold').text('PATRIMÔNIO LÍQUIDO');
+        doc.moveDown(0.3);
+        doc.fontSize(16).fillColor(netWorth >= 0 ? '#059669' : '#DC2626').font('Helvetica-Bold').text(formatCurrency(netWorth));
+        doc.fontSize(8).fillColor('#6B7280').font('Helvetica').text('(Saldo + Empréstimos a Receber - Dívidas a Pagar)');
+
+        // Footer - mais compacto
+        doc.fontSize(7).fillColor('#9CA3AF').text(
+          `Gerado por Finance Control em ${new Date().toLocaleString('pt-AO')}`,
+          40,
+          doc.page.height - 40,
+          { align: 'center', width: doc.page.width - 80 }
+        );
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 }

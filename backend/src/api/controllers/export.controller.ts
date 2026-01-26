@@ -96,4 +96,20 @@ export class ExportController {
       next(error);
     }
   }
+
+  static async generatePDFReport(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      
+      const result = await ExportService.generateFinancialPDFReport(userId);
+
+      res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+      res.setHeader('Content-Type', result.mimeType);
+      res.setHeader('Content-Length', result.size.toString());
+
+      res.send(result.data);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

@@ -96,6 +96,7 @@ export interface SubscribeRequest {
   payerPhone?: string;
   payerName?: string;
   payerEmail?: string;
+  startTrial?: boolean;
 }
 
 export interface SubscribeResponse {
@@ -178,11 +179,106 @@ export async function cancelSubscription(): Promise<{ success: boolean; message:
   return response.data;
 }
 
+// ============================================
+// UPGRADE / DOWNGRADE PLAN CHANGE FUNCTIONS
+// ============================================
+
+export interface PlanChangePreview {
+  changeType: 'upgrade' | 'downgrade';
+  fromPlan: Plan | null;
+  toPlan: Plan;
+  daysRemaining: number;
+  creditAmount: number;
+  amountToPay: number;
+  effectiveDate: string;
+  scheduledFor?: string;
+  message: string;
+}
+
+export interface PlanChange {
+  id: number;
+  userId: number;
+  fromPlanId: number;
+  toPlanId: number;
+  changeType: 'upgrade' | 'downgrade';
+  status: 'pending' | 'completed' | 'cancelled' | 'scheduled';
+  prorationCredit?: string;
+  amountPaid?: string;
+  effectiveDate?: string;
+  scheduledFor?: string;
+  paymentId?: number;
+  createdAt: string;
+  completedAt?: string;
+  cancelledAt?: string;
+  fromPlan?: Plan;
+  toPlan?: Plan;
+}
+
+// Preview plan change (upgrade or downgrade)
+export async function previewPlanChange(planId: number): Promise<PlanChangePreview> {
+  const response = await apiClient.get(`/subscriptions/plan-change/preview/${planId}`);
+  return response.data;
+}
+
+// Execute upgrade with proration
+export async function upgradePlan(data: {
+  planId: number;
+  paymentMethod: PaymentMethod;
+  payerPhone?: string;
+  payerName?: string;
+  payerEmail?: string;
+  useTrialWhilePending?: boolean;
+}): Promise<{
+  success: boolean;
+  message: string;
+  planChange: PlanChange;
+  payment?: SubscriptionPayment;
+  subscription?: Subscription;
+}> {
+  const response = await apiClient.post('/subscriptions/upgrade', data);
+  return response.data;
+}
+
+// Schedule downgrade for end of billing cycle
+export async function downgradePlan(data: {
+  planId: number;
+}): Promise<{
+  success: boolean;
+  message: string;
+  planChange: PlanChange;
+  effectiveDate: string;
+}> {
+  const response = await apiClient.post('/subscriptions/downgrade', data);
+  return response.data;
+}
+
+// Cancel scheduled downgrade
+export async function cancelScheduledDowngrade(): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  const response = await apiClient.delete('/subscriptions/downgrade');
+  return response.data;
+}
+
+// Get pending/scheduled plan changes
+export async function getPendingPlanChanges(): Promise<PlanChange[]> {
+  const response = await apiClient.get('/subscriptions/plan-changes/pending');
+  return response.data.planChanges;
+}
+
+// Get plan change history
+export async function getPlanChangeHistory(): Promise<PlanChange[]> {
+  const response = await apiClient.get('/subscriptions/plan-changes/history');
+  return response.data.planChanges;
+}
+
 // Payment method display names
 export const paymentMethodNames: Record<PaymentMethod, string> = {
   ekwanza: 'E-Kwanza',
   gpo: 'Multicaixa Express',
   ref: 'Referência Multicaixa',
+  bank_transfer: 'Transferência Bancária',
 };
 
 // Payment method descriptions
@@ -191,4 +287,5 @@ export const paymentMethodDescriptions: Record<PaymentMethod, string> = {
     'Pague usando sua conta E-Kwanza. Insira seu número de telefone para receber o código de pagamento.',
   gpo: 'Pagamento instantâneo via Multicaixa Express. Você receberá uma notificação no seu telefone.',
   ref: 'Gere uma referência para pagar em qualquer caixa Multicaixa ou ATM. Válido por 60 minutos.',
+  bank_transfer: 'Faça uma transferência bancária para a conta indicada.',
 };

@@ -53,10 +53,15 @@ import { AddDebtScreen } from '../screens/debts/AddDebtScreen';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 import { NotificationSettingsScreen } from '../screens/notifications/NotificationSettingsScreen';
 import { RecurringTransactionsScreen } from '../screens/recurring/RecurringTransactionsScreen';
-import { AddRecurringTransactionScreen } from '../screens/recurring/AddRecurringTransactionScreen';
+import { RecurringTransactionFormScreen } from '../screens/recurring/RecurringTransactionFormScreen';
 import { CategoriesScreen } from '../screens/categories/CategoriesScreen';
 import { AddCategoryScreen } from '../screens/categories/AddCategoryScreen';
 import { ExportScreen } from '../screens/export/ExportScreen';
+
+// Budget Screens
+import BudgetListScreen from '../screens/budgets/BudgetListScreen';
+import BudgetFormScreen from '../screens/budgets/BudgetFormScreen';
+import BudgetDetailScreen from '../screens/budgets/BudgetDetailScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -96,7 +101,7 @@ const DashboardStackNavigator = () => {
       <DashboardStack.Screen name="Debts" component={DebtsScreen} />
       <DashboardStack.Screen name="AddDebt" component={AddDebtScreen} />
       <DashboardStack.Screen name="RecurringTransactions" component={RecurringTransactionsScreen} />
-      <DashboardStack.Screen name="AddRecurringTransaction" component={AddRecurringTransactionScreen} />
+      <DashboardStack.Screen name="RecurringTransactionForm" component={RecurringTransactionFormScreen} />
       <DashboardStack.Screen name="Categories" component={CategoriesScreen} />
       <DashboardStack.Screen name="AddCategory" component={AddCategoryScreen} />
       <DashboardStack.Screen name="AddAccount" component={AddAccountScreen} />
@@ -108,6 +113,9 @@ const DashboardStackNavigator = () => {
       <DashboardStack.Screen name="AddTransfer" component={AddTransferScreen} />
       <DashboardStack.Screen name="Notifications" component={NotificationsScreen} />
       <DashboardStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+      <DashboardStack.Screen name="BudgetList" component={BudgetListScreen} />
+      <DashboardStack.Screen name="BudgetForm" component={BudgetFormScreen} />
+      <DashboardStack.Screen name="BudgetDetail" component={BudgetDetailScreen} />
     </DashboardStack.Navigator>
   );
 };

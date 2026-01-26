@@ -4,7 +4,7 @@ import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
-import { Select } from '../../../shared/components/ui/select';
+import { SelectNative as Select } from '../../../shared/components/ui/select-native';
 import { useAuth } from '../../../shared/contexts/auth-context';
 import {
   useOrganization,
@@ -36,12 +36,24 @@ export function TeamPage() {
   const removeMemberMutation = useRemoveMember();
   const updateRoleMutation = useUpdateMemberRole();
 
-  // Check if current user is the owner
-  const isOwner = user?.role === 'owner' || (organization && user?.id === organization.ownerId);
+  // Check if current user is the owner based on organization role
+  const userRoleInOrg = organization?.role || user?.role;
+  const isOwner = userRoleInOrg === 'owner' || (organization && user?.id === organization.ownerId);
+  const isAdmin = isOwner || userRoleInOrg === 'admin';
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!organization || !isOwner) return;
+    
+    // Validate organization exists
+    if (!organization?.id) {
+      showErrorToast('Organização não encontrada. Por favor, recarregue a página.');
+      return;
+    }
+    
+    if (!isOwner) {
+      showErrorToast('Apenas o proprietário pode convidar membros.');
+      return;
+    }
 
     const inviteValue = inviteType === 'email' ? inviteEmail.trim() : invitePhone.trim();
     if (!inviteValue) {
@@ -205,7 +217,7 @@ export function TeamPage() {
                 : 'Visualize os membros da sua equipe'}
             </p>
           </div>
-          {isOwner && (
+          {isOwner && organization?.id && (
             <Button
               onClick={() => setShowInviteForm(true)}
               className="bg-blue-600 hover:bg-blue-700"

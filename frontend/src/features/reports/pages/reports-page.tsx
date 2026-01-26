@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   FileText, TrendingUp, TrendingDown, DollarSign, Wallet,
-  BarChart3, CreditCard, Activity
+  BarChart3, CreditCard, Activity, Download, FileSpreadsheet, FileDown
 } from 'lucide-react';
 import { useTransactionSummary, useTransactions } from '../../transactions/hooks/use-transactions';
 import { useAccountSummary, useAccounts } from '../../accounts/hooks/use-accounts';
@@ -13,8 +13,10 @@ import { useSavingsGoalsSummary, useSavingsGoals } from '../../savings/hooks/use
 import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
-import { Select } from '../../../shared/components/ui/select';
+import { SelectNative as Select } from '../../../shared/components/ui/select-native';
 import { formatCurrency } from '../../../shared/lib/utils';
+import { showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
+import { apiClient } from '../../../shared/api/client';
 
 type TabType = 'visaoGeral' | 'receitas' | 'despesas' | 'tendencias';
 
@@ -23,6 +25,8 @@ const COLORS = ['#10B981', '#EF4444', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899'
 export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('visaoGeral');
   const [selectedPeriod, setSelectedPeriod] = useState('6months');
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: transactionSummary, isLoading: transactionsLoading } = useTransactionSummary();
   const { data: transactions } = useTransactions();
@@ -35,6 +39,84 @@ export function ReportsPage() {
   const balance = transactionSummary ? transactionSummary.saldo : 0;
   const totalPatrimony = accountSummary ? accountSummary.totalBalance : 0;
   const savingsProgress = savingsSummary ? savingsSummary.totalProgress : 0;
+
+  // Export functions
+  const handleExport = async (format: 'xlsx' | 'csv' | 'pdf' | 'txt') => {
+    setIsExporting(true);
+    setShowExportMenu(false);
+    
+    try {
+      if (format === 'pdf') {
+        // Export PDF report
+        const response = await apiClient.get('/export/pdf', {
+          responseType: 'blob'
+        });
+        
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `relatorio_financeiro_${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        showSuccessToast('Relatório PDF exportado com sucesso!');
+      } else if (format === 'txt') {
+        // Export summary report as text
+        const response = await apiClient.get('/export/summary', {
+          responseType: 'blob'
+        });
+        
+        const blob = new Blob([response.data], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `resumo_financeiro_${new Date().toISOString().split('T')[0]}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        showSuccessToast('Relatório exportado com sucesso!');
+      } else {
+        // Export data in Excel/CSV format
+        const response = await apiClient.post('/export/data', {
+          format: format === 'xlsx' ? 'xlsx' : 'csv',
+          includeAccounts: true,
+          includeTransactions: true,
+          includeLoans: true,
+          includeDebts: true,
+          includeSavingsGoals: true,
+          includeTransfers: true
+        }, {
+          responseType: 'blob'
+        });
+        
+        const blob = new Blob([response.data], { 
+          type: format === 'xlsx' 
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            : 'text/csv' 
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `financecontrol_export_${new Date().toISOString().split('T')[0]}.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        showSuccessToast(`Dados exportados em ${format.toUpperCase()} com sucesso!`);
+      }
+    } catch (error: any) {
+      console.error('Erro ao exportar:', error);
+      showErrorToast(error.response?.data?.message || 'Erro ao exportar dados');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Prepare chart data
   const receitasDespesasData = [
@@ -109,9 +191,61 @@ export function ReportsPage() {
               <option value="6months">Últimos 6 meses</option>
               <option value="1year">Último ano</option>
             </Select>
-            <Button variant="outline" size="sm">
-              <FileText className="h-4 w-4 mr-2" />Exportar
-            </Button>
+            <div className="relative">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <>
+                    <Download className="h-4 w-4 mr-2 animate-spin" />
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Exportar
+                  </>
+                )}
+              </Button>
+              
+              {showExportMenu && !isExporting && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
+                  <div className="py-1">
+                    <button
+                      onClick={() => handleExport('xlsx')}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />
+                      Exportar Excel (.xlsx)
+                    </button>
+                    <button
+                      onClick={() => handleExport('csv')}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                    >
+                      <FileDown className="h-4 w-4 mr-2 text-blue-600" />
+                      Exportar CSV
+                    </button>
+                    <button
+                      onClick={() => handleExport('pdf')}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                    >
+                      <FileText className="h-4 w-4 mr-2 text-red-600" />
+                      Relatório PDF
+                    </button>
+                    <button
+                      onClick={() => handleExport('txt')}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                    >
+                      <FileText className="h-4 w-4 mr-2 text-gray-600" />
+                      Relatório Texto (.txt)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,22 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { COLORS, SPACING } from '../../constants/config';
-
-interface NotificationSettings {
-  pushNotifications: boolean;
-  debtReminders: boolean;
-  loanReminders: boolean;
-  goalAchievements: boolean;
-  lowBalance: boolean;
-  transactions: boolean;
-  systemUpdates: boolean;
-  reminderDays: number;
-  quietHours: {
-    enabled: boolean;
-    start: string;
-    end: string;
-  };
-}
+import { notificationsService, NotificationSettings } from '../../services/notifications.service';
+import { useToast } from '../../contexts/ToastContext';
 
 interface NotificationSettingsScreenProps {
   navigation: any;
@@ -52,6 +38,24 @@ export const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProp
   });
 
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const data = await notificationsService.getSettings();
+      setSettings(data);
+    } catch (error) {
+      console.error('Erro ao carregar configurações:', error);
+      showToast('Erro ao carregar configurações', 'error');
+    } finally {
+      setInitialLoading(false);
+    }
+  };
 
   const updateSetting = (key: keyof NotificationSettings, value: any) => {
     setSettings(prev => ({
@@ -73,16 +77,11 @@ export const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProp
   const saveSettings = async () => {
     setLoading(true);
     try {
-      // Simular salvamento das configurações
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      Alert.alert(
-        'Sucesso',
-        'Configurações de notificação salvas com sucesso!',
-        [{ text: 'OK' }]
-      );
+      await notificationsService.saveSettings(settings);
+      showToast('Configurações salvas com sucesso!', 'success');
     } catch (error) {
-      Alert.alert('Erro', 'Erro ao salvar configurações. Tente novamente.');
+      console.error('Erro ao salvar configurações:', error);
+      showToast('Erro ao salvar configurações', 'error');
     } finally {
       setLoading(false);
     }
@@ -120,12 +119,18 @@ export const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProp
   };
 
   const testNotification = () => {
-    Alert.alert(
-      'Notificação de Teste',
-      'Esta é uma notificação de teste do FinanceControl!',
-      [{ text: 'OK' }]
-    );
+    showToast('Esta é uma notificação de teste!', 'info');
   };
+
+  if (initialLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Carregando configurações...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -411,6 +416,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',

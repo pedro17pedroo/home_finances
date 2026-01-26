@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ChevronDown, Moon, Sun, User, LogOut, Menu, X, Users, Mail } from 'lucide-react';
+import { ChevronDown, Moon, Sun, User, LogOut, Menu, X, Users, Mail, RefreshCw } from 'lucide-react';
 import { useTheme } from '../../contexts/theme-context';
 import { useAuth } from '../../contexts/auth-context';
 import { useMySubscription } from '../../hooks/use-subscription';
 import { OrganizationSelector } from '../organization-selector';
+import { NotificationsBell } from '../notifications-bell';
 
 // Badge configuration based on subscription status
 const getSubscriptionBadge = (subscription: any) => {
@@ -62,7 +63,7 @@ export function NavigationHeader() {
 
   const isActive = (path: string) => location === path;
   const isFinanceiroActive = () =>
-    ['/accounts', '/savings-goals', '/loans', '/debts'].includes(location);
+    ['/accounts', '/savings-goals', '/loans', '/debts', '/budgets'].includes(location);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -158,6 +159,11 @@ export function NavigationHeader() {
                       Contas
                     </div>
                   </Link>
+                  <Link href="/budgets">
+                    <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                      Orçamentos
+                    </div>
+                  </Link>
                   <Link href="/savings-goals">
                     <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
                       Poupança
@@ -216,6 +222,9 @@ export function NavigationHeader() {
               <OrganizationSelector variant="compact" dropdownAlign="right" />
             </div>
 
+            {/* Notifications Bell */}
+            <NotificationsBell />
+
             {/* Mobile Menu Button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -265,6 +274,12 @@ export function NavigationHeader() {
                     <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center">
                       <Mail className="w-4 h-4 mr-2" />
                       Convites Recebidos
+                    </div>
+                  </Link>
+                  <Link href="/transactions/recurring">
+                    <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Transações Recorrentes
                     </div>
                   </Link>
                   <button
@@ -341,6 +356,17 @@ export function NavigationHeader() {
                       }`}
                     >
                       Contas
+                    </div>
+                  </Link>
+                  <Link href="/budgets" onClick={closeMobileMenu}>
+                    <div
+                      className={`block px-3 py-2 rounded-md text-sm ${
+                        isActive('/budgets')
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      Orçamentos
                     </div>
                   </Link>
                   <Link href="/savings-goals" onClick={closeMobileMenu}>

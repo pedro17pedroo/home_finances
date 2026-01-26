@@ -116,23 +116,38 @@ export class OrganizationService {
    * Get organization members
    */
   static async getMembers(organizationId: number, userId: number): Promise<OrganizationMember[]> {
-    // Verify user belongs to organization
-    const user = await UserRepository.findById(userId);
-    if (!user || user.organizationId !== organizationId) {
+    // Import OrganizationMembershipService
+    const { OrganizationMembershipService } = await import("./organization-membership.service.js");
+    
+    // Verify user is a member of the organization
+    const isMember = await OrganizationMembershipService.isMember(userId, organizationId);
+    if (!isMember) {
       throw new ForbiddenError("Você não tem acesso a esta organização");
     }
 
-    const members = await OrganizationRepository.getMembers(organizationId);
+    // Get all memberships for this organization
+    const memberships = await OrganizationMembershipService.getOrganizationMembers(organizationId);
     
-    return members.map(member => ({
-      id: member.id,
-      email: member.email || undefined,
-      phone: member.phone || undefined,
-      firstName: member.firstName || undefined,
-      lastName: member.lastName || undefined,
-      role: member.role || 'member',
-      createdAt: member.createdAt || undefined,
-    }));
+    // Get user details for each membership
+    const membersPromises = memberships.map(async (membership) => {
+      const user = await UserRepository.findById(membership.userId);
+      if (!user) return null;
+      
+      return {
+        id: user.id,
+        email: user.email || undefined,
+        phone: user.phone || undefined,
+        firstName: user.firstName || undefined,
+        lastName: user.lastName || undefined,
+        role: membership.role || 'member',
+        createdAt: membership.joinedAt || user.createdAt || undefined,
+      } as OrganizationMember;
+    });
+    
+    const members = await Promise.all(membersPromises);
+    
+    // Filter out null values and return
+    return members.filter((m): m is OrganizationMember => m !== null);
   }
 
   /**

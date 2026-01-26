@@ -6,7 +6,7 @@ import { useAccounts } from '../../accounts/hooks/use-accounts';
 import { Button } from '../../../shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
-import { Select } from '../../../shared/components/ui/select';
+import { SelectNative as Select } from '../../../shared/components/ui/select-native';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
 import { showConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
 import type { CreateTransferRequest } from '../../../shared/types';

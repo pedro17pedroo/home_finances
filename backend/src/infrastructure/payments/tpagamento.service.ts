@@ -163,6 +163,18 @@ class TPagamentoService {
       // Handle nested response structure: { success: true, data: { id, reference, ... } }
       const paymentData = response.data.data || response.data;
       
+      // Check if payment failed
+      if (paymentData.status === 'failed') {
+        return {
+          success: false,
+          message: paymentData.message || 'Pagamento falhou. Por favor tente novamente.',
+          paymentId: paymentData.id,
+          referenceCode: paymentData.reference,
+          status: 'failed',
+          data: paymentData,
+        };
+      }
+      
       return {
         success: true,
         paymentId: paymentData.id,
@@ -213,6 +225,18 @@ class TPagamentoService {
 
       // Handle nested response structure: { success: true, data: { id, reference, ... } }
       const paymentData = response.data.data || response.data;
+
+      // Check if payment failed
+      if (paymentData.status === 'failed') {
+        return {
+          success: false,
+          message: paymentData.message || 'Pagamento falhou. Por favor tente novamente.',
+          paymentId: paymentData.id,
+          referenceCode: paymentData.reference,
+          status: 'failed',
+          data: paymentData,
+        };
+      }
 
       return {
         success: true,

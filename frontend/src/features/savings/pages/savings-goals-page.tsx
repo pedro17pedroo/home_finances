@@ -11,7 +11,7 @@ import { AppLayout } from '../../../shared/components/layout/app-layout';
 import { Button } from '../../../shared/components/ui/button';
 import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
-import { Select } from '../../../shared/components/ui/select';
+import { SelectNative as Select } from '../../../shared/components/ui/select-native';
 import { showDeleteConfirm, showSuccessToast, showErrorToast } from '../../../shared/lib/alerts';
 import type { CreateSavingsGoalRequest } from '../../../shared/types';
 

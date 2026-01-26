@@ -62,7 +62,7 @@ const defaultContent: LandingContent = {
       { icon: '🏦', title: 'Contas Bancárias', description: 'Gerencie múltiplas contas correntes e poupanças dos principais bancos angolanos' },
       { icon: '💸', title: 'Transações', description: 'Controle receitas e despesas com categorização automática e transações recorrentes' },
       { icon: '🎯', title: 'Metas de Poupança', description: 'Defina objetivos financeiros e acompanhe o progresso das suas metas' },
-      { icon: '💰', title: 'Empréstimos', description: 'Controle empréstimos dados com juros, vencimentos e alertas automáticos' },
+      { icon: '💰', title: 'Dinheiro Emprestado', description: 'Controle dinheiro emprestado com juros, vencimentos e alertas automáticos' },
       { icon: '💳', title: 'Dívidas', description: 'Gerencie suas dívidas com lembretes de vencimento e planos de pagamento' },
       { icon: '📊', title: 'Relatórios', description: 'Analytics avançados com gráficos, métricas e projeções financeiras' },
     ],

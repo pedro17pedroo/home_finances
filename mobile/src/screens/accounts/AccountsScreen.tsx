@@ -181,9 +181,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({ navigation }) =>
                       <Text style={[styles.accountName, { color: colors.text }]}>
                         {account.name}
                       </Text>
-                      {account.bank && (
+                      {(account.bankName || account.bank) && (
                         <Text style={[styles.accountBank, { color: colors.textSecondary }]}>
-                          {account.bank}
+                          {account.bankName || account.bank}
                         </Text>
                       )}
                       <Badge

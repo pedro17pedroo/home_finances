@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '../../../shared/components/ui/button';
 import { Card } from '../../../shared/components/ui/card';
 import { Input } from '../../../shared/components/ui/input';
-import { Select } from '../../../shared/components/ui/select';
+import { SelectNative as Select } from '../../../shared/components/ui/select-native';
 import { showError, showSuccess } from '../../../shared/lib/alerts';
 
 export function ExportPage() {

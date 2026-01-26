@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,131 +16,29 @@ import { StatCard } from '../../components/ui/StatCard';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useDate } from '../../hooks/useDate';
 import { COLORS, SPACING } from '../../constants/config';
-
-interface Notification {
-  id: number;
-  type: 'debt_due' | 'loan_due' | 'goal_achieved' | 'low_balance' | 'transaction' | 'system';
-  title: string;
-  message: string;
-  isRead: boolean;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  createdAt: string;
-  actionUrl?: string;
-  metadata?: {
-    amount?: string;
-    entityName?: string;
-    dueDate?: string;
-  };
-}
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface NotificationsScreenProps {
   navigation: any;
 }
 
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation }) => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'urgent'>('all');
   const { formatCurrency } = useCurrency();
   const { formatDate, formatRelativeDate } = useDate();
-
-  const fetchNotifications = async () => {
-    try {
-      // Simular dados de notificações
-      const mockNotifications: Notification[] = [
-        {
-          id: 1,
-          type: 'debt_due',
-          title: 'Dívida Vencendo Hoje',
-          message: 'Sua dívida com Cartão de Crédito BFA vence hoje',
-          isRead: false,
-          priority: 'urgent',
-          createdAt: '2024-12-18T08:00:00Z',
-          metadata: {
-            amount: '85000.00',
-            entityName: 'Cartão de Crédito BFA',
-            dueDate: '2024-12-18T23:59:59Z',
-          },
-        },
-        {
-          id: 2,
-          type: 'loan_due',
-          title: 'Empréstimo Vence em 3 Dias',
-          message: 'O empréstimo para João Silva vence em 3 dias',
-          isRead: false,
-          priority: 'high',
-          createdAt: '2024-12-18T07:30:00Z',
-          metadata: {
-            amount: '150000.00',
-            entityName: 'João Silva',
-            dueDate: '2024-12-21T00:00:00Z',
-          },
-        },
-        {
-          id: 3,
-          type: 'goal_achieved',
-          title: 'Meta Atingida! 🎉',
-          message: 'Parabéns! Você atingiu sua meta "Casa Própria"',
-          isRead: true,
-          priority: 'medium',
-          createdAt: '2024-12-17T15:20:00Z',
-          metadata: {
-            amount: '2000000.00',
-            entityName: 'Casa Própria',
-          },
-        },
-        {
-          id: 4,
-          type: 'low_balance',
-          title: 'Saldo Baixo',
-          message: 'Sua conta BAI está com saldo baixo',
-          isRead: false,
-          priority: 'medium',
-          createdAt: '2024-12-17T12:00:00Z',
-          metadata: {
-            amount: '15000.00',
-            entityName: 'Conta Corrente BAI',
-          },
-        },
-        {
-          id: 5,
-          type: 'transaction',
-          title: 'Nova Transação',
-          message: 'Receita de 150.000 AOA foi registrada',
-          isRead: true,
-          priority: 'low',
-          createdAt: '2024-12-16T14:45:00Z',
-          metadata: {
-            amount: '150000.00',
-          },
-        },
-        {
-          id: 6,
-          type: 'system',
-          title: 'Backup Realizado',
-          message: 'Backup automático dos seus dados foi concluído',
-          isRead: true,
-          priority: 'low',
-          createdAt: '2024-12-15T02:00:00Z',
-        },
-      ];
-      setNotifications(mockNotifications);
-    } catch (error) {
-      console.error('Erro ao carregar notificações:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
+  const {
+    notifications,
+    loading,
+    refreshing,
+    unreadCount,
+    markAsRead: markNotificationAsRead,
+    markAllAsRead,
+    deleteNotification,
+    refresh,
+  } = useNotifications();
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchNotifications();
+    refresh();
   };
 
   const getFilteredNotifications = () => {
@@ -147,66 +46,98 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
       case 'unread':
         return notifications.filter(n => !n.isRead);
       case 'urgent':
-        return notifications.filter(n => n.priority === 'urgent' || n.priority === 'high');
+        return notifications.filter(n => n.type === 'error' || n.type === 'warning');
       default:
         return notifications;
     }
   };
 
-  const getUnreadCount = () => notifications.filter(n => !n.isRead).length;
-  const getUrgentCount = () => notifications.filter(n => n.priority === 'urgent').length;
+  const getUnreadCount = () => unreadCount;
+  const getUrgentCount = () => notifications.filter(n => n.type === 'error' || n.type === 'warning').length;
 
-  const markAsRead = (notificationId: number) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, isRead: true }
-          : notification
-      )
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await markNotificationAsRead(notificationId);
+    } catch (error) {
+      // Error already handled in hook
+    }
+  };
+
+  const handleNotificationPress = async (notification: any) => {
+    // Mark as read
+    if (!notification.isRead) {
+      await markAsRead(notification.id);
+    }
+
+    // Navigate based on category and metadata
+    if (notification.category === 'budget' && notification.metadata?.budgetId) {
+      navigation.navigate('BudgetDetail', { budgetId: notification.metadata.budgetId });
+    } else if (notification.actionUrl) {
+      // Handle other navigation based on actionUrl
+      // This could be expanded for other notification types
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsRead();
+    } catch (error) {
+      // Error already handled in hook
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId: string) => {
+    Alert.alert(
+      'Excluir Notificação',
+      'Tem certeza que deseja excluir esta notificação?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteNotification(notificationId);
+            } catch (error) {
+              // Error already handled in hook
+            }
+          },
+        },
+      ]
     );
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
-  };
-
-  const deleteNotification = (notificationId: number) => {
-    setNotifications(prev =>
-      prev.filter(notification => notification.id !== notificationId)
-    );
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
+  const getPriorityColor = (type: string) => {
+    switch (type) {
+      case 'error':
         return COLORS.error;
-      case 'high':
+      case 'warning':
         return '#FF6B35';
-      case 'medium':
-        return COLORS.warning;
-      case 'low':
-        return COLORS.textSecondary;
+      case 'success':
+        return COLORS.success;
+      case 'info':
+        return COLORS.info;
       default:
         return COLORS.textSecondary;
     }
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'debt_due':
+  const getTypeIcon = (category: string) => {
+    switch (category) {
+      case 'debt':
         return 'card';
-      case 'loan_due':
+      case 'loan':
         return 'cash';
-      case 'goal_achieved':
+      case 'savings':
         return 'trophy';
-      case 'low_balance':
+      case 'account':
         return 'wallet';
-      case 'transaction':
-        return 'swap-horizontal';
-      case 'system':
-        return 'settings';
+      case 'recurring':
+        return 'repeat';
+      case 'budget':
+        return 'pie-chart';
+      case 'general':
+        return 'notifications';
       default:
         return 'notifications';
     }
@@ -214,18 +145,14 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'debt_due':
+      case 'error':
         return COLORS.error;
-      case 'loan_due':
-        return COLORS.success;
-      case 'goal_achieved':
+      case 'warning':
         return COLORS.warning;
-      case 'low_balance':
-        return COLORS.error;
-      case 'transaction':
-        return COLORS.primary;
-      case 'system':
-        return COLORS.textSecondary;
+      case 'success':
+        return COLORS.success;
+      case 'info':
+        return COLORS.info;
       default:
         return COLORS.primary;
     }
@@ -345,7 +272,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
           <View style={styles.quickActionsContainer}>
             <Button
               title={`Marcar Todas como Lidas (${getUnreadCount()})`}
-              onPress={markAllAsRead}
+              onPress={handleMarkAllAsRead}
               variant="outline"
               size="sm"
             />
@@ -371,8 +298,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
             </Card>
           ) : (
             filteredNotifications.map((notification) => {
-              const priorityColor = getPriorityColor(notification.priority);
-              const typeIcon = getTypeIcon(notification.type);
+              const priorityColor = getPriorityColor(notification.type);
+              const typeIcon = getTypeIcon(notification.category);
               const typeColor = getTypeColor(notification.type);
               
               return (
@@ -381,9 +308,9 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
                   style={[
                     styles.notificationCard,
                     !notification.isRead && styles.unreadCard,
-                    notification.priority === 'urgent' && styles.urgentCard,
+                    notification.type === 'error' && styles.urgentCard,
                   ]}
-                  onPress={() => markAsRead(notification.id)}
+                  onPress={() => handleNotificationPress(notification)}
                 >
                   <View style={styles.notificationHeader}>
                     <View style={styles.notificationIcon}>
@@ -411,9 +338,9 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
                         {notification.message}
                       </Text>
                       
-                      {notification.metadata?.amount && (
-                        <Text style={styles.notificationAmount}>
-                          💰 {formatCurrency(parseFloat(notification.metadata.amount))}
+                      {notification.actionText && (
+                        <Text style={styles.notificationAction}>
+                          👉 {notification.actionText}
                         </Text>
                       )}
                       
@@ -430,9 +357,9 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
                             styles.priorityText,
                             { color: priorityColor }
                           ]}>
-                            {notification.priority === 'urgent' ? 'Urgente' :
-                             notification.priority === 'high' ? 'Alta' :
-                             notification.priority === 'medium' ? 'Média' : 'Baixa'}
+                            {notification.type === 'error' ? 'Urgente' :
+                             notification.type === 'warning' ? 'Atenção' :
+                             notification.type === 'success' ? 'Sucesso' : 'Info'}
                           </Text>
                         </View>
                       </View>
@@ -440,7 +367,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
                     
                     <TouchableOpacity
                       style={styles.deleteButton}
-                      onPress={() => deleteNotification(notification.id)}
+                      onPress={() => handleDeleteNotification(notification.id)}
                     >
                       <Ionicons name="close" size={16} color={COLORS.textSecondary} />
                     </TouchableOpacity>
@@ -604,7 +531,13 @@ const styles = StyleSheet.create({
   },
   notificationAmount: {
     fontSize: 12,
-    color: COLORS.success,
+    color: COLORS.primary,
+    fontWeight: '500',
+    marginBottom: SPACING.xs,
+  },
+  notificationAction: {
+    fontSize: 12,
+    color: COLORS.primary,
     fontWeight: '500',
     marginBottom: SPACING.xs,
   },

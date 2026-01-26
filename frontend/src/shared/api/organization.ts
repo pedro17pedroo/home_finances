@@ -4,6 +4,7 @@ export interface Organization {
   id: number;
   name: string;
   ownerId: number;
+  role?: string; // User's role in this organization
   planType: string;
   subscriptionStatus: string;
   maxUsers: number;
@@ -60,10 +61,30 @@ export interface InvitationDetails {
   expiresAt: string;
 }
 
-// Get current user's organization
+// Get current user's active organization
 export async function getMyOrganization(): Promise<Organization> {
   const response = await apiClient.get('/organizations/my');
-  return response.data.data;
+  const organizations = response.data.data?.organizations || [];
+  
+  // Find the active organization or return the first one
+  const activeOrg = organizations.find((org: any) => org.isActive) || organizations[0];
+  
+  if (!activeOrg) {
+    throw new Error('Nenhuma organização encontrada');
+  }
+  
+  // Map to Organization interface
+  return {
+    id: activeOrg.id,
+    name: activeOrg.name,
+    ownerId: activeOrg.ownerId,
+    role: activeOrg.role, // User's role in this organization
+    planType: activeOrg.subscription?.planType || 'basic',
+    subscriptionStatus: activeOrg.subscription?.status || 'trialing',
+    maxUsers: activeOrg.maxUsers || 1,
+    createdAt: activeOrg.createdAt || new Date().toISOString(),
+    updatedAt: activeOrg.updatedAt || new Date().toISOString(),
+  };
 }
 
 // Get all user's organizations (memberships)
