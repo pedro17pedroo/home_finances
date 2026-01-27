@@ -21,6 +21,7 @@ import passwordResetRoutes from "./password-reset.routes.js";
 import landingContentRoutes from "./landing-content.routes.js";
 import accountTypesRoutes from "./account-types.js";
 import budgetRoutes from "./budget.routes.js";
+import appDownloadRoutes from "./app-download.routes.js";
 
 const router = Router();
 
@@ -57,5 +58,6 @@ router.use("/subscriptions", subscriptionRoutes);
 router.use("/organizations", organizationRoutes);
 router.use("/landing-content", landingContentRoutes);
 router.use("/budgets", budgetRoutes);
+router.use("/app-downloads", appDownloadRoutes);
 
 export default router;

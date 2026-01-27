@@ -487,21 +487,36 @@ export class AdminRepository {
   }
 
   static async getAuditLogs(limit: number = 100, offset: number = 0) {
-    return await db
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(auditLogs);
+
+    // Get logs with admin info
+    const logs = await db
       .select({
         id: auditLogs.id,
+        adminUserId: auditLogs.adminUserId,
+        adminEmail: adminUsers.email,
         action: auditLogs.action,
         entityType: auditLogs.entityType,
         entityId: auditLogs.entityId,
-        details: auditLogs.newData,
+        oldData: auditLogs.oldData,
+        newData: auditLogs.newData,
+        ipAddress: auditLogs.ipAddress,
+        userAgent: auditLogs.userAgent,
         createdAt: auditLogs.createdAt,
-        adminEmail: adminUsers.email
       })
       .from(auditLogs)
       .leftJoin(adminUsers, eq(auditLogs.adminUserId, adminUsers.id))
       .orderBy(desc(auditLogs.createdAt))
       .limit(limit)
       .offset(offset);
+
+    return {
+      logs,
+      total: Number(count),
+    };
   }
 
   // User Status Management

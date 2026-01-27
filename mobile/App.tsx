@@ -7,6 +7,7 @@ import { View, ActivityIndicator, Text } from 'react-native';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ToastProvider } from './src/contexts/ToastContext';
+import { NotificationProvider } from './src/contexts/NotificationContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { NetworkStatus } from './src/components/NetworkStatus';
@@ -69,9 +70,11 @@ export default function App() {
           <QueryClientProvider client={queryClient}>
             <ThemeProvider>
               <AuthProvider>
-                <ToastProvider>
-                  <AppContent />
-                </ToastProvider>
+                <NotificationProvider>
+                  <ToastProvider>
+                    <AppContent />
+                  </ToastProvider>
+                </NotificationProvider>
               </AuthProvider>
             </ThemeProvider>
           </QueryClientProvider>

@@ -8,12 +8,15 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useCurrency } from '../../hooks/useCurrency';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { SPACING } from '../../constants/config';
+import api from '../../services/api';
 import {
   getBudget,
   deleteBudget,
@@ -25,6 +28,14 @@ import {
   AlertPosition,
   ThresholdType,
 } from '../../services/budget.service';
+
+interface Category {
+  id: number;
+  name: string;
+  type: 'receita' | 'despesa';
+  icon: string;
+  color: string;
+}
 
 /**
  * Budget Detail Screen
@@ -41,7 +52,7 @@ import {
 export default function BudgetDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const { showToast } = useToast();
   const { formatCurrency } = useCurrency();
 
@@ -50,6 +61,7 @@ export default function BudgetDetailScreen() {
 
   const [budget, setBudget] = useState<BudgetWithStatus | null>(null);
   const [history, setHistory] = useState<BudgetHistory[]>([]);
+  const [category, setCategory] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -63,9 +75,21 @@ export default function BudgetDetailScreen() {
       ]);
       setBudget(budgetData);
       setHistory(historyData);
+      
+      // Carregar informações da categoria
+      if (budgetData.categoryId) {
+        try {
+          const categoriesRes = await api.get('/categories');
+          const categories = categoriesRes.data?.data || categoriesRes.data || [];
+          const foundCategory = categories.find((cat: Category) => cat.id === budgetData.categoryId);
+          setCategory(foundCategory || null);
+        } catch (error) {
+          console.error('Error loading category:', error);
+        }
+      }
     } catch (error) {
       console.error('Error loading budget:', error);
-      showToast('Erro ao carregar orçamento', 'error');
+      showToast({ message: 'Erro ao carregar orçamento', type: 'error' });
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -77,16 +101,23 @@ export default function BudgetDetailScreen() {
     loadData();
   }, [loadData]);
 
+  // Recarregar quando a tela ganhar foco (após editar)
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadData();
   }, [loadData]);
 
   const handleEdit = () => {
-    navigation.navigate('BudgetForm' as never, {
+    (navigation as any).navigate('BudgetForm', {
       mode: 'edit',
       budgetId,
-    } as never);
+    });
   };
 
   const handleDelete = () => {
@@ -101,11 +132,11 @@ export default function BudgetDetailScreen() {
           onPress: async () => {
             try {
               await deleteBudget(budgetId!);
-              showToast('Orçamento excluído com sucesso', 'success');
+              showToast({ message: 'Orçamento excluído com sucesso', type: 'success' });
               navigation.goBack();
             } catch (error) {
               console.error('Error deleting budget:', error);
-              showToast('Erro ao excluir orçamento', 'error');
+              showToast({ message: 'Erro ao excluir orçamento', type: 'error' });
             }
           },
         },
@@ -134,72 +165,98 @@ export default function BudgetDetailScreen() {
   };
 
   const getProgressColor = () => {
-    if (!budget) return theme.colors.success;
-    if (budget.isExceeded) return theme.colors.error;
-    if (budget.percentageUsed >= 90) return theme.colors.warning;
-    return theme.colors.success;
+    if (!budget) return colors.success;
+    if (budget.isExceeded) return colors.error;
+    if (budget.percentageUsed >= 90) return colors.warning;
+    return colors.success;
   };
 
   if (loading || !budget) {
-    return <LoadingSpinner />;
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+        <LoadingSpinner />
+      </SafeAreaView>
+    );
   }
 
   const progressWidth = Math.min(budget.percentageUsed, 100);
   const progressColor = getProgressColor();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <View style={styles.headerTitle}>
+          <Text style={[styles.title, { color: colors.text }]}>Detalhes do Orçamento</Text>
+        </View>
+        <View style={styles.placeholder} />
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
+        showsVerticalScrollIndicator={false}
       >
         {/* Budget Info Card */}
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
               Informações do Orçamento
             </Text>
             {budget.status !== BudgetStatus.ACTIVE && (
-              <Text style={[styles.statusBadge, { color: theme.colors.textSecondary }]}>
+              <Text style={[styles.statusBadge, { color: colors.textSecondary }]}>
                 {budget.status === BudgetStatus.INACTIVE ? 'Inativo' : 'Arquivado'}
               </Text>
             )}
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
               Categoria:
             </Text>
-            <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-              #{budget.categoryId}
-            </Text>
+            <View style={styles.categoryInfo}>
+              {category && (
+                <View style={[styles.categoryIcon, { backgroundColor: category.color + '20' }]}>
+                  <Ionicons name={category.icon as any} size={16} color={category.color} />
+                </View>
+              )}
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {category ? category.name : `#${budget.categoryId}`}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
               Período:
             </Text>
-            <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
               {getTimePeriodLabel(budget.timePeriod)}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
               Valor do Orçamento:
             </Text>
-            <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
               {formatCurrency(budget.amount)}
             </Text>
           </View>
         </View>
 
         {/* Spending Card */}
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
             Gastos Atuais
           </Text>
 
@@ -216,7 +273,7 @@ export default function BudgetDetailScreen() {
             <View
               style={[
                 styles.progressBar,
-                { backgroundColor: theme.colors.border },
+                { backgroundColor: colors.border },
               ]}
             >
               <View
@@ -232,11 +289,11 @@ export default function BudgetDetailScreen() {
           </View>
 
           {budget.isExceeded ? (
-            <Text style={[styles.remainingText, { color: theme.colors.error }]}>
+            <Text style={[styles.remainingText, { color: colors.error }]}>
               Excedido em {formatCurrency(budget.exceededAmount)}
             </Text>
           ) : (
-            <Text style={[styles.remainingText, { color: theme.colors.success }]}>
+            <Text style={[styles.remainingText, { color: colors.success }]}>
               Restante: {formatCurrency(budget.remainingAmount)}
             </Text>
           )}
@@ -244,8 +301,8 @@ export default function BudgetDetailScreen() {
 
         {/* Alerts Card */}
         {budget.alerts.length > 0 && (
-          <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
               Alertas Configurados
             </Text>
 
@@ -254,17 +311,17 @@ export default function BudgetDetailScreen() {
                 key={alert.id}
                 style={[
                   styles.alertItem,
-                  { borderBottomColor: theme.colors.border },
+                  { borderBottomColor: colors.border },
                   index === budget.alerts.length - 1 && styles.alertItemLast,
                 ]}
               >
                 <Ionicons
                   name="notifications-outline"
                   size={20}
-                  color={theme.colors.primary}
+                  color={colors.primary}
                 />
                 <View style={styles.alertInfo}>
-                  <Text style={[styles.alertText, { color: theme.colors.text }]}>
+                  <Text style={[styles.alertText, { color: colors.text }]}>
                     {getAlertLabel(alert)}
                   </Text>
                   <View style={styles.channelsRow}>
@@ -274,13 +331,13 @@ export default function BudgetDetailScreen() {
                           key={channel.type}
                           style={[
                             styles.channelBadge,
-                            { backgroundColor: `${theme.colors.primary}20` },
+                            { backgroundColor: `${colors.primary}20` },
                           ]}
                         >
                           <Text
                             style={[
                               styles.channelText,
-                              { color: theme.colors.primary },
+                              { color: colors.primary },
                             ]}
                           >
                             {channel.type === 'in_app'
@@ -301,8 +358,8 @@ export default function BudgetDetailScreen() {
 
         {/* History Card */}
         {history.length > 0 && (
-          <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
               Histórico de Períodos
             </Text>
 
@@ -311,27 +368,27 @@ export default function BudgetDetailScreen() {
                 key={period.id}
                 style={[
                   styles.historyItem,
-                  { borderBottomColor: theme.colors.border },
+                  { borderBottomColor: colors.border },
                   index === history.length - 1 && styles.historyItemLast,
                 ]}
               >
-                <Text style={[styles.historyDate, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.historyDate, { color: colors.textSecondary }]}>
                   {new Date(period.periodStartDate).toLocaleDateString('pt-BR')} -{' '}
                   {new Date(period.periodEndDate).toLocaleDateString('pt-BR')}
                 </Text>
                 <View style={styles.historyRow}>
-                  <Text style={[styles.historyLabel, { color: theme.colors.textSecondary }]}>
+                  <Text style={[styles.historyLabel, { color: colors.textSecondary }]}>
                     Gasto:
                   </Text>
-                  <Text style={[styles.historyValue, { color: theme.colors.text }]}>
+                  <Text style={[styles.historyValue, { color: colors.text }]}>
                     {formatCurrency(period.finalSpendingAmount)}
                   </Text>
                 </View>
                 <View style={styles.historyRow}>
-                  <Text style={[styles.historyLabel, { color: theme.colors.textSecondary }]}>
+                  <Text style={[styles.historyLabel, { color: colors.textSecondary }]}>
                     Percentual:
                   </Text>
-                  <Text style={[styles.historyValue, { color: theme.colors.text }]}>
+                  <Text style={[styles.historyValue, { color: colors.text }]}>
                     {period.percentageUsed.toFixed(1)}%
                   </Text>
                 </View>
@@ -343,7 +400,7 @@ export default function BudgetDetailScreen() {
         {/* Action Buttons */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+            style={[styles.actionButton, { backgroundColor: colors.primary }]}
             onPress={handleEdit}
           >
             <Ionicons name="pencil" size={20} color="#fff" />
@@ -351,7 +408,7 @@ export default function BudgetDetailScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
+            style={[styles.actionButton, { backgroundColor: colors.error }]}
             onPress={handleDelete}
           >
             <Ionicons name="trash" size={20} color="#fff" />
@@ -359,7 +416,7 @@ export default function BudgetDetailScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -367,16 +424,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  placeholder: {
+    width: 40,
+  },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 16,
+    padding: SPACING.md,
   },
   card: {
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -387,7 +469,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.md,
   },
   cardTitle: {
     fontSize: 18,
@@ -400,7 +482,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: SPACING.sm,
   },
   infoLabel: {
     fontSize: 14,
@@ -409,11 +491,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  categoryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  categoryIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   spendingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.md,
   },
   spendingAmount: {
     fontSize: 24,
@@ -424,7 +518,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   progressBarContainer: {
-    marginBottom: 12,
+    marginBottom: SPACING.sm,
   },
   progressBar: {
     height: 12,
@@ -442,7 +536,7 @@ const styles = StyleSheet.create({
   alertItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
+    paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
   },
   alertItemLast: {
@@ -450,21 +544,21 @@ const styles = StyleSheet.create({
   },
   alertInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: SPACING.sm,
   },
   alertText: {
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: SPACING.xs,
   },
   channelsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   channelBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.xs,
     paddingVertical: 4,
     borderRadius: 4,
-    marginRight: 8,
+    marginRight: SPACING.xs,
     marginBottom: 4,
   },
   channelText: {
@@ -472,7 +566,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   historyItem: {
-    paddingVertical: 12,
+    paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
   },
   historyItemLast: {
@@ -480,7 +574,7 @@ const styles = StyleSheet.create({
   },
   historyDate: {
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: SPACING.xs,
   },
   historyRow: {
     flexDirection: 'row',
@@ -496,18 +590,18 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 32,
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.xxl,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: SPACING.md,
     borderRadius: 8,
-    gap: 8,
+    gap: SPACING.xs,
   },
   actionButtonText: {
     color: '#fff',

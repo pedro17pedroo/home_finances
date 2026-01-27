@@ -9,6 +9,8 @@ import {
   Eye,
   XCircle,
   MapPin,
+  FileText,
+  User,
 } from 'lucide-react';
 import { AdminLayout } from '../../../shared/components/layout/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/components/ui/card';
@@ -37,10 +39,27 @@ interface BlockedIP {
   expiresAt: string | null;
 }
 
+interface AuditLog {
+  id: number;
+  adminUserId: number | null;
+  adminEmail?: string;
+  action: string;
+  entityType: string | null;
+  entityId: number | null;
+  oldData: any;
+  newData: any;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
 export function SecurityPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'events' | 'blocked'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'blocked' | 'logs'>('events');
   const [selectedEvent, setSelectedEvent] = useState<SecurityEvent | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [logsPage, setLogsPage] = useState(1);
+  const logsLimit = 50;
 
   const { data: events } = useQuery<SecurityEvent[]>({
     queryKey: ['admin', 'security', 'events'],
@@ -70,6 +89,15 @@ export function SecurityPage() {
           { id: 2, ipAddress: '192.168.100.200', reason: 'Atividade maliciosa', isActive: true, createdAt: '2024-06-10T12:00:00', expiresAt: '2024-07-10T12:00:00' },
         ];
       }
+    },
+  });
+
+  const { data: auditLogs, isLoading: isLoadingLogs } = useQuery<{ logs: AuditLog[]; total: number }>({
+    queryKey: ['admin', 'audit-logs', logsPage],
+    queryFn: async () => {
+      const response = await apiClient.get(`/admin/audit-logs?page=${logsPage}&limit=${logsLimit}`);
+      console.log('Audit logs response:', response.data);
+      return response.data.data.logs;
     },
   });
 
@@ -113,6 +141,31 @@ export function SecurityPage() {
     };
     return labels[type] || type;
   };
+
+  const getActionLabel = (action: string) => {
+    const labels: Record<string, string> = {
+      'admin.login': 'Login Admin',
+      'admin.create': 'Criar Admin',
+      'admin.update': 'Atualizar Admin',
+      'admin.delete': 'Eliminar Admin',
+      'user.create': 'Criar Utilizador',
+      'user.update': 'Atualizar Utilizador',
+      'user.delete': 'Eliminar Utilizador',
+      'plan.create': 'Criar Plano',
+      'plan.update': 'Atualizar Plano',
+      'plan.delete': 'Eliminar Plano',
+      'payment.approve': 'Aprovar Pagamento',
+      'payment.reject': 'Rejeitar Pagamento',
+      'settings.update': 'Atualizar Configurações',
+      'content.update': 'Atualizar Conteúdo',
+      'security.resolve': 'Resolver Evento',
+      'ip.block': 'Bloquear IP',
+      'ip.unblock': 'Desbloquear IP',
+    };
+    return labels[action] || action;
+  };
+
+  const totalPages = auditLogs ? Math.ceil(auditLogs.total / logsLimit) : 1;
 
   return (
     <AdminLayout title="Segurança">
@@ -158,6 +211,10 @@ export function SecurityPage() {
           <Button variant={activeTab === 'blocked' ? 'default' : 'outline'} onClick={() => setActiveTab('blocked')}>
             <Ban className="w-4 h-4 mr-2" />
             IPs Bloqueados
+          </Button>
+          <Button variant={activeTab === 'logs' ? 'default' : 'outline'} onClick={() => setActiveTab('logs')}>
+            <FileText className="w-4 h-4 mr-2" />
+            Logs do Sistema
           </Button>
         </div>
 
@@ -241,6 +298,103 @@ export function SecurityPage() {
           </Card>
         )}
 
+        {/* Audit Logs Table */}
+        {activeTab === 'logs' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-gray-900 dark:text-white">Logs do Sistema</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Data/Hora</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Admin</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Ação</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Entidade</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">IP</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isLoadingLogs ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                          A carregar logs...
+                        </td>
+                      </tr>
+                    ) : !auditLogs?.logs || auditLogs.logs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                          Nenhum log encontrado
+                        </td>
+                      </tr>
+                    ) : (
+                      auditLogs.logs.map((log) => (
+                      <tr key={log.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatDate(log.createdAt)}</td>
+                        <td className="py-3 px-4 text-gray-900 dark:text-white">
+                          <div className="flex items-center">
+                            <User className="w-4 h-4 mr-1 text-gray-400" />
+                            {log.adminEmail || `Admin #${log.adminUserId || 'Sistema'}`}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-gray-900 dark:text-white">{getActionLabel(log.action)}</td>
+                        <td className="py-3 px-4 text-gray-600 dark:text-gray-300">
+                          {log.entityType && log.entityId ? (
+                            <span className="text-sm">
+                              {log.entityType} #{log.entityId}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-sm text-gray-600 dark:text-gray-300">{log.ipAddress || '-'}</td>
+                        <td className="py-3 px-4">
+                          <button onClick={() => setSelectedLog(log)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded">
+                            <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                          </button>
+                        </td>
+                      </tr>
+                    )))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {auditLogs && auditLogs.total > logsLimit && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Mostrando {((logsPage - 1) * logsLimit) + 1} - {Math.min(logsPage * logsLimit, auditLogs.total)} de {auditLogs.total} registos
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setLogsPage(p => Math.max(1, p - 1))}
+                      disabled={logsPage === 1}
+                    >
+                      Anterior
+                    </Button>
+                    <div className="flex items-center px-3 text-sm text-gray-600 dark:text-gray-400">
+                      Página {logsPage} de {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setLogsPage(p => Math.min(totalPages, p + 1))}
+                      disabled={logsPage === totalPages}
+                    >
+                      Próxima
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Event Detail Modal */}
         {selectedEvent && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -266,6 +420,68 @@ export function SecurityPage() {
                   </Button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Audit Log Detail Modal */}
+        {selectedLog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Detalhes do Log</h3>
+                <button onClick={() => setSelectedLog(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 text-sm">Data/Hora:</span>
+                  <p className="font-medium text-gray-900 dark:text-white">{formatDate(selectedLog.createdAt)}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 text-sm">Administrador:</span>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedLog.adminEmail || `Admin #${selectedLog.adminUserId || 'Sistema'}`}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 text-sm">Ação:</span>
+                  <p className="font-medium text-gray-900 dark:text-white">{getActionLabel(selectedLog.action)}</p>
+                </div>
+                {selectedLog.entityType && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">Entidade:</span>
+                    <p className="font-medium text-gray-900 dark:text-white">{selectedLog.entityType} #{selectedLog.entityId}</p>
+                  </div>
+                )}
+                {selectedLog.ipAddress && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">Endereço IP:</span>
+                    <p className="font-mono text-gray-900 dark:text-white">{selectedLog.ipAddress}</p>
+                  </div>
+                )}
+                {selectedLog.userAgent && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">User Agent:</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 break-all">{selectedLog.userAgent}</p>
+                  </div>
+                )}
+                {selectedLog.oldData && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">Dados Anteriores:</span>
+                    <pre className="mt-1 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-x-auto text-gray-900 dark:text-white">
+                      {JSON.stringify(selectedLog.oldData, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {selectedLog.newData && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">Dados Novos:</span>
+                    <pre className="mt-1 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-x-auto text-gray-900 dark:text-white">
+                      {JSON.stringify(selectedLog.newData, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

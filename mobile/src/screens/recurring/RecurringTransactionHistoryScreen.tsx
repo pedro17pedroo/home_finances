@@ -20,11 +20,16 @@ import { SPACING } from '../../constants/config';
 interface ExecutionHistory {
   id: number;
   recurringTransactionId: number;
-  transactionId: number;
-  executedAt: string;
+  transactionId: number | null;
+  scheduledDate: string;
+  executedDate: string | null;
+  status: 'completed' | 'failed' | 'pending';
   amount: string;
-  status: 'success' | 'failed' | 'skipped';
-  errorMessage?: string;
+  accountBalanceBefore: string | null;
+  accountBalanceAfter: string | null;
+  errorMessage: string | null;
+  transactionDescription: string | null;
+  createdAt: string;
 }
 
 export function RecurringTransactionHistoryScreen() {
@@ -61,14 +66,56 @@ export function RecurringTransactionHistoryScreen() {
     loadHistory();
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('pt-AO', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const formatDate = (date: string | null | undefined) => {
+    if (!date) return 'Data não disponível';
+    
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return 'Data inválida';
+      
+      return dateObj.toLocaleDateString('pt-AO', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch (error) {
+      return 'Data inválida';
+    }
+  };
+
+  const formatDateTime = (date: string | null | undefined) => {
+    if (!date) return 'Data não disponível';
+    
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return 'Data inválida';
+      
+      return dateObj.toLocaleDateString('pt-AO', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (error) {
+      return 'Data inválida';
+    }
+  };
+
+  const formatTime = (date: string | null | undefined) => {
+    if (!date) return '--:--';
+    
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return '--:--';
+      
+      return dateObj.toLocaleTimeString('pt-AO', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (error) {
+      return '--:--';
+    }
   };
 
   const formatCurrency = (amount: string) => {
@@ -80,12 +127,12 @@ export function RecurringTransactionHistoryScreen() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'success':
+      case 'completed':
         return 'checkmark-circle';
       case 'failed':
         return 'close-circle';
-      case 'skipped':
-        return 'remove-circle';
+      case 'pending':
+        return 'time';
       default:
         return 'help-circle';
     }
@@ -93,11 +140,11 @@ export function RecurringTransactionHistoryScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'success':
+      case 'completed':
         return colors.success;
       case 'failed':
         return colors.error;
-      case 'skipped':
+      case 'pending':
         return colors.warning;
       default:
         return colors.textSecondary;
@@ -106,12 +153,12 @@ export function RecurringTransactionHistoryScreen() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'success':
-        return 'Executada';
+      case 'completed':
+        return 'Concluída';
       case 'failed':
         return 'Falhou';
-      case 'skipped':
-        return 'Ignorada';
+      case 'pending':
+        return 'Pendente';
       default:
         return status;
     }
@@ -155,11 +202,23 @@ export function RecurringTransactionHistoryScreen() {
         {history.length === 0 ? (
           <EmptyState
             icon="📋"
-            title="Nenhuma execução"
+            title="Nenhuma execução registrada"
             description="Esta transação recorrente ainda não foi executada"
           />
         ) : (
           <>
+            {/* Info Box */}
+            <View style={[styles.infoBox, { backgroundColor: colors.info + '15', borderColor: colors.info }]}>
+              <Ionicons name="information-circle" size={20} color={colors.info} />
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoTitle, { color: colors.text }]}>Sobre as Execuções</Text>
+                <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                  Cada execução bem-sucedida gera uma transação real na sua conta, afetando o saldo disponível. 
+                  Execuções falhadas não geram transações.
+                </Text>
+              </View>
+            </View>
+
             {/* Resumo */}
             <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
               <View style={styles.summaryHeader}>
@@ -177,7 +236,7 @@ export function RecurringTransactionHistoryScreen() {
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: colors.success }]}>
-                    {history.filter(h => h.status === 'success').length}
+                    {history.filter(h => h.status === 'completed').length}
                   </Text>
                   <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
                     Bem-sucedidas
@@ -220,12 +279,14 @@ export function RecurringTransactionHistoryScreen() {
                     <View style={styles.historyContent}>
                       <View style={styles.historyTopRow}>
                         <View style={styles.historyMainInfo}>
-                          <Text style={[styles.historyDate, { color: colors.text }]}>
-                            {formatDate(item.executedAt)}
-                          </Text>
-                          <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
-                            <Text style={[styles.statusText, { color: statusColor }]}>
-                              {statusLabel}
+                          <View style={styles.statusRow}>
+                            <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                              <Text style={[styles.statusText, { color: statusColor }]}>
+                                {statusLabel}
+                              </Text>
+                            </View>
+                            <Text style={[styles.idText, { color: colors.textSecondary }]}>
+                              ID: #{item.id}
                             </Text>
                           </View>
                         </View>
@@ -234,38 +295,61 @@ export function RecurringTransactionHistoryScreen() {
                         </Text>
                       </View>
 
-                      {/* Detalhes adicionais */}
+                      {/* Detalhes de datas */}
                       <View style={styles.historyDetails}>
-                        <View style={styles.detailRow}>
-                          <Ionicons name="receipt-outline" size={14} color={colors.textSecondary} />
-                          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-                            ID da Transação: #{item.transactionId}
-                          </Text>
-                        </View>
                         <View style={styles.detailRow}>
                           <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
                           <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-                            Executada em {new Date(item.executedAt).toLocaleDateString('pt-AO')}
+                            <Text style={styles.detailLabel}>Agendada para:</Text> {formatDateTime(item.scheduledDate)}
                           </Text>
                         </View>
-                        <View style={styles.detailRow}>
-                          <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-                          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-                            às {new Date(item.executedAt).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}
-                          </Text>
-                        </View>
+                        {item.executedDate && (
+                          <View style={styles.detailRow}>
+                            <Ionicons name="checkmark-circle-outline" size={14} color={colors.textSecondary} />
+                            <Text style={[styles.detailText, { color: colors.textSecondary }]}>
+                              <Text style={styles.detailLabel}>Executada em:</Text> {formatDateTime(item.executedDate)}
+                            </Text>
+                          </View>
+                        )}
                       </View>
+
+                      {/* Mensagem de erro */}
+                      {item.errorMessage && (
+                        <View style={[styles.messageBox, { backgroundColor: colors.error + '10', borderColor: colors.error }]}>
+                          <Ionicons name="alert-circle" size={16} color={colors.error} />
+                          <Text style={[styles.messageText, { color: colors.error }]}>
+                            <Text style={styles.messageBold}>Erro:</Text> {item.errorMessage}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Mensagem de sucesso */}
+                      {item.transactionId && (
+                        <View style={[styles.messageBox, { backgroundColor: colors.success + '10', borderColor: colors.success }]}>
+                          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                          <Text style={[styles.messageText, { color: colors.success }]}>
+                            Transação #{item.transactionId} criada com sucesso
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Informação de saldo */}
+                      {item.accountBalanceBefore && item.accountBalanceAfter && (
+                        <View style={[styles.balanceBox, { backgroundColor: colors.info + '10', borderColor: colors.info }]}>
+                          <Text style={[styles.balanceTitle, { color: colors.text }]}>Saldo da Conta:</Text>
+                          <View style={styles.balanceRow}>
+                            <Text style={[styles.balanceValue, { color: colors.text }]}>
+                              {formatCurrency(item.accountBalanceBefore)}
+                            </Text>
+                            <Ionicons name="arrow-forward" size={16} color={colors.textSecondary} />
+                            <Text style={[styles.balanceValue, styles.balanceValueBold, { color: colors.text }]}>
+                              {formatCurrency(item.accountBalanceAfter)}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
                     </View>
                   </View>
-
-                  {item.errorMessage && (
-                    <View style={[styles.errorBox, { backgroundColor: colors.error + '10', borderColor: colors.error }]}>
-                      <Ionicons name="alert-circle" size={16} color={colors.error} />
-                      <Text style={[styles.errorText, { color: colors.error }]}>
-                        {item.errorMessage}
-                      </Text>
-                    </View>
-                  )}
                 </View>
               );
             })}
@@ -318,6 +402,27 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: SPACING.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: SPACING.lg,
+    gap: 12,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   summaryCard: {
     borderRadius: 12,
@@ -410,13 +515,13 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: SPACING.sm,
   },
-  historyDate: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 6,
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
   statusBadge: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
@@ -424,6 +529,9 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  idText: {
+    fontSize: 12,
   },
   historyAmount: {
     fontSize: 18,
@@ -442,18 +550,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
   },
-  errorBox: {
+  detailLabel: {
+    fontWeight: '600',
+  },
+  messageBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: SPACING.md,
+    marginTop: SPACING.sm,
     padding: SPACING.sm,
     borderRadius: 8,
     borderWidth: 1,
     gap: 8,
   },
-  errorText: {
+  messageText: {
     fontSize: 12,
     flex: 1,
     lineHeight: 16,
+  },
+  messageBold: {
+    fontWeight: '600',
+  },
+  balanceBox: {
+    marginTop: SPACING.sm,
+    padding: SPACING.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  balanceTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  balanceValue: {
+    fontSize: 13,
+  },
+  balanceValueBold: {
+    fontWeight: '600',
   },
 });

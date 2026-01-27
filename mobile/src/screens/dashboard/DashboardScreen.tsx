@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotificationContext } from '../../contexts/NotificationContext';
 import { Card, Loading, Badge } from '../../components/ui';
 import { OrganizationSelector } from '../../components/OrganizationSelector';
 import { SPACING, RADIUS } from '../../constants/config';
@@ -33,6 +34,7 @@ interface DashboardScreenProps {
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const { colors, isDark, toggleTheme } = useTheme();
   const { user, activeOrganization } = useAuth();
+  const { unreadCount, refreshUnreadCount } = useNotificationContext();
   
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -95,7 +97,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
   useFocusEffect(
     useCallback(() => {
       fetchDashboardData();
-    }, [])
+      refreshUnreadCount(); // Atualizar contador de notificações
+    }, [refreshUnreadCount])
   );
 
   // Refresh data when active organization changes - Requirements: 3.3
@@ -128,10 +131,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
 
   // Menu principal - navegação para telas dentro do DashboardStack
   const menuItems = [
-    { icon: 'wallet', label: 'Contas', screen: 'Contas', isTab: true, badge: data?.accountsCount },
-    { icon: 'repeat', label: 'Recorrentes', screen: 'RecurringTransactions', isTab: false },
     { icon: 'cash', label: 'Empréstimos', screen: 'Loans', isTab: false },
     { icon: 'card', label: 'Dívidas', screen: 'Debts', isTab: false },
+    { icon: 'wallet', label: 'Orçamento', screen: 'BudgetList', isTab: false },
+    { icon: 'repeat', label: 'Recorrentes', screen: 'RecurringTransactions', isTab: false },
     { icon: 'pricetags', label: 'Categorias', screen: 'Categories', isTab: false },
     { icon: 'download', label: 'Exportar', screen: 'Export', isTab: false },
   ];
@@ -187,6 +190,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
               onPress={() => navigation?.navigate('Notifications')}
             >
               <Ionicons name="notifications-outline" size={20} color={colors.text} />
+              {unreadCount > 0 && (
+                <View style={[styles.notificationBadge, { backgroundColor: colors.error }]}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -334,6 +344,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   orgSelector: {
     marginBottom: SPACING.lg,

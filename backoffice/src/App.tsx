@@ -20,6 +20,8 @@ import { ContentPage } from './features/content/pages/content-page';
 import { NotificationsPage } from './features/notifications/pages/notifications-page';
 import { SecurityPage } from './features/security/pages/security-page';
 import { SettingsPage } from './features/settings/pages/settings-page';
+import { AppDownloadsPage } from './features/app-downloads/pages/AppDownloadsPage';
+import { AccountTypesPage } from './features/account-types/pages/account-types-page';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAdminAuth();
@@ -80,6 +82,9 @@ function AppRoutes() {
       <Route path="/banks">
         <ProtectedRoute><BanksPage /></ProtectedRoute>
       </Route>
+      <Route path="/account-types">
+        <ProtectedRoute><AccountTypesPage /></ProtectedRoute>
+      </Route>
       <Route path="/reports">
         <ProtectedRoute><ReportsPage /></ProtectedRoute>
       </Route>
@@ -94,6 +99,9 @@ function AppRoutes() {
       </Route>
       <Route path="/settings">
         <ProtectedRoute><SettingsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/app-downloads">
+        <ProtectedRoute><AppDownloadsPage /></ProtectedRoute>
       </Route>
       <Route>
         <Redirect to="/" />

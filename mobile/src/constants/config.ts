@@ -6,13 +6,13 @@ import { Platform } from 'react-native';
 // Para alternar entre desenvolvimento e produção, mude esta variável:
 // - true  = usa URL de produção (https://tfinance-backend.tatusolutions.com)
 // - false = usa URL local (seu IP de desenvolvimento)
-const USE_PRODUCTION_API = false;
+const USE_PRODUCTION_API = true;
 
 // IP da sua máquina de desenvolvimento (altere conforme necessário)
 // Para encontrar seu IP: 
 // - Mac/Linux: ifconfig | grep "inet " | grep -v 127.0.0.1
 // - Windows: ipconfig | findstr IPv4
-const DEV_MACHINE_IP = '10.229.207.60';
+const DEV_MACHINE_IP = '192.168.1.230';
 const DEV_PORT = '4005';
 
 // URLs

@@ -7,6 +7,8 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +35,11 @@ export const LoansScreen: React.FC<LoansScreenProps> = ({ navigation }) => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [customMessage, setCustomMessage] = useState('');
+  const [useCustomMessage, setUseCustomMessage] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   const fetchLoans = async () => {
     try {
@@ -144,6 +151,52 @@ export const LoansScreen: React.FC<LoansScreenProps> = ({ navigation }) => {
         },
       ]
     );
+  };
+
+  const openReminderModal = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setCustomMessage('');
+    setUseCustomMessage(false);
+    setReminderModalVisible(true);
+  };
+
+  const closeReminderModal = () => {
+    setReminderModalVisible(false);
+    setSelectedLoan(null);
+    setCustomMessage('');
+    setUseCustomMessage(false);
+  };
+
+  const handleSendReminder = async () => {
+    if (!selectedLoan) return;
+
+    if (useCustomMessage && !customMessage.trim()) {
+      showError('Digite uma mensagem personalizada');
+      return;
+    }
+
+    setSendingReminder(true);
+    try {
+      const data = useCustomMessage && customMessage.trim()
+        ? { customMessage: customMessage.trim() }
+        : {};
+      
+      await api.post(`/loans/${selectedLoan.id}/send-reminder`, data);
+      showSuccess('Lembrete enviado com sucesso!');
+      closeReminderModal();
+    } catch (error: any) {
+      console.error('Erro ao enviar lembrete:', error);
+      showError(error.response?.data?.message || 'Erro ao enviar lembrete');
+    } finally {
+      setSendingReminder(false);
+    }
+  };
+
+  const canSendReminder = (loan: Loan) => {
+    // Pode enviar lembrete se tiver email ou telefone
+    const hasContact = (loan as any).borrowerEmail || (loan as any).borrowerPhone;
+    const isActive = loan.status === 'active' || loan.status === 'pendente' || loan.status === 'overdue' || loan.status === 'atrasado';
+    return hasContact && isActive;
   };
 
   if (loading) {
@@ -287,6 +340,16 @@ export const LoansScreen: React.FC<LoansScreenProps> = ({ navigation }) => {
                         icon="checkmark-circle-outline"
                         style={{ flex: 1 }}
                       />
+                      {canSendReminder(loan) && (
+                        <Button
+                          title="Lembrete"
+                          onPress={() => openReminderModal(loan)}
+                          variant="outline"
+                          size="sm"
+                          icon="notifications-outline"
+                          style={{ flex: 1 }}
+                        />
+                      )}
                       <Button
                         title="Editar"
                         onPress={() => navigation?.navigate('AddLoan', { loan })}
@@ -313,6 +376,157 @@ export const LoansScreen: React.FC<LoansScreenProps> = ({ navigation }) => {
 
         <View style={{ height: SPACING.xxl }} />
       </ScrollView>
+
+      {/* Modal de Enviar Lembrete */}
+      <Modal
+        visible={reminderModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeReminderModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="notifications" size={24} color={colors.primary} />
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  Enviar Lembrete de Pagamento
+                </Text>
+              </View>
+              <TouchableOpacity onPress={closeReminderModal}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {selectedLoan && (
+                <>
+                  <View style={[styles.infoBox, { backgroundColor: colors.info + '15', borderColor: colors.info }]}>
+                    <Ionicons name="information-circle" size={20} color={colors.info} />
+                    <View style={styles.infoContent}>
+                      <Text style={[styles.infoText, { color: colors.text }]}>
+                        <Text style={styles.infoBold}>Devedor:</Text> {selectedLoan.borrower || selectedLoan.personName}
+                      </Text>
+                      <Text style={[styles.infoText, { color: colors.text }]}>
+                        <Text style={styles.infoBold}>Valor:</Text> {formatCurrency(selectedLoan.amount)}
+                      </Text>
+                      {(selectedLoan as any).borrowerEmail && (
+                        <Text style={[styles.infoText, { color: colors.text }]}>
+                          <Text style={styles.infoBold}>Email:</Text> {(selectedLoan as any).borrowerEmail}
+                        </Text>
+                      )}
+                      {(selectedLoan as any).borrowerPhone && (
+                        <Text style={[styles.infoText, { color: colors.text }]}>
+                          <Text style={styles.infoBold}>Telefone:</Text> {(selectedLoan as any).borrowerPhone}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.messageTypeContainer}>
+                    <TouchableOpacity
+                      style={styles.messageTypeOption}
+                      onPress={() => setUseCustomMessage(false)}
+                    >
+                      <View
+                        style={[
+                          styles.radio,
+                          { borderColor: colors.border },
+                          !useCustomMessage && { borderColor: colors.primary },
+                        ]}
+                      >
+                        {!useCustomMessage && (
+                          <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
+                        )}
+                      </View>
+                      <View style={styles.messageTypeText}>
+                        <Text style={[styles.messageTypeTitle, { color: colors.text }]}>
+                          Mensagem Padrão
+                        </Text>
+                        <Text style={[styles.messageTypeDescription, { color: colors.textSecondary }]}>
+                          Enviar lembrete automático com informações do empréstimo
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.messageTypeOption}
+                      onPress={() => setUseCustomMessage(true)}
+                    >
+                      <View
+                        style={[
+                          styles.radio,
+                          { borderColor: colors.border },
+                          useCustomMessage && { borderColor: colors.primary },
+                        ]}
+                      >
+                        {useCustomMessage && (
+                          <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
+                        )}
+                      </View>
+                      <View style={styles.messageTypeText}>
+                        <Text style={[styles.messageTypeTitle, { color: colors.text }]}>
+                          Mensagem Personalizada
+                        </Text>
+                        <Text style={[styles.messageTypeDescription, { color: colors.textSecondary }]}>
+                          Escrever sua própria mensagem
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+
+                  {useCustomMessage && (
+                    <View style={styles.customMessageContainer}>
+                      <Text style={[styles.inputLabel, { color: colors.text }]}>
+                        Sua Mensagem
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.textArea,
+                          {
+                            backgroundColor: colors.background,
+                            color: colors.text,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        value={customMessage}
+                        onChangeText={setCustomMessage}
+                        placeholder="Digite sua mensagem personalizada..."
+                        placeholderTextColor={colors.textSecondary}
+                        multiline
+                        numberOfLines={4}
+                        textAlignVertical="top"
+                      />
+                    </View>
+                  )}
+
+                  <View style={[styles.warningBox, { backgroundColor: colors.warning + '15', borderColor: colors.warning }]}>
+                    <Ionicons name="alert-circle" size={16} color={colors.warning} />
+                    <Text style={[styles.warningText, { color: colors.text }]}>
+                      O lembrete será enviado para os canais de notificação configurados no empréstimo
+                    </Text>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <Button
+                title="Cancelar"
+                onPress={closeReminderModal}
+                variant="outline"
+                style={{ flex: 1 }}
+              />
+              <Button
+                title={sendingReminder ? 'Enviando...' : 'Enviar Lembrete'}
+                onPress={handleSendReminder}
+                disabled={sendingReminder}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -370,4 +584,124 @@ const styles = StyleSheet.create({
   loanDates: { gap: 4 },
   dateLabel: { fontSize: 12 },
   loanActions: { flexDirection: 'row', gap: SPACING.sm },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flex: 1,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+  },
+  modalBody: {
+    padding: SPACING.lg,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    padding: SPACING.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  infoContent: {
+    flex: 1,
+    gap: 4,
+  },
+  infoText: {
+    fontSize: 13,
+  },
+  infoBold: {
+    fontWeight: '600',
+  },
+  messageTypeContainer: {
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  messageTypeOption: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  messageTypeText: {
+    flex: 1,
+  },
+  messageTypeTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  messageTypeDescription: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  customMessageContainer: {
+    marginBottom: SPACING.lg,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: SPACING.xs,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: SPACING.sm,
+    fontSize: 14,
+    minHeight: 100,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: SPACING.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: SPACING.xs,
+  },
+  warningText: {
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 16,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    padding: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
 });

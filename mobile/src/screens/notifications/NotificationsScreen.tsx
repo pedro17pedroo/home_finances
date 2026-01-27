@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
@@ -17,6 +18,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { useDate } from '../../hooks/useDate';
 import { COLORS, SPACING } from '../../constants/config';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useNotificationContext } from '../../contexts/NotificationContext';
 
 interface NotificationsScreenProps {
   navigation: any;
@@ -26,6 +28,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
   const [filter, setFilter] = useState<'all' | 'unread' | 'urgent'>('all');
   const { formatCurrency } = useCurrency();
   const { formatDate, formatRelativeDate } = useDate();
+  const { refreshUnreadCount } = useNotificationContext();
   const {
     notifications,
     loading,
@@ -36,6 +39,14 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
     deleteNotification,
     refresh,
   } = useNotifications();
+
+  // Recarregar notificações quando a tela ganhar foco
+  useFocusEffect(
+    React.useCallback(() => {
+      refresh();
+      refreshUnreadCount();
+    }, [refresh, refreshUnreadCount])
+  );
 
   const onRefresh = () => {
     refresh();
@@ -58,6 +69,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
   const markAsRead = async (notificationId: string) => {
     try {
       await markNotificationAsRead(notificationId);
+      refreshUnreadCount(); // Atualizar contador global
     } catch (error) {
       // Error already handled in hook
     }
@@ -81,6 +93,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
   const handleMarkAllAsRead = async () => {
     try {
       await markAllAsRead();
+      refreshUnreadCount(); // Atualizar contador global
     } catch (error) {
       // Error already handled in hook
     }
@@ -98,6 +111,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
           onPress: async () => {
             try {
               await deleteNotification(notificationId);
+              refreshUnreadCount(); // Atualizar contador global
             } catch (error) {
               // Error already handled in hook
             }

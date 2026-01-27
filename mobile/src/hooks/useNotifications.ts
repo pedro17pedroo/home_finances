@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { notificationsService, Notification } from '../services/notifications.service';
 import { useToast } from '../contexts/ToastContext';
+
+const POLLING_INTERVAL = 30000; // 30 segundos
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -8,12 +10,19 @@ export const useNotifications = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { showToast } = useToast();
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
       const data = await notificationsService.getAll();
-      setNotifications(data);
-      setUnreadCount(data.filter(n => !n.isRead).length);
+      // Ordenar da mais recente para mais antiga
+      const sortedData = data.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA; // Ordem decrescente (mais recente primeiro)
+      });
+      setNotifications(sortedData);
+      setUnreadCount(sortedData.filter(n => !n.isRead).length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       showToast('Erro ao carregar notificações', 'error');
@@ -90,7 +99,19 @@ export const useNotifications = () => {
 
   useEffect(() => {
     fetchNotifications();
-  }, [fetchNotifications]);
+
+    // Iniciar polling para atualizar notificações automaticamente
+    pollingIntervalRef.current = setInterval(() => {
+      fetchUnreadCount();
+    }, POLLING_INTERVAL);
+
+    // Limpar intervalo ao desmontar
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [fetchNotifications, fetchUnreadCount]);
 
   return {
     notifications,

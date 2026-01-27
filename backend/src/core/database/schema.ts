@@ -419,6 +419,25 @@ export const contactMessages = pgTable("contact_messages", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// App Downloads Configuration table - for mobile app distribution
+export const appDownloads = pgTable("app_downloads", {
+  id: serial("id").primaryKey(),
+  platform: varchar("platform", { length: 20 }).notNull().unique(), // 'android' or 'ios'
+  downloadType: varchar("download_type", { length: 20 }).notNull(), // 'direct' or 'store'
+  storeUrl: text("store_url"), // URL for Google Play Store or Apple App Store
+  storeBadgeUrl: text("store_badge_url"), // URL for custom store badge image
+  fileUrl: text("file_url"), // URL for direct download (APK/IPA)
+  fileName: varchar("file_name", { length: 255 }), // Original filename
+  fileSize: varchar("file_size", { length: 50 }), // File size (e.g., "25.5 MB")
+  version: varchar("version", { length: 50 }), // App version (e.g., "1.0.0")
+  buildNumber: varchar("build_number", { length: 50 }), // Build number
+  releaseNotes: text("release_notes"), // Release notes
+  isActive: boolean("is_active").default(true),
+  updatedBy: integer("updated_by").references(() => adminUsers.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Bancos disponíveis
 export const banks = pgTable("banks", {
   id: serial("id").primaryKey(),
@@ -865,6 +884,12 @@ export const insertLegalContentSchema = createInsertSchema(legalContent).omit({
   updatedAt: true,
 });
 
+export const insertAppDownloadSchema = createInsertSchema(appDownloads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({
   id: true,
   createdAt: true,
@@ -973,6 +998,9 @@ export type InsertFaqItem = typeof faqItems.$inferInsert;
 
 export type ContactMessage = typeof contactMessages.$inferSelect;
 export type InsertContactMessage = typeof contactMessages.$inferInsert;
+
+export type AppDownload = typeof appDownloads.$inferSelect;
+export type InsertAppDownload = typeof appDownloads.$inferInsert;
 
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 export type InsertPaymentTransaction = typeof paymentTransactions.$inferInsert;

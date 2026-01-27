@@ -7,6 +7,7 @@ import { Input } from '../../../shared/components/ui/input';
 import { showSuccess, showError } from '../../../shared/lib/alerts';
 import { getPlans, Plan } from '../../../shared/api/subscriptions';
 import { useTheme } from '../../../shared/contexts/theme-context';
+import { AppDownloadButtons } from '../components/AppDownloadButtons';
 
 interface LandingContent {
   hero: {
@@ -274,6 +275,9 @@ export function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* App Download Buttons */}
+      <AppDownloadButtons />
 
       {/* Features Section */}
       <section id="features" className="py-20 bg-white dark:bg-gray-900">

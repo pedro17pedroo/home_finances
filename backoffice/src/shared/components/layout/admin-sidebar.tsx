@@ -17,6 +17,7 @@ import {
   Wallet,
   Building2,
   UserCog,
+  Smartphone,
 } from 'lucide-react';
 import { useAdminAuth } from '../../contexts/admin-auth-context';
 import { useState } from 'react';
@@ -39,9 +40,11 @@ const menuItems: MenuItem[] = [
   { id: 'payments', label: 'Pagamentos', icon: <CreditCard className="w-5 h-5" />, path: '/payments' },
   { id: 'payment-methods', label: 'Métodos Pagamento', icon: <Wallet className="w-5 h-5" />, path: '/payment-methods' },
   { id: 'banks', label: 'Bancos', icon: <Building2 className="w-5 h-5" />, path: '/banks' },
+  { id: 'account-types', label: 'Tipos de Conta', icon: <Wallet className="w-5 h-5" />, path: '/account-types' },
   { id: 'reports', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, path: '/reports' },
   { id: 'content', label: 'Conteúdo', icon: <FileText className="w-5 h-5" />, path: '/content' },
   { id: 'notifications', label: 'Notificações', icon: <Bell className="w-5 h-5" />, path: '/notifications' },
+  { id: 'app-downloads', label: 'Apps Mobile', icon: <Smartphone className="w-5 h-5" />, path: '/app-downloads' },
   { id: 'security', label: 'Segurança', icon: <Shield className="w-5 h-5" />, path: '/security', permission: 'security' },
   { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" />, path: '/settings' },
 ];

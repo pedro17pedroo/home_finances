@@ -1,0 +1,5 @@
+# App files (APK/IPA)
+*.apk
+*.ipa
+*.aab
+!.gitignore
