@@ -30,7 +30,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem('admin_token');
 
     if (storedAdmin && token) {
-      setAdmin(JSON.parse(storedAdmin));
+      const parsedAdmin = JSON.parse(storedAdmin);
+      // Garantir que permissions seja sempre um array
+      if (!parsedAdmin.permissions) {
+        parsedAdmin.permissions = [];
+      }
+      setAdmin(parsedAdmin);
     }
     setIsLoading(false);
   }, []);
@@ -40,6 +45,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
     if (response.data.success) {
       const { token, admin: adminData } = response.data;
+      // Garantir que permissions seja sempre um array
+      if (!adminData.permissions) {
+        adminData.permissions = [];
+      }
       localStorage.setItem('admin_token', token);
       localStorage.setItem('admin_user', JSON.stringify(adminData));
       setAdmin(adminData);
@@ -57,7 +66,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = (permission: string) => {
     if (!admin) return false;
     if (admin.role === 'super_admin') return true;
-    return admin.permissions.includes(permission);
+    return admin.permissions?.includes(permission) || false;
   };
 
   return (
