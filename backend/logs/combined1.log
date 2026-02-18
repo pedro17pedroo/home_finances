@@ -12490,3 +12490,76 @@
 {"duration":"8ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":200,"timestamp":"2026-01-27T03:12:12.778Z","url":"/audit-logs?page=1&limit=50","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
 {"level":"info","message":"Geradas 2 notificações para usuário 24","timestamp":"2026-01-27T03:13:11.026Z"}
 {"duration":"40ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2026-01-27T03:13:11.028Z","url":"/unread-count","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"level":"info","message":"Geradas 2 notificações para usuário 24","timestamp":"2026-01-27T03:14:11.220Z"}
+{"duration":"183ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2026-01-27T03:14:11.222Z","url":"/unread-count","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"level":"info","message":"Geradas 2 notificações para usuário 24","timestamp":"2026-01-27T03:15:11.026Z"}
+{"duration":"34ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2026-01-27T03:15:11.028Z","url":"/unread-count","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"level":"info","message":"Geradas 2 notificações para usuário 24","timestamp":"2026-01-27T03:16:11.072Z"}
+{"duration":"80ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2026-01-27T03:16:11.075Z","url":"/unread-count","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"level":"info","message":"Geradas 2 notificações para usuário 24","timestamp":"2026-01-27T03:17:11.056Z"}
+{"duration":"63ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2026-01-27T03:17:11.058Z","url":"/unread-count","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"level":"info","message":"Geradas 2 notificações para usuário 24","timestamp":"2026-01-27T03:18:11.016Z"}
+{"duration":"35ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2026-01-27T03:18:11.017Z","url":"/unread-count","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"level":"info","message":"SIGINT received, shutting down gracefully","timestamp":"2026-01-27T03:18:38.114Z"}
+{"level":"warn","message":"[SMSService] SMS not configured. Messages will be logged only.","timestamp":"2026-01-27T03:19:54.870Z"}
+{"level":"info","message":"🚀 Server running on port 4005","timestamp":"2026-01-27T03:19:54.976Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-01-27T03:19:54.977Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2026-01-27T03:19:54.977Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2026-01-27T03:19:54.977Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2026-01-27T03:19:54.977Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2026-01-27T03:19:54.977Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2026-01-27T03:19:54.977Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2026-01-27T03:19:54.978Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2026-01-27T03:19:54.978Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2026-01-27T03:19:54.978Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2026-01-27T03:19:54.978Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2026-01-27T03:19:55.018Z"}
+{"level":"info","message":"Processamento concluído: 0 transações executadas","timestamp":"2026-01-27T03:19:55.020Z"}
+{"level":"info","message":"Enviando notificações de transações recorrentes próximas","timestamp":"2026-01-27T03:19:55.020Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2026-01-27T03:19:55.021Z"}
+{"level":"info","message":"Notificações enviadas para 0 transações","timestamp":"2026-01-27T03:19:55.023Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2026-01-27T03:19:55.023Z"}
+{"level":"info","message":"SIGINT received, shutting down gracefully","timestamp":"2026-01-27T03:20:09.522Z"}
+{"level":"warn","message":"[SMSService] SMS not configured. Messages will be logged only.","timestamp":"2026-01-27T04:09:02.356Z"}
+{"level":"info","message":"🚀 Server running on port 4005","timestamp":"2026-01-27T04:09:02.459Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-01-27T04:09:02.459Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2026-01-27T04:09:02.459Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2026-01-27T04:09:02.459Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2026-01-27T04:09:02.459Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2026-01-27T04:09:02.460Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2026-01-27T04:09:02.460Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2026-01-27T04:09:02.460Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2026-01-27T04:09:02.460Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2026-01-27T04:09:02.460Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2026-01-27T04:09:02.460Z"}
+{"level":"info","message":"Processamento concluído: 0 transações executadas","timestamp":"2026-01-27T04:09:02.510Z"}
+{"level":"info","message":"Enviando notificações de transações recorrentes próximas","timestamp":"2026-01-27T04:09:02.510Z"}
+{"level":"info","message":"Marked 0 subscriptions as expired","timestamp":"2026-01-27T04:09:02.511Z"}
+{"level":"info","message":"Notificações enviadas para 0 transações","timestamp":"2026-01-27T04:09:02.513Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2026-01-27T04:09:02.513Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2026-01-27T04:09:02.513Z"}
+{"duration":"75ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2026-01-27T04:10:44.147Z","url":"/dashboard/stats","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"duration":"17ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2026-01-27T04:10:48.631Z","url":"/admins","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"level":"info","message":"Novo administrador criado: geral.tatusolutions@gmail.com","timestamp":"2026-01-27T04:12:40.900Z"}
+{"duration":"347ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"POST","statusCode":201,"timestamp":"2026-01-27T04:12:40.902Z","url":"/admins","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"duration":"3ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":200,"timestamp":"2026-01-27T04:12:40.909Z","url":"/admins","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"duration":"315ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"POST","statusCode":200,"timestamp":"2026-01-27T04:13:01.374Z","url":"/login","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"duration":"217ms","ip":"127.0.0.1","level":"info","message":"Request completed","method":"GET","statusCode":304,"timestamp":"2026-01-27T04:16:48.981Z","url":"/dashboard/stats","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"}
+{"level":"warn","message":"[SMSService] SMS not configured. Messages will be logged only.","timestamp":"2026-02-18T17:47:48.146Z"}
+{"level":"info","message":"🚀 Server running on port 4005","timestamp":"2026-02-18T17:47:48.272Z"}
+{"level":"info","message":"📊 Environment: development","timestamp":"2026-02-18T17:47:48.272Z"}
+{"level":"info","message":"🔗 Frontend URL: http://localhost:3000","timestamp":"2026-02-18T17:47:48.272Z"}
+{"level":"info","message":"Iniciando job de transações recorrentes","timestamp":"2026-02-18T17:47:48.273Z"}
+{"level":"info","message":"Executando job de transações recorrentes","timestamp":"2026-02-18T17:47:48.273Z"}
+{"level":"info","message":"Iniciando processamento de transações recorrentes","timestamp":"2026-02-18T17:47:48.273Z"}
+{"level":"info","message":"Job agendado para executar a cada 24 horas","timestamp":"2026-02-18T17:47:48.273Z"}
+{"level":"info","message":"Starting subscription expiration job","timestamp":"2026-02-18T17:47:48.273Z"}
+{"level":"info","message":"Executing subscription expiration job","timestamp":"2026-02-18T17:47:48.273Z"}
+{"level":"info","message":"Subscription expiration job scheduled to run every 24 hours","timestamp":"2026-02-18T17:47:48.274Z"}
+{"level":"info","message":"⏰ Jobs iniciados","timestamp":"2026-02-18T17:47:48.274Z"}
+{"level":"info","message":"Processamento concluído: 0 transações executadas","timestamp":"2026-02-18T17:47:48.352Z"}
+{"level":"info","message":"Enviando notificações de transações recorrentes próximas","timestamp":"2026-02-18T17:47:48.352Z"}
+{"level":"info","message":"Notificações enviadas para 0 transações","timestamp":"2026-02-18T17:47:48.358Z"}
+{"level":"info","message":"Job de transações recorrentes concluído com sucesso","timestamp":"2026-02-18T17:47:48.358Z"}
+{"level":"info","message":"Marked 1 subscriptions as expired","timestamp":"2026-02-18T17:47:48.377Z"}
+{"level":"info","message":"Subscription expiration job completed successfully","timestamp":"2026-02-18T17:47:48.379Z"}
